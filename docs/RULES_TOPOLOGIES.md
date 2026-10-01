@@ -9,11 +9,19 @@ gabarits écrits à la main. Chaque règle est marquée :
   observée dans un fichier qu'on a décodé — à confirmer avant de s'appuyer dessus pour
   une panne/un check.
 
-Source directe : les 2 fichiers `.pka` fournis par Damien (« Troubleshooting Challenge —
-Document the Network » / « — Use Documentation to Solve Issues »), décodés avec
-`ptexplorer.py` et analysés (topologie, running-configs, bloc Instructions). **Aucun
-fichier source tiers n'est committé dans ce dépôt** (contenu Cisco/NetAcad sous droits) —
-seules ces règles et nos propres templates réécrits à partir des patterns observés.
+Sources directes :
+- Les 2 fichiers `.pka` fournis par Damien (« Troubleshooting Challenge — Document the
+  Network » / « — Use Documentation to Solve Issues »), décodés avec `ptexplorer.py`.
+- 3 dépôts GitHub de labs CCNA suggérés par Damien, clonés temporairement (hors de ce
+  dépôt, jamais committés) et plusieurs `.pkt` décodés avec `ptexplorer.py` pour
+  comparaison start/solution : `CyberSphinxxx/PacketTracer-LabActivity`,
+  `PPechmann/Packet-Tracer-Practice-Labs` (paires start/solution très directement
+  exploitables : NAT statique/dynamique/overload, routage statique, VLAN trunking, VTP,
+  STP, IPv6, EtherChannel), `learn-skillnuggets/CCNA-Packet-Tracer` (34 labs couvrant les
+  6 modules du programme CCNA 200-301, exploré au niveau README seulement).
+
+**Aucun fichier source tiers n'est committé dans ce dépôt** (contenu sous droits) — seules
+ces règles et nos propres templates réécrits à partir des patterns observés.
 
 ## 1. Adressage IP
 
@@ -86,19 +94,36 @@ seules ces règles et nos propres templates réécrits à partir des patterns ob
 
 ## 5. NAT
 
-- **[vérifié]** NAT overload (PAT), pas de NAT statique dans ces labs :
-  - `ip nat inside` sur **chaque** interface LAN/WAN interne du routeur de bordure (une
-    ligne par interface interne — donc autant de pannes possibles que d'interfaces : en
-    retirer une seule casse le NAT uniquement pour ce réseau-là, pas pour les autres).
-  - `ip nat outside` sur l'interface qui mène vers l'ISP.
-  - `ip nat pool <nom> <début> <fin> netmask <masque>` : plage d'adresses publiques
-    dédiée (pas de `ip nat inside source ... interface`, toujours un pool nommé observé
-    ici).
-  - `access-list <n> permit <réseau_source> <wildcard>` associée via
-    `ip nat inside source list <n> pool <nom> overload`.
-  - → Panne "NAT cassé" = retirer un `ip nat inside` précis (déjà confirmé comme panne
-    réelle), ou vider la pool, ou retirer `overload` (non observé mais cohérent avec la
-    logique).
+- **[vérifié]** `ip nat inside` sur **chaque** interface LAN/WAN interne du routeur de
+  bordure (une ligne par interface interne — donc autant de pannes possibles que
+  d'interfaces : en retirer une seule casse le NAT uniquement pour ce réseau-là, pas pour
+  les autres), `ip nat outside` sur l'interface qui mène vers l'ISP. Commun aux 3 variantes
+  ci-dessous.
+- **[vérifié]** 3 variantes de traduction observées (confirmé en comparant les labs
+  `Packet-Tracer-Practice-Labs/complete NAT lab-*`, un même réseau de départ avec 3
+  solutions distinctes) :
+  1. **NAT statique** (1 serveur exposé) :
+     `ip nat inside source static <ip_locale> <ip_publique>` — une ligne par hôte exposé,
+     aucun pool, aucune ACL.
+  2. **NAT dynamique** (pool sans PAT, une IP publique par hôte interne, pool fini) :
+     `ip nat pool <nom> <début> <fin> netmask <masque>` +
+     `ip nat inside source list <n> pool <nom>` (sans `overload`) +
+     `access-list <n> permit <réseau_source> <wildcard>`.
+  3. **NAT overload (PAT)**, elle-même en 2 formes possibles selon le nombre d'IP
+     publiques disponibles :
+     - **sur l'interface de sortie** (une seule IP publique, cas le plus courant) :
+       `ip nat inside source list <n> interface <interface_wan> overload` + la même ACL
+       que ci-dessus. Pas de pool du tout.
+     - **sur un pool** (bloc d'IP publiques à partager, cf. le lab Hub/NAT multi-sites
+       §1) : `ip nat pool <nom> <début> <fin> netmask <masque>` +
+       `ip nat inside source list <n> pool <nom> overload`.
+  - → Panne "NAT cassé" = retirer un `ip nat inside`/`ip nat outside` précis (confirmé
+    réel), vider/retirer la pool ou l'ACL, ou retirer `overload` (cohérent avec la
+    logique, transforme implicitement un overload en dynamique épuisable).
+- **[vérifié]** Le routeur ISP/en amont a besoin d'une route statique vers le(s) bloc(s)
+  d'IP publiques utilisés côté NAT (`ip route <bloc_public> <masque> <next-hop>`) pour que
+  le trafic de retour revienne — sans ça, le NAT traduit à l'aller mais rien ne revient.
+  Panne possible côté ISP, pas seulement côté routeur NAT.
 
 ## 6. Mots de passe / accès (déjà géré par le mécanisme actuel de `builder.py`)
 
@@ -138,6 +163,42 @@ seules ces règles et nos propres templates réécrits à partir des patterns ob
   nos 2 fichiers (ils ne semblent pas l'utiliser — tous les appareils y sont ouvrables).
   **À creuser séparément** avant de l'implémenter comme option de génération : trouver un
   exemple réel qui l'utilise et décoder sa structure XML exacte.
+
+## 9. Routage statique (alternative à OSPF pour les topologies plus simples)
+
+- **[vérifié]** Topologie en chaîne (R1—R2—R3) observée dans
+  `Packet-Tracer-Practice-Labs/ipv4-static-routes` : chaque routeur a son propre LAN
+  (`/24`) + des liens inter-routeurs en `/24` également ici (pas systématiquement `/30`
+  comme pour OSPF — le choix dépend du lab, les deux sont valides).
+- **[vérifié]** Une ligne `ip route <réseau_distant> <masque> <next-hop>` **par réseau non
+  directement connecté**, next-hop = l'IP de l'interface du routeur voisin sur le lien
+  partagé. Un routeur du milieu de chaîne (R2) a autant de routes statiques que de réseaux
+  non-adjacents (ici 2 : vers R1 et vers R3), un routeur en bout de chaîne n'en a qu'une.
+- → Pannes possibles, plus simples qu'OSPF (pas de notion de voisinage/adjacence à
+  rétablir, juste une ligne de config) : route manquante, mauvais next-hop, mauvais
+  réseau/masque de destination. Bon palier de difficulté intermédiaire avant d'introduire
+  OSPF dans une progression pédagogique.
+
+## 10. VLAN / router-on-a-stick — complément
+
+- **[vérifié]** Variante plus simple que celle du §2 : sous-interfaces uniquement pour les
+  VLAN réellement routés (`.10`, `.20`...), **sans** sous-interface pour le VLAN natif (1)
+  quand ce VLAN n'a besoin d'aucun routage — contrairement à l'exemple du lab multi-sites
+  où VLAN 1 avait sa propre sous-interface `dot1Q 1 native`. Les deux formes sont valides
+  selon le besoin réel du lab.
+- **[vérifié]** Port trunk vers le routeur sans restriction de VLAN
+  (`switchport trunk allowed vlan ...` absent) = tous les VLAN passent par défaut.
+  Ports d'accès : `switchport access vlan <id>` + `switchport mode access`.
+
+## 11. Pistes futures identifiées (non étudiées en détail)
+
+D'après les sommaires des 3 dépôts GitHub suggérés par Damien (lus au niveau README/liste
+de fichiers, pas décodés en détail), d'autres thèmes CCNA reviennent souvent et pourraient
+devenir de nouveaux types de pannes/topologies plus tard : RIP, EIGRP, STP (spanning-tree,
+ex. `analyzing-STP` dans Practice-Labs), VTP, EtherChannel/LACP, port security, SSH vs
+Telnet, ACL, CDP/LLDP. Aucun de ces thèmes n'a été décodé/vérifié à ce stade — à traiter au
+cas par cas, avec la même méthode (décoder un vrai lab, comparer start/solution, en tirer
+des règles) avant de les implémenter.
 
 ## Implications pour le générateur
 
