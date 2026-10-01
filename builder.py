@@ -209,7 +209,7 @@ def _topo_multisite_ospf_nat(rng):
     # Lignes dédiées à ce gabarit (plus espacées que ROUTER_Y/SWITCH_Y/PC_Y des
     # topologies simples, pour éviter le chevauchement visuel ISP/R-EDGE/WEB
     # signalé lors du premier test réel).
-    isp_row, edge_row, site_router_row, site_switch_row, site_pc_row = 20, 200, 380, 560, 740
+    isp_row, edge_row, site_router_row, site_switch_row, site_pc_row = 100, 260, 420, 580, 740
 
     lab = PktLab(rng=rng)
     lab.add('R-EDGE', 'router', '2911', (550, edge_row), config=[
