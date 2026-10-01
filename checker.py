@@ -263,7 +263,7 @@ def check(solution_path, pkt_path=None, reveal=False):
         title = '✅ MISSION ACCOMPLIE' if success else '❌ MISSION INCOMPLÈTE'
         out = [bar, f' RÉSULTAT : {title}   ({fixed}/{len(faults)} tâche(s) réalisée(s))', bar]
     else:
-        title = '✅ TICKET RÉSOLU' if success else '❌ TICKET NON RÉSOLU'
+        title = '✅ LAB RÉSOLU' if success else '❌ LAB NON RÉSOLU'
         out = [bar, f' RÉSULTAT : {title}   ({fixed}/{len(faults)} panne(s) réparée(s))', bar]
     for i, (fault, results, ok) in enumerate(per_fault, 1):
         if mission:

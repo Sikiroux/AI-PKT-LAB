@@ -76,6 +76,49 @@ def test_chaque_panne_a_ses_tickets():
     assert not [f for f in CATALOGUE if f not in ticket.SYMPTOMS]
 
 
+def test_chaque_panne_bilingue():
+    assert all({'fr', 'en'} <= set(ticket.SYMPTOMS[f]) for f in CATALOGUE)
+
+
+def test_filtre_pannes_cachees():
+    for topo_name in THEMES:
+        visibles = available(topo_name, 3, hidden=False)
+        cachees = available(topo_name, 3, hidden=True)
+        toutes = available(topo_name, 3)
+        assert set(visibles) | set(cachees) == set(toutes)
+        assert not (set(visibles) & set(cachees))
+        assert all(not CATALOGUE[f]['hidden'] for f in visibles)
+        assert all(CATALOGUE[f]['hidden'] for f in cachees)
+
+
+def test_selection_precise_de_plusieurs_pannes():
+    _, topo = build('simple_lan', seed=7, output_dir=TMP)
+    out = os.path.join(TMP, 'multi.pka')
+    wanted = ['pc_wrong_gateway', 'cable_missing']
+    reports = inject(topo, fault_ids=wanted, count=len(wanted), seed=7, output_path=out)
+    assert [r['id'] for r in reports] == wanted
+
+
+def test_instructions_bilingues_dans_le_pka():
+    import instructions
+    for lang in ('fr', 'en'):
+        _, topo = build('simple_lan', seed=9, output_dir=TMP)
+        out = os.path.join(TMP, f'instr_{lang}.pka')
+        inject(topo, fault_id='cable_missing', seed=9, output_path=out, lang=lang)
+        xml_out = os.path.join(TMP, f'instr_{lang}.xml')
+        with contextlib.redirect_stdout(io.StringIO()):
+            ptexplorer.ptfile_decode(out, xml_out)
+        root = ET.parse(xml_out).getroot()
+        tags = [c.tag for c in root]
+        assert tags.index('ACTIVITY') == tags.index('OPTIONS') + 1, 'ACTIVITY doit suivre OPTIONS'
+        activity = root.find('ACTIVITY')
+        assert activity.get('ENABLED') == 'no', 'la notation native PT doit rester désactivée'
+        page = activity.find('INSTRUCTIONS/PAGE')
+        assert page is not None and '<table' in page.text and '<h1>' in page.text
+        marker = 'Mise en situation' if lang == 'fr' else 'Background / Scenario'
+        assert marker in page.text
+
+
 def test_niveau3_deux_pannes_distinctes():
     for seed in range(20):
         theme = list(THEMES)[seed % len(THEMES)]

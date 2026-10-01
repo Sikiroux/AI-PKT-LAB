@@ -25,6 +25,8 @@ import xml.etree.ElementTree as ET
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ptexplorer as _pte
+import ticket as _ticket
+import instructions as _instructions
 from builder import PktLab
 
 # Réutilise la synchronisation config IOS -> ports du moteur du fork
@@ -248,37 +250,49 @@ def f_switch_svi_shutdown(root, topo, rng):
 # topos  = topologies compatibles
 # target = 'pc' (un PC tiré au hasard) ou nom d'appareil fixe ('R1') :
 #          sert à ne jamais mettre deux pannes sur le même appareil.
+# hidden = True si la panne n'est détectable QUE depuis un autre réseau
+#          (supervision PC-ADMIN), jamais par une plainte utilisateur directe.
 
 CATALOGUE = {
-    'pc_wrong_gateway':          {'fn': f_pc_wrong_gateway,          'level': 1, 'theme': 'adressage', 'target': 'pc', 'topos': ['simple_lan']},
-    'pc_wrong_ip':               {'fn': f_pc_wrong_ip,               'level': 1, 'theme': 'adressage', 'target': 'pc', 'topos': ['simple_lan']},
-    'pc_power_off':              {'fn': f_pc_power_off,              'level': 1, 'theme': 'materiel',  'target': 'pc', 'topos': ['simple_lan', 'dhcp_lan']},
-    'cable_missing':             {'fn': f_cable_missing,             'level': 1, 'theme': 'cablage',   'target': 'pc', 'topos': ['simple_lan', 'dhcp_lan']},
-    'router_interface_shutdown': {'fn': f_router_interface_shutdown, 'level': 1, 'theme': 'routeur',   'target': 'R1', 'topos': ['simple_lan', 'dhcp_lan']},
-    'pc_wrong_mask':             {'fn': f_pc_wrong_mask,             'level': 2, 'theme': 'adressage', 'target': 'pc', 'topos': ['simple_lan']},
-    'router_wrong_ip':           {'fn': f_router_wrong_ip,           'level': 2, 'theme': 'routeur',   'target': 'R1', 'topos': ['simple_lan']},
-    'dhcp_wrong_default_router': {'fn': f_dhcp_wrong_default_router, 'level': 2, 'theme': 'dhcp',      'target': 'R1', 'topos': ['dhcp_lan']},
-    'dhcp_wrong_network':        {'fn': f_dhcp_wrong_network,        'level': 2, 'theme': 'dhcp',      'target': 'R1', 'topos': ['dhcp_lan']},
-    'switch_no_default_gateway': {'fn': f_switch_no_default_gateway, 'level': 2, 'theme': 'switch',    'target': 'S1', 'topos': ['simple_lan', 'dhcp_lan']},
-    'switch_svi_shutdown':       {'fn': f_switch_svi_shutdown,       'level': 1, 'theme': 'switch',    'target': 'S1', 'topos': ['simple_lan', 'dhcp_lan']},
+    'pc_wrong_gateway':          {'fn': f_pc_wrong_gateway,          'level': 1, 'theme': 'adressage', 'target': 'pc', 'topos': ['simple_lan'], 'hidden': False},
+    'pc_wrong_ip':               {'fn': f_pc_wrong_ip,               'level': 1, 'theme': 'adressage', 'target': 'pc', 'topos': ['simple_lan'], 'hidden': False},
+    'pc_power_off':              {'fn': f_pc_power_off,              'level': 1, 'theme': 'materiel',  'target': 'pc', 'topos': ['simple_lan', 'dhcp_lan'], 'hidden': False},
+    'cable_missing':             {'fn': f_cable_missing,             'level': 1, 'theme': 'cablage',   'target': 'pc', 'topos': ['simple_lan', 'dhcp_lan'], 'hidden': False},
+    'router_interface_shutdown': {'fn': f_router_interface_shutdown, 'level': 1, 'theme': 'routeur',   'target': 'R1', 'topos': ['simple_lan', 'dhcp_lan'], 'hidden': False},
+    'pc_wrong_mask':             {'fn': f_pc_wrong_mask,             'level': 2, 'theme': 'adressage', 'target': 'pc', 'topos': ['simple_lan'], 'hidden': False},
+    'router_wrong_ip':           {'fn': f_router_wrong_ip,           'level': 2, 'theme': 'routeur',   'target': 'R1', 'topos': ['simple_lan'], 'hidden': False},
+    'dhcp_wrong_default_router': {'fn': f_dhcp_wrong_default_router, 'level': 2, 'theme': 'dhcp',      'target': 'R1', 'topos': ['dhcp_lan'], 'hidden': False},
+    'dhcp_wrong_network':        {'fn': f_dhcp_wrong_network,        'level': 2, 'theme': 'dhcp',      'target': 'R1', 'topos': ['dhcp_lan'], 'hidden': False},
+    'switch_no_default_gateway': {'fn': f_switch_no_default_gateway, 'level': 2, 'theme': 'switch',    'target': 'S1', 'topos': ['simple_lan', 'dhcp_lan'], 'hidden': True},
+    'switch_svi_shutdown':       {'fn': f_switch_svi_shutdown,       'level': 1, 'theme': 'switch',    'target': 'S1', 'topos': ['simple_lan', 'dhcp_lan'], 'hidden': True},
 }
 
 # Nombre de pannes simultanées selon la difficulté
 FAULTS_PER_LEVEL = {1: 1, 2: 1, 3: 2}
 
 
-def available(topo_name, level, theme=None):
+def available(topo_name, level, theme=None, hidden=None):
+    """hidden : None = toutes les pannes, True = seulement celles détectables
+    uniquement depuis un autre réseau (supervision), False = seulement les
+    pannes qu'un utilisateur normal peut signaler lui-même."""
     return [fid for fid, f in CATALOGUE.items()
-            if topo_name in f['topos'] and f['level'] <= level and (theme in (None, f['theme']))]
+            if topo_name in f['topos'] and f['level'] <= level and (theme in (None, f['theme']))
+            and (hidden is None or f['hidden'] == hidden)]
 
 
-def inject(topo, level=1, theme=None, fault_id=None, seed=None, output_path=None, count=None):
+def inject(topo, level=1, theme=None, fault_id=None, fault_ids=None, hidden=None, count=None,
+           seed=None, output_path=None, lang='fr'):
     """
     Applique une ou plusieurs pannes au lab décrit par topo (issu de builder.build).
-      fault_id : impose la première panne ; les suivantes sont tirées au hasard.
+      fault_id/fault_ids : impose une panne précise, ou une liste de pannes précises
+                            (le reste, s'il en manque pour atteindre `count`, est
+                            tiré au hasard parmi les pannes compatibles).
+      hidden   : filtre les pannes tirées au hasard (cf. available()). Ne s'applique
+                 pas aux pannes imposées via fault_id/fault_ids.
       count    : nombre de pannes (par défaut selon le niveau).
+      lang     : langue ('fr'/'en') du bloc Instructions embarqué dans le .pka.
     Deux pannes ne touchent jamais le même appareil.
-    Écrit le .pkt piégé + un fichier solution .json. Retourne la liste des rapports.
+    Écrit le .pka piégé + un fichier solution .json. Retourne la liste des rapports.
     """
     rng = random.Random(seed)
     count = count or FAULTS_PER_LEVEL.get(level, 1)
@@ -287,14 +301,14 @@ def inject(topo, level=1, theme=None, fault_id=None, seed=None, output_path=None
     tree = ET.parse(topo['xml_path'])
     root = tree.getroot()
     reports = []
-    wanted = [fault_id] if fault_id else []
+    wanted = list(fault_ids) if fault_ids else ([fault_id] if fault_id else [])
 
     while len(reports) < count:
         if wanted:
             fid = wanted.pop(0)
         else:
             used = {r['id'] for r in reports}
-            choices = [f for f in available(topo['name'], level, theme)
+            choices = [f for f in available(topo['name'], level, theme, hidden=hidden)
                        if f not in used and CATALOGUE[f]['target'] not in topo['_busy']]
             if not choices:
                 break  # plus de panne compatible : on s'arrête là
@@ -310,8 +324,11 @@ def inject(topo, level=1, theme=None, fault_id=None, seed=None, output_path=None
     if not reports:
         raise ValueError(f'Aucune panne pour {topo["name"]}, niveau {level}, thème {theme}')
 
-    output_path = output_path or topo['pkt_path'].replace('.pkt', '_panne.pkt')
-    xml_path = output_path.replace('.pkt', '.xml')
+    paragraphs = _ticket.scenario_paragraphs(reports, lang=lang, seed=seed)
+    _instructions.add_instructions(root, topo, lang=lang, scenario_paragraphs=paragraphs)
+
+    output_path = output_path or topo['pkt_path'].replace('.pkt', '_panne.pka')
+    xml_path = output_path.rsplit('.', 1)[0] + '.xml'
     ET.indent(tree, space=' ')
     tree.write(xml_path, encoding='utf-8', xml_declaration=False, short_empty_elements=False)
     with contextlib.redirect_stdout(io.StringIO()):
@@ -321,8 +338,8 @@ def inject(topo, level=1, theme=None, fault_id=None, seed=None, output_path=None
     for r in reports:
         r['pkt_path'] = output_path
     solution = {'topology': {k: v for k, v in topo.items() if k not in ('xml_path', '_busy')},
-                'faults': reports, 'pkt': output_path}
-    with open(output_path.replace('.pkt', '_solution.json'), 'w', encoding='utf-8') as f:
+                'faults': reports, 'pkt': output_path, 'lang': lang}
+    with open(output_path.rsplit('.', 1)[0] + '_solution.json', 'w', encoding='utf-8') as f:
         json.dump(solution, f, ensure_ascii=False, indent=2)
     return reports
 

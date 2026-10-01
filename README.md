@@ -1,8 +1,10 @@
-# pkt_lab — Simulateur de tickets helpdesk sur Packet Tracer
+# pkt_lab — Générateur de labs Packet Tracer (.pka)
 
-Génère des labs Packet Tracer avec une panne cachée, un ticket utilisateur
-réaliste, puis vérifie ta réparation. Propose aussi des missions (déployer un
-plan d'adressage) et des exercices papier vérifiés par calcul.
+Génère des fichiers `.pka` Packet Tracer avec une ou plusieurs pannes cachées
+et les consignes embarquées directement dans l'onglet natif « Instructions »
+du fichier (objectifs, mise en situation, table d'adressage), en français ou
+en anglais au choix — puis vérifie ta réparation. Propose aussi des missions
+(déployer un plan d'adressage) et des exercices papier vérifiés par calcul.
 
 > Projet personnel d'entraînement (TSSR / CCST Networking), développé avec
 > l'assistance d'une IA (Claude), testé et validé dans Packet Tracer 9.
@@ -14,7 +16,7 @@ plan d'adressage) et des exercices papier vérifiés par calcul.
 
 **Option B — un vrai .exe** : double-clic sur `build_exe.bat` (une seule fois).
 L'exécutable apparaît dans `dist\pkt_lab.exe`. Copie-le où tu veux : les
-tickets seront créés dans un dossier `tickets` à côté de lui.
+labs seront créés dans un dossier `labs` à côté de lui.
 
 Aucune dépendance à installer : le chiffrement des fichiers Packet Tracer
 (Twofish) est réimplémenté en pur Python (`twofish_pure.py`).
@@ -24,42 +26,49 @@ Réglage Packet Tracer conseillé : Options > Preferences > Interface >
 
 ## Utilisation
 
-1. **Nouveau ticket** : surprise, par thème, ou panne précise ; difficulté 1 à 3
-   (niveau 3 = deux pannes simultanées sur des appareils différents, donc deux
-   tickets de deux utilisateurs, et un score partiel à la validation).
-   Le lab s'ouvre dans Packet Tracer.
+1. **Nouveau lab** : choix de la langue (FR/EN), puis surprise / par thème /
+   pannes précises (sélection multiple possible), difficulté 1 à 3 (niveau 3 =
+   deux pannes simultanées sur des appareils différents, score partiel à la
+   validation), filtre « pannes cachées » (détectables uniquement depuis la
+   supervision PC-ADMIN, jamais par une plainte utilisateur directe), et
+   nombre de pannes (par défaut selon le niveau, ou choisi explicitement).
+   Le `.pka` généré contient déjà son onglet **Instructions** natif (objectifs,
+   mise en situation, table d'adressage attendue) — pas de fichier d'énoncé
+   séparé à lire. Le lab s'ouvre dans Packet Tracer.
 2. Tu dépannes dans PT, puis **Ctrl+S** (sauvegarde sur le même fichier).
-3. **Valider un ticket** : verdict, avec
-   - la cause racine (réparée ou non),
+3. **Valider un lab** : verdict, avec
+   - la cause racine (réparée ou non) de chaque panne,
    - les dégâts collatéraux (ce que tu as cassé en réparant),
    - un avertissement si la réparation n'est pas sauvegardée sur l'équipement
      (`copy running-config startup-config`).
    En cas d'échec : retenter, indice (appareil, puis thème), ou abandonner.
-4. **Historique** : tickets, tentatives, indices utilisés, taux de réussite des exercices papier.
+4. **Historique** : labs, tentatives, indices utilisés, taux de réussite des exercices papier.
 5. **Exercices papier** (sans Packet Tracer, vérifiés par calcul) : informations de
    sous-réseau, plan d'adressage VLSM (toute réponse valide acceptée, gaspillage
    signalé), IPv6 abréger/développer, calcul EUI-64. Corrigé détaillé en cas d'erreur.
 6. **Plan VLSM puis mise en place** : tu conçois le plan de 3 services, puis tu le
    déploies dans Packet Tracer (R1 + 3 switchs + 6 PC câblés, rien de configuré).
    Plan valide → c'est TON plan qui est vérifié ; sinon le corrigé. La mission se
-   valide depuis « Valider un ticket », tâche par tâche.
+   valide depuis « Valider un lab », tâche par tâche.
 
-Ne pas ouvrir `tickets/Txxxxx/.solution.json` : c'est la correction.
+Ne pas ouvrir `labs/Lxxxxx/.solution.json` : c'est la correction.
 
 ## Architecture
 
 | Fichier | Rôle |
 |---|---|
-| `main.py` | Menu, orchestration, dossiers de tickets |
+| `main.py` | Menu, orchestration, dossiers de labs |
 | `builder.py` | Topologies saines (surcouche de `core.Lab` du fork) |
-| `faults.py` | Catalogue de pannes, injection dans le XML |
-| `ticket.py` | Énoncé côté utilisateur (symptôme, jamais la cause) |
+| `faults.py` | Catalogue de pannes (dont pannes « cachées »), injection dans le XML |
+| `ticket.py` | Textes de mise en situation bilingues FR/EN (symptôme, jamais la cause) |
+| `instructions.py` | Bloc `<ACTIVITY>/<INSTRUCTIONS>` natif PT (onglet Instructions du `.pka`), bilingue |
 | `checker.py` | Vérification cause racine (par panne, score partiel) + collatéral + sauvegarde |
 | `exercises.py` | Exercices papier : sous-réseaux, VLSM, IPv6, EUI-64 |
 | `missions.py` | Missions (tâches à réaliser) : déploiement d'un plan VLSM |
 | `twofish_pure.py` | Chiffrement Twofish sans compilateur |
 | `core.py`, `activity.py`, `scenarios.py`, `profiles.py`, `layouts.py`, `ptexplorer.py` | Fork TeodorPetrovic/tracketpacin (modifications marquées `[pkt_lab]`) |
 | `templates/packettracer/catalogue_source.xml` | 74 appareils (catalogue PTBuilder) |
+| `docs/RULES_TOPOLOGIES.md` | Règles de construction (adressage, OSPF, NAT, VLAN...) tirées de vrais labs, pour les futurs gabarits multi-sites |
 
 ### Modifications apportées au fork
 - `core.py` : `shutdown` / `no shutdown` appliqués aux ports (le fork les ignorait).
@@ -75,19 +84,19 @@ administrable (SVI Vlan1 en .2 + ip default-gateway), et un poste PC-ADMIN
 192.168.x.0/24 à part : il rend visibles les pannes qui ne se voient que depuis
 un autre réseau.
 
-| Panne | Niveau | Thème | Validée dans PT |
-|---|---|---|---|
-| Mauvaise passerelle PC | 1 | adressage | ✅ (mécanisme) |
-| Mauvaise IP PC | 1 | adressage | ✅ (mécanisme) |
-| PC éteint | 1 | matériel | ✅ (mécanisme) |
-| Câble débranché | 1 | câblage | ✅ |
-| Interface routeur en shutdown | 1 | routeur | ✅ |
-| Masque /30 sur un PC | 2 | adressage | à tester |
-| Mauvaise IP routeur | 2 | routeur | ✅ (mécanisme) |
-| DHCP : mauvaise passerelle distribuée | 2 | dhcp | ✅ |
-| DHCP : pool sur le mauvais réseau | 2 | dhcp | à tester |
-| Switch : SVI Vlan1 éteinte | 1 | switch | ✅ |
-| Switch : ip default-gateway absente | 2 | switch | ✅ |
+| Panne | Niveau | Thème | Cachée | Validée dans PT |
+|---|---|---|---|---|
+| Mauvaise passerelle PC | 1 | adressage | non | ✅ (mécanisme) |
+| Mauvaise IP PC | 1 | adressage | non | ✅ (mécanisme) |
+| PC éteint | 1 | matériel | non | ✅ (mécanisme) |
+| Câble débranché | 1 | câblage | non | ✅ |
+| Interface routeur en shutdown | 1 | routeur | non | ✅ |
+| Masque /30 sur un PC | 2 | adressage | non | à tester |
+| Mauvaise IP routeur | 2 | routeur | non | ✅ (mécanisme) |
+| DHCP : mauvaise passerelle distribuée | 2 | dhcp | non | ✅ |
+| DHCP : pool sur le mauvais réseau | 2 | dhcp | non | à tester |
+| Switch : SVI Vlan1 éteinte | 1 | switch | **oui** | ✅ |
+| Switch : ip default-gateway absente | 2 | switch | **oui** | ✅ |
 
 ## Développement
 - Tests : `python tests/test_all.py` (avant chaque commit)
@@ -98,11 +107,17 @@ MIT (voir `LICENSE`). Réutilise du code MIT de tracketpacin et ptexplorer :
 voir `THIRD_PARTY_NOTICES.md`.
 
 ## Feuille de route
-- Niveaux 4 et 5 : leurres dans les tickets, pannes en cascade.
+- ✅ Fait : génération en `.pka` avec consignes natives bilingues FR/EN (objectifs,
+  mise en situation, table d'adressage), sélection de pannes précises multiples,
+  filtre pannes cachées. Remplace l'ancien flux « ticket » texte séparé.
+- Topologies multi-sites (OSPF, NAT, VLAN trunking) inspirées de vrais labs —
+  règles déjà posées dans `docs/RULES_TOPOLOGIES.md`, gabarits à écrire puis à
+  valider en conditions réelles dans PT 9.
+- Mode documentation/exploration (appareils cachés dans un cluster verrouillé
+  `LOCKINGTREE`, telnet/CDP) — nécessite d'abord un exemple réel à décoder.
+- Niveaux 4 et 5 : leurres dans les consignes, pannes en cascade.
 - Demandes de service (faire évoluer un réseau sain) et missions multi-tâches.
 - Exercices papier : tableau d'adressage d'une topologie, analyse de sorties « show ».
-- Import des labs GitHub (analyseur de .pkt quelconque) ; IPv6 dans les labs ; audit sécurité.
-- Topologies : VLAN, routage inter-VLAN, routage statique, 2 sites.
-- Mode documentation/exploration (appareils cachés dans un cluster, telnet/CDP).
-- Mode .pka (consignes dans PT, indices, auto-correction ; corriger les 28 % gratuits).
+- Généralisation procédurale des topologies complexes (une fois les gabarits
+  validés), IPv6 dans les labs, audit sécurité.
 - Choix de la plage d'adressage (10/8, 172.16/12, 192.168/16) ; DNS interne.

@@ -1,16 +1,18 @@
 """
-pkt_lab — Simulateur de tickets helpdesk sur Packet Tracer.
+pkt_lab — Générateur de labs Packet Tracer (.pka) pour s'entraîner.
 
 Menu principal :
-  1. Nouveau ticket   : génère un lab avec une panne + le ticket utilisateur
-  2. Valider un ticket: vérifie ta réparation (après Ctrl+S dans Packet Tracer)
+  1. Nouveau lab    : génère un .pka (panne(s) + consignes embarquées, bilingue)
+  2. Valider un lab : vérifie ta réparation (après Ctrl+S dans Packet Tracer)
   3. Historique
   0. Quitter
 
-Les tickets sont rangés dans le dossier 'tickets/' à côté du programme :
-  tickets/T12345/lab.pkt            -> à ouvrir dans Packet Tracer
-  tickets/T12345/ticket.txt         -> l'énoncé
-  tickets/T12345/.solution.json     -> ne pas ouvrir, c'est la correction :)
+Chaque .pka contient déjà son propre onglet "Instructions" (objectifs, mise en
+situation, table d'adressage) — pas besoin d'un fichier d'énoncé séparé.
+
+Les labs sont rangés dans le dossier 'labs/' à côté du programme :
+  labs/L12345/lab.pka            -> à ouvrir dans Packet Tracer
+  labs/L12345/.solution.json     -> ne pas ouvrir, c'est la correction :)
 """
 
 import os
@@ -23,13 +25,13 @@ import datetime
 # Dossier des ressources (templates) : à côté des .py, ou dans le paquet PyInstaller
 _RES = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, _RES)
-# Dossier de travail (tickets) : à côté de l'exe, ou à côté des .py
+# Dossier de travail (labs) : à côté de l'exe, ou à côté des .py
 _BASE = os.path.dirname(sys.executable) if getattr(sys, 'frozen', False) else os.path.dirname(os.path.abspath(__file__))
-TICKETS = os.path.join(_BASE, 'tickets')
+LABS = os.path.join(_BASE, 'labs')
 
 import builder
 import faults
-import ticket as ticketgen
+import ticket as scenario
 import checker
 import exercises
 import missions
@@ -40,6 +42,9 @@ THEMES = {'1': ('adressage', 'Adressage IP des postes'),
           '4': ('routeur', 'Routeur'),
           '5': ('dhcp', 'DHCP'),
           '6': ('switch', 'Administration du switch')}
+LANGUES = {'1': ('fr', 'Français'), '2': ('en', 'English')}
+HIDDEN_FILTERS = {'1': (None, 'Toutes'), '2': (False, 'Seulement visibles (plainte utilisateur directe)'),
+                  '3': (True, 'Seulement cachées (détectables uniquement depuis la supervision)')}
 MAX_LEVEL = 3  # 1-2 : une panne ; 3 : deux pannes simultanées. 4-5 (leurres, cascade) à venir
 EX_HISTORY = os.path.join(_BASE, 'exercices_historique.json')
 
@@ -73,12 +78,12 @@ def save_meta(folder, meta):
         json.dump(meta, f, ensure_ascii=False, indent=2)
 
 
-def list_tickets(status=None):
-    if not os.path.isdir(TICKETS):
+def list_labs(status=None):
+    if not os.path.isdir(LABS):
         return []
     out = []
-    for name in sorted(os.listdir(TICKETS)):
-        folder = os.path.join(TICKETS, name)
+    for name in sorted(os.listdir(LABS)):
+        folder = os.path.join(LABS, name)
         if os.path.isfile(os.path.join(folder, '.solution.json')):
             meta = load_meta(folder)
             if status is None or meta.get('status') == status:
@@ -86,14 +91,16 @@ def list_tickets(status=None):
     return out
 
 
-# ─── 1. Nouveau ticket ───────────────────────────────────────────────────────
+# ─── 1. Nouveau lab ──────────────────────────────────────────────────────────
 
-def new_ticket():
-    print('\n  Mode : 1) Surprise   2) Choisir un thème   3) Choisir une panne précise')
+def new_lab():
+    lang = LANGUES[ask('\n  Langue : 1) Français   2) English\n  > ', list(LANGUES))][0]
+
+    print('\n  Mode : 1) Surprise   2) Choisir un thème   3) Choisir une ou plusieurs pannes précises')
     mode = ask('  > ', ['1', '2', '3'])
     level = int(ask(f'  Difficulté (1-{MAX_LEVEL}) : ', [str(i) for i in range(1, MAX_LEVEL + 1)]))
 
-    theme, fault_id = None, None
+    theme, fault_ids = None, None
     if mode == '2':
         for k, (_, label) in THEMES.items():
             print(f'   {k}) {label}')
@@ -101,56 +108,78 @@ def new_ticket():
     elif mode == '3':
         ids = [fid for fid, f in faults.CATALOGUE.items() if f['level'] <= level]
         for i, fid in enumerate(ids, 1):
-            print(f'   {i}) {fid}')
-        fault_id = ids[int(ask('  > ', [str(i) for i in range(1, len(ids) + 1)])) - 1]
+            print(f'   {i}) {fid}' + (' [cachée]' if faults.CATALOGUE[fid]['hidden'] else ''))
+        print('  Plusieurs numéros possibles, séparés par des virgules (ex: 1,3)')
+        raw = input('  > ').strip()
+        picked = []
+        for tok in raw.split(','):
+            tok = tok.strip()
+            if tok.isdigit() and 1 <= int(tok) <= len(ids):
+                picked.append(ids[int(tok) - 1])
+        fault_ids = picked or None
 
-    # Topologie compatible avec la panne ou le thème demandé
+    hidden = HIDDEN_FILTERS[ask(
+        '\n  Pannes cachées : 1) Toutes   2) Visibles seulement   3) Cachées seulement\n  > ',
+        list(HIDDEN_FILTERS))][0]
+
+    default_count = max(len(fault_ids or []), faults.FAULTS_PER_LEVEL.get(level, 1))
+    raw_count = input(f'  Nombre de pannes (défaut {default_count}, Entrée pour garder) : ').strip()
+    count = int(raw_count) if raw_count.isdigit() else default_count
+
+    # Topologie compatible avec les pannes/thème demandés
     seed = random.randint(1, 10 ** 9)
     rng = random.Random(seed)
-    topos = sorted({t for fid, f in faults.CATALOGUE.items()
-                    if (fault_id in (None, fid)) and (theme in (None, f['theme'])) and f['level'] <= level
-                    for t in f['topos']})
+    if fault_ids:
+        topos = sorted({t for fid in fault_ids for t in faults.CATALOGUE[fid]['topos']})
+    else:
+        topos = sorted({t for fid, f in faults.CATALOGUE.items()
+                        if (theme in (None, f['theme'])) and f['level'] <= level
+                        and (hidden is None or f['hidden'] == hidden)
+                        for t in f['topos']})
     topo_name = rng.choice(topos)
 
-    number = f'T{rng.randint(10000, 99999)}'
-    folder = os.path.join(TICKETS, number)
+    number = f'L{rng.randint(10000, 99999)}'
+    folder = os.path.join(LABS, number)
     os.makedirs(folder, exist_ok=True)
 
     _, topo = builder.build(topo_name, seed=seed, output_dir=folder)
-    pkt = os.path.join(folder, 'lab.pkt')
-    reports = faults.inject(topo, level=level, theme=theme, fault_id=fault_id, seed=seed, output_path=pkt)
+    pka = os.path.join(folder, 'lab.pka')
+    reports = faults.inject(topo, level=level, theme=theme, fault_ids=fault_ids, hidden=hidden,
+                             count=count, seed=seed, output_path=pka, lang=lang)
 
-    # Récupérer la solution, puis ne garder que lab.pkt, l'énoncé et la solution cachée
-    sol_src = pkt.replace('.pkt', '_solution.json')
+    # Récupérer la solution, puis ne garder que lab.pka et la solution cachée
+    sol_src = pka.rsplit('.', 1)[0] + '_solution.json'
     with open(sol_src, encoding='utf-8') as f:
         meta = json.load(f)
     for f in os.listdir(folder):
         if f.startswith('lab_'):
             os.remove(os.path.join(folder, f))
     meta.update(status='ouvert', level=level, created=datetime.datetime.now().isoformat(timespec='minutes'),
-                attempts=0, hints=0, pkt=pkt)
+                attempts=0, hints=0, pkt=pka)
     save_meta(folder, meta)
 
-    text = ticketgen.make_ticket(reports, level=level, seed=seed)
-    with open(os.path.join(folder, 'ticket.txt'), 'w', encoding='utf-8') as f:
-        f.write(text)
-    print('\n' + text)
-    if open_in_pt(pkt):
+    print(f'\n  Lab {number} créé ({pka}).')
+    print('  Les consignes complètes (objectifs, mise en situation, table d\'adressage) '
+          'sont dans l\'onglet Instructions du fichier, dans Packet Tracer.')
+    print('  Aperçu :')
+    for p in scenario.scenario_paragraphs(reports, lang=lang, seed=seed):
+        print(f'   « {p} »')
+    if open_in_pt(pka):
         print('  Packet Tracer s\'ouvre avec le lab...')
 
 
 # ─── 2. Valider ──────────────────────────────────────────────────────────────
 
 def validate():
-    opened = list_tickets('ouvert')
+    opened = list_labs('ouvert')
     if not opened:
-        print('\n  Aucun ticket ouvert.')
+        print('\n  Aucun lab ouvert.')
         return
     print()
     for i, (name, _, meta) in enumerate(opened, 1):
         print(f'   {i}) {name}  niveau {meta["level"]}  créé le {meta["created"]}  '
               f'({meta["attempts"]} tentative(s))')
-    name, folder, meta = opened[int(ask('  Ticket : ', [str(i) for i in range(1, len(opened) + 1)])) - 1]
+    name, folder, meta = opened[int(ask('  Lab : ', [str(i) for i in range(1, len(opened) + 1)])) - 1]
 
     meta['attempts'] += 1
     result, text = checker.check(os.path.join(folder, '.solution.json'), pkt_path=meta['pkt'])
@@ -188,12 +217,12 @@ def history():
         for kind, h in hist.items():
             pct = round(100 * h['points'] / h['max']) if h['max'] else 0
             print(f'   {exercises.GENERATORS[kind][0]:45} {h["faits"]:3} fait(s)  réussite {pct} %')
-    all_t = list_tickets()
+    all_t = list_labs()
     if not all_t:
-        print('\n  Aucun ticket pour l\'instant.')
+        print('\n  Aucun lab pour l\'instant.')
         return
     solved = sum(1 for *_, m in all_t if m['status'] == 'résolu')
-    print(f'\n  {len(all_t)} ticket(s), {solved} résolu(s)\n')
+    print(f'\n  {len(all_t)} lab(s), {solved} résolu(s)\n')
     for name, _, m in all_t:
         extra = f'{m["attempts"]} tentative(s), {m["hints"]} indice(s)'
         print(f'   {name}  niv.{m["level"]}  {m["status"]:10}  {extra}')
@@ -244,7 +273,7 @@ def vlsm_to_pt():
         return
 
     number = f'M{random.Random(seed).randint(10000, 99999)}'
-    folder = os.path.join(TICKETS, number)
+    folder = os.path.join(LABS, number)
     os.makedirs(folder, exist_ok=True)
     pkt, text = missions.vlsm_deploy(plan, seed=seed, output_dir=folder)
     sol_src = os.path.join(folder, 'lab_solution.json')
@@ -254,10 +283,10 @@ def vlsm_to_pt():
     meta.update(status='ouvert', level=1, created=datetime.datetime.now().isoformat(timespec='minutes'),
                 attempts=0, hints=0, pkt=pkt)
     save_meta(folder, meta)
-    with open(os.path.join(folder, 'ticket.txt'), 'w', encoding='utf-8') as f:
+    with open(os.path.join(folder, 'enonce.txt'), 'w', encoding='utf-8') as f:
         f.write(text)
     print('\n' + text)
-    print(f'  Mission {number} créée : valide-la depuis « 2) Valider un ticket ».')
+    print(f'  Mission {number} créée : valide-la depuis « 2) Valider un lab ».')
     if open_in_pt(pkt):
         print('  Packet Tracer s\'ouvre avec le lab...')
 
@@ -298,16 +327,16 @@ def main():
             stream.reconfigure(encoding='utf-8', errors='replace')
         except (AttributeError, ValueError):
             pass
-    os.makedirs(TICKETS, exist_ok=True)
+    os.makedirs(LABS, exist_ok=True)
     while True:
         print('\n' + '═' * 64)
-        print('  pkt_lab — Simulateur de tickets helpdesk (Packet Tracer)')
+        print('  pkt_lab — Générateur de labs Packet Tracer (.pka)')
         print('═' * 64)
-        print('  1) Nouveau ticket\n  2) Valider un ticket\n  3) Historique\n  4) Exercices papier (sous-réseaux, VLSM, IPv6)\n  0) Quitter')
+        print('  1) Nouveau lab\n  2) Valider un lab\n  3) Historique\n  4) Exercices papier (sous-réseaux, VLSM, IPv6)\n  0) Quitter')
         try:
             c = ask('  > ', ['0', '1', '2', '3', '4'])
             if c == '1':
-                new_ticket()
+                new_lab()
             elif c == '2':
                 validate()
             elif c == '3':
