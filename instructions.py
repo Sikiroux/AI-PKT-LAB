@@ -120,32 +120,103 @@ def build_html(lang, topo, scenario_paragraphs=(), is_mission=False):
     return ''.join(parts)
 
 
+FEEDBACK_TEXT = {
+    'fr': {'incomplete': "Cette activité n'est pas terminée, réessaie.",
+           'complete': "Bravo, tu as terminé cette activité !"},
+    'en': {'incomplete': 'This activity is incomplete, please try again.',
+           'complete': 'Congratulations on completing this activity!'},
+}
+
+# Tags compagnons de <ACTIVITY> : présents dans TOUS les vrais fichiers PT qui
+# contiennent un bloc Instructions, même quand ENABLED="no". Confirmé en
+# faisant planter PT 9 à l'ouverture avec <ACTIVITY> seul (sans ces tags) sur
+# un lab pourtant sain par ailleurs (topologie simple_lan déjà validée) :
+# l'absence de VARIABLE_MANAGER et consorts est bien la cause du crash, pas
+# la topologie. Voir docs/RULES_TOPOLOGIES.md §7.
+_COMPANION_ORDER = ['VARIABLE_MANAGER', 'OVERALL_INCOMPLETE_FEEDBACK', 'OVERALL_COMPLETE_FEEDBACK',
+                    'UNLOCK_ASSESSMENT_ITEM_PERCENT', 'DYNAMIC_PERCENTAGE_FEEDBACK',
+                    'USER_PROFILE_LOCKED', 'USER_PROFILE_NOGUEST', 'COMPONENT_LIST', 'CLEAN_ACTIVITY']
+
+
 def build_activity_element(html):
-    activity = ET.Element('ACTIVITY', {'ENABLED': 'no'})
+    activity = ET.Element('ACTIVITY', {
+        'ELAPSED': '0', 'ENABLED': 'no', 'VALUE': '', 'TIMERTYPE': '0',
+        'COUNTDOWNLEFT': '10000', 'PASS': '0' * 32, 'FORWARD_ANS_SIM_MS': '0', 'COUNTDOWNMS': '10000'})
     instr = ET.SubElement(activity, 'INSTRUCTIONS')
     page = ET.SubElement(instr, 'PAGE', {'translate': 'true'})
     page.text = html
     return activity
 
 
-def insert_into(root, activity_elem):
-    """Insère <ACTIVITY> juste après <OPTIONS>, comme observé dans les vrais fichiers PT.
-    Remplace un <ACTIVITY> déjà présent plutôt que d'en empiler un second."""
+def _build_companions(lang):
+    feedback = FEEDBACK_TEXT[lang]
+    companions = {}
+
+    vm = ET.Element('VARIABLE_MANAGER')
+    for tag in ('SEED_POOLS', 'NUMBER_POOLS', 'STRING_POOLS', 'IP_POOLS', 'VARIABLES_POOLS'):
+        ET.SubElement(vm, tag)
+    companions['VARIABLE_MANAGER'] = vm
+
+    incomplete = ET.Element('OVERALL_INCOMPLETE_FEEDBACK', {'translate': 'true'})
+    incomplete.text = feedback['incomplete']
+    companions['OVERALL_INCOMPLETE_FEEDBACK'] = incomplete
+
+    complete = ET.Element('OVERALL_COMPLETE_FEEDBACK', {'translate': 'true'})
+    complete.text = feedback['complete']
+    companions['OVERALL_COMPLETE_FEEDBACK'] = complete
+
+    percent = ET.Element('UNLOCK_ASSESSMENT_ITEM_PERCENT')
+    percent.text = '100'
+    companions['UNLOCK_ASSESSMENT_ITEM_PERCENT'] = percent
+
+    dynamic = ET.Element('DYNAMIC_PERCENTAGE_FEEDBACK', {'TYPE': '2'})
+    dynamic.text = 'true'
+    companions['DYNAMIC_PERCENTAGE_FEEDBACK'] = dynamic
+
+    locked = ET.Element('USER_PROFILE_LOCKED')
+    locked.text = 'true'
+    companions['USER_PROFILE_LOCKED'] = locked
+
+    noguest = ET.Element('USER_PROFILE_NOGUEST')
+    noguest.text = 'false'
+    companions['USER_PROFILE_NOGUEST'] = noguest
+
+    comp_list = ET.Element('COMPONENT_LIST')
+    comp_list.text = 'Other, Ip, Routing, Acl, Switching, Physical, Nat'
+    companions['COMPONENT_LIST'] = comp_list
+
+    clean = ET.Element('CLEAN_ACTIVITY')
+    clean.text = 'true'
+    companions['CLEAN_ACTIVITY'] = clean
+
+    return companions
+
+
+def insert_into(root, activity_elem, lang='fr'):
+    """Insère <ACTIVITY> et ses tags compagnons juste après <OPTIONS>, comme
+    observé dans les vrais fichiers PT. Remplace un bloc déjà présent plutôt
+    que d'en empiler un second (idempotent sur un fichier déjà généré)."""
     children = list(root)
     tags = [c.tag for c in children]
-    if 'ACTIVITY' in tags:
-        root.remove(children[tags.index('ACTIVITY')])
-        children = list(root)
-        tags = [c.tag for c in children]
+    for tag in ['ACTIVITY'] + _COMPANION_ORDER:
+        if tag in tags:
+            root.remove(children[tags.index(tag)])
+            children = list(root)
+            tags = [c.tag for c in children]
+
     idx = tags.index('OPTIONS') + 1 if 'OPTIONS' in tags else len(children)
-    root.insert(idx, activity_elem)
+    companions = _build_companions(lang)
+    block = [activity_elem] + [companions[tag] for tag in _COMPANION_ORDER]
+    for offset, elem in enumerate(block):
+        root.insert(idx + offset, elem)
 
 
 def add_instructions(root, topo, lang='fr', scenario_paragraphs=(), is_mission=False):
-    """Construit la page et l'insère dans l'arbre XML. Fonction d'entrée unique
-    utilisée par faults.py / missions.py."""
+    """Construit la page et l'insère dans l'arbre XML (avec ses tags
+    compagnons obligatoires). Fonction d'entrée unique utilisée par
+    faults.py / missions.py."""
     html = build_html(lang, topo, scenario_paragraphs, is_mission=is_mission)
-    insert_into(root, build_activity_element(html))
+    insert_into(root, build_activity_element(html), lang=lang)
 
 
 if __name__ == '__main__':
