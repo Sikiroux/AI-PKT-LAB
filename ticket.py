@@ -118,6 +118,41 @@ SYMPTOMS = {
             "S1 can't be managed anymore: it doesn't respond to anything. No issue reported by users, though.",
         ],
     },
+    'ospf_network_missing': {
+        'fr': [
+            "Depuis un des sites, impossible de joindre l'autre site ni Internet, alors que les postes "
+            "locaux communiquent normalement entre eux.",
+            "Un site semble isolé du reste du réseau depuis la dernière intervention sur un routeur.",
+        ],
+        'en': [
+            "From one of the sites, nothing can be reached outside — not the other site, not the Internet — "
+            "even though local computers still talk to each other fine.",
+            "One site seems cut off from the rest of the network since the last router change.",
+        ],
+    },
+    'wan_wrong_ip': {
+        'fr': [
+            "Un site a totalement perdu la liaison avec le reste du réseau depuis ce matin.",
+            "Plus aucune communication entre un des sites et les autres sites ou Internet.",
+        ],
+        'en': [
+            "One site has completely lost its link to the rest of the network since this morning.",
+            "No communication at all between one of the sites and the other sites or the Internet anymore.",
+        ],
+    },
+    'nat_inside_missing': {
+        'fr': [
+            "Un des sites n'arrive plus à sortir vers Internet du tout, alors que la communication "
+            "entre sites fonctionne toujours.",
+            "Les utilisateurs d'un site se plaignent de n'avoir plus aucun accès Internet, mais ils "
+            "voient bien les autres sites.",
+        ],
+        'en': [
+            "One of the sites can no longer reach the Internet at all, even though communication "
+            "between sites still works.",
+            "Users at one site report no Internet access whatsoever, yet they can still reach the other sites fine.",
+        ],
+    },
     'dhcp_wrong_network': {
         'fr': [
             "Les postes affichent 'Réseau non identifié' et une adresse qui commence par 169.254.",

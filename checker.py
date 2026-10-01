@@ -131,6 +131,24 @@ def _has_link(state, a, b):
     return any({x[0], x[2]} == {a, b} for x in state['links'])
 
 
+def _ospf_has_network(lines, cidr):
+    """Le réseau cidr est-il annoncé dans un bloc 'router ospf' (ligne exacte
+    network <adresse> <wildcard> area ...) ? Même format que celui écrit par
+    faults.py/builder.py, pour rester cohérent avec la source de vérité."""
+    net = ipaddress.IPv4Network(cidr)
+    prefix = f'network {net.network_address} {net.hostmask} area '
+    inside = False
+    for l in lines:
+        if l.strip().startswith('router ospf '):
+            inside = True
+            continue
+        if inside and not l.startswith(' '):
+            inside = False
+        if inside and l.strip().startswith(prefix):
+            return True
+    return False
+
+
 # ─── Évaluation d'un check ───────────────────────────────────────────────────
 # Retourne (ok: bool, libellé lisible)
 
@@ -186,6 +204,10 @@ def evaluate(check, state):
         v = _dhcp_value(d['running'], 'network')
         ok = bool(v) and len(v) >= 2 and str(ipaddress.IPv4Network(f'{v[0]}/{v[1]}')) == check[2]
         return ok, f'Pool DHCP de {dev} déclaré sur {check[2]}'
+    if kind == 'ospf_network':
+        return _ospf_has_network(d['running'], check[2]), f'{dev} annonce {check[2]} dans OSPF'
+    if kind == 'nat_inside':
+        return 'ip nat inside' in _iface_block(d['running'], check[2]), f'{dev} {check[2]} : ip nat inside présent'
     return False, f'Check inconnu : {kind}'
 
 
@@ -205,6 +227,10 @@ def healthy_checks(topo):
         if 'dhcp_pool' in d:
             checks += [['dhcp_default_router', name, d['dhcp_pool']['gateway']],
                        ['dhcp_network', name, d['dhcp_pool']['network']]]
+        for net, area in d.get('ospf_networks', []):
+            checks.append(['ospf_network', name, net])
+        for iface in d.get('nat_inside_ifaces', []):
+            checks.append(['nat_inside', name, iface])
     for link in topo['links']:   # (a, port_a, b, port_b[, type_de_câble])
         checks.append(['link', link[0], link[2]])
     return checks

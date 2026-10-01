@@ -98,6 +98,17 @@ def _pick_pc(topo, rng, dhcp=None):
     return rng.choice(pcs)
 
 
+def _pick_device(topo, rng, candidates):
+    """Choisit un appareil parmi une liste de candidats, en évitant ceux déjà
+    touchés par une autre panne (topo['_busy']) — même principe que _pick_pc,
+    généralisé aux pannes routeur dont la cible n'est pas fixe."""
+    busy = topo.get('_busy', set())
+    choices = [c for c in candidates if c not in busy]
+    if not choices:
+        raise LookupError('Aucun appareil disponible pour cette panne')
+    return rng.choice(choices)
+
+
 # ─── Pannes ──────────────────────────────────────────────────────────────────
 # Chaque fonction : (root, topo, rng) -> rapport
 # rapport = {id, device, cause, solution, checks}
@@ -245,6 +256,64 @@ def f_switch_svi_shutdown(root, topo, rng):
             'checks': [['iface_up', 'S1', 'Vlan1']]}
 
 
+# ─── Pannes multi-sites (OSPF / NAT) ──────────────────────────────────────────
+# Topologie 'multisite_ospf_nat' uniquement (voir builder.py). Conventions et
+# variantes confirmées sur de vrais labs NetAcad/CCNA, voir docs/RULES_TOPOLOGIES.md.
+
+def f_ospf_network_missing(root, topo, rng):
+    candidates = [n for n, d in topo['devices'].items() if d.get('ospf_networks')]
+    router = _pick_device(topo, rng, candidates)
+    net_str, area = rng.choice(topo['devices'][router]['ospf_networks'])
+    net = ipaddress.IPv4Network(net_str)
+    target_line = f' network {net.network_address} {net.hostmask} area {area}'
+    engine = _devices(root)[router].find('ENGINE')
+    lines = [l for l in _config_lines(engine) if l != target_line]
+    _write_config(engine, lines)
+    return {'device': router,
+            'cause': f'{router} n\'annonce plus le réseau {net_str} dans OSPF (ligne network manquante)',
+            'solution': f'{router} : router ospf 1 → {target_line.strip()}',
+            'checks': [['ospf_network', router, net_str]]}
+
+
+def f_wan_wrong_ip(root, topo, rng):
+    candidates = [n for n, d in topo['devices'].items() if d.get('wan_iface')]
+    router = _pick_device(topo, rng, candidates)
+    iface = topo['devices'][router]['wan_iface']
+    cfg = topo['devices'][router]['interfaces'][iface]
+    correct_net = ipaddress.IPv4Network(f'{cfg["ip"]}/{cfg["mask"]}', strict=False)
+    # Décale vers le bloc /30 voisin (même panne que celle confirmée sur un vrai lab :
+    # IP déplacée dans un autre sous-réseau que celui du lien, casse l'adjacence OSPF).
+    wrong_base = ipaddress.IPv4Address(int(correct_net.network_address) + correct_net.num_addresses)
+    wrong_net = ipaddress.IPv4Network(f'{wrong_base}/{correct_net.prefixlen}', strict=False)
+    wrong_ip = str(wrong_net.network_address + 2)
+    engine = _devices(root)[router].find('ENGINE')
+    lines = _config_lines(engine)
+    start, end = _interface_block(lines, iface)
+    lines[start + 1:end] = [f' ip address {wrong_ip} {cfg["mask"]}' if l.strip().startswith('ip address') else l
+                            for l in lines[start + 1:end]]
+    _write_config(engine, lines)
+    return {'device': router,
+            'cause': f'IP de {router} {iface} à {wrong_ip} au lieu de {cfg["ip"]} (lien WAN vers R-EDGE, '
+                     f'hors du bon sous-réseau)',
+            'solution': f'{router} : interface {iface} → ip address {cfg["ip"]} {cfg["mask"]}',
+            'checks': [['iface_ip', router, iface, cfg['ip']]]}
+
+
+def f_nat_inside_missing(root, topo, rng):
+    candidates = [n for n, d in topo['devices'].items() if d.get('nat_inside_ifaces')]
+    router = _pick_device(topo, rng, candidates)
+    iface = rng.choice(topo['devices'][router]['nat_inside_ifaces'])
+    engine = _devices(root)[router].find('ENGINE')
+    lines = _config_lines(engine)
+    start, end = _interface_block(lines, iface)
+    block = [l for l in lines[start + 1:end] if l.strip() != 'ip nat inside']
+    _write_config(engine, lines[:start + 1] + block + lines[end:])
+    return {'device': router,
+            'cause': f'{router} : "ip nat inside" absent sur {iface}, traduction NAT cassée pour ce site',
+            'solution': f'{router} : interface {iface} → ip nat inside',
+            'checks': [['nat_inside', router, iface]]}
+
+
 # ─── Catalogue ───────────────────────────────────────────────────────────────
 # level  = difficulté minimale
 # topos  = topologies compatibles
@@ -265,6 +334,9 @@ CATALOGUE = {
     'dhcp_wrong_network':        {'fn': f_dhcp_wrong_network,        'level': 2, 'theme': 'dhcp',      'target': 'R1', 'topos': ['dhcp_lan'], 'hidden': False},
     'switch_no_default_gateway': {'fn': f_switch_no_default_gateway, 'level': 2, 'theme': 'switch',    'target': 'S1', 'topos': ['simple_lan', 'dhcp_lan'], 'hidden': True},
     'switch_svi_shutdown':       {'fn': f_switch_svi_shutdown,       'level': 1, 'theme': 'switch',    'target': 'S1', 'topos': ['simple_lan', 'dhcp_lan'], 'hidden': True},
+    'ospf_network_missing':      {'fn': f_ospf_network_missing,      'level': 2, 'theme': 'routeur',   'target': 'multisite_router', 'topos': ['multisite_ospf_nat'], 'hidden': False},
+    'wan_wrong_ip':              {'fn': f_wan_wrong_ip,              'level': 2, 'theme': 'routeur',   'target': 'multisite_router', 'topos': ['multisite_ospf_nat'], 'hidden': False},
+    'nat_inside_missing':        {'fn': f_nat_inside_missing,        'level': 2, 'theme': 'nat',       'target': 'R-EDGE',           'topos': ['multisite_ospf_nat'], 'hidden': False},
 }
 
 # Nombre de pannes simultanées selon la difficulté

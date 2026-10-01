@@ -77,12 +77,19 @@ Ne pas ouvrir `labs/Lxxxxx/.solution.json` : c'est la correction.
 
 ## Contenu actuel
 
-Topologies : `simple_lan` (R1 2911 → S1 2960 → 2 PC en statique),
+Topologies simples : `simple_lan` (R1 2911 → S1 2960 → 2 PC en statique),
 `dhcp_lan` (R1 serveur DHCP → S1 → 3 PC en DHCP). Dans les deux : S1 est
 administrable (SVI Vlan1 en .2 + ip default-gateway), et un poste PC-ADMIN
 (service informatique, supervision) est relié à R1 G0/1 dans un réseau
 192.168.x.0/24 à part : il rend visibles les pannes qui ne se voient que depuis
 un autre réseau.
+
+Topologie multi-sites : `multisite_ospf_nat` — 2 sites (SITE1/SITE2, chacun
+routeur + switch administrable + 2 PC) reliés en étoile à un routeur de bordure
+(R-EDGE) qui fait du NAT overload (sur son interface de sortie) vers un routeur
+ISP et un serveur web, le tout annoncé en OSPF area 0 côté privé. Conventions
+(adressage, nommage d'interfaces, NAT, OSPF) tirées de vrais labs NetAcad/CCNA,
+voir `docs/RULES_TOPOLOGIES.md`.
 
 | Panne | Niveau | Thème | Cachée | Validée dans PT |
 |---|---|---|---|---|
@@ -97,6 +104,9 @@ un autre réseau.
 | DHCP : pool sur le mauvais réseau | 2 | dhcp | non | à tester |
 | Switch : SVI Vlan1 éteinte | 1 | switch | **oui** | ✅ |
 | Switch : ip default-gateway absente | 2 | switch | **oui** | ✅ |
+| OSPF : réseau non annoncé (multi-sites) | 2 | routeur | non | à tester |
+| IP erronée sur un lien WAN (multi-sites) | 2 | routeur | non | à tester |
+| NAT : `ip nat inside` absent (multi-sites) | 2 | nat | non | à tester |
 
 ## Développement
 - Tests : `python tests/test_all.py` (avant chaque commit)
@@ -110,9 +120,11 @@ voir `THIRD_PARTY_NOTICES.md`.
 - ✅ Fait : génération en `.pka` avec consignes natives bilingues FR/EN (objectifs,
   mise en situation, table d'adressage), sélection de pannes précises multiples,
   filtre pannes cachées. Remplace l'ancien flux « ticket » texte séparé.
-- Topologies multi-sites (OSPF, NAT, VLAN trunking) inspirées de vrais labs —
-  règles déjà posées dans `docs/RULES_TOPOLOGIES.md`, gabarits à écrire puis à
-  valider en conditions réelles dans PT 9.
+- ✅ Fait (à valider dans PT 9) : premier gabarit multi-sites `multisite_ospf_nat`
+  (2 sites + routeur de bordure NAT + ISP + OSPF area 0), avec 3 pannes dédiées
+  (OSPF, IP de lien WAN, NAT). Règles dans `docs/RULES_TOPOLOGIES.md`.
+- VLAN trunking (router-on-a-stick), variantes NAT statique/dynamique, routage
+  statique en chaîne : règles déjà posées, pas encore implémentées en gabarit.
 - Mode documentation/exploration (appareils cachés dans un cluster verrouillé
   `LOCKINGTREE`, telnet/CDP) — nécessite d'abord un exemple réel à décoder.
 - Niveaux 4 et 5 : leurres dans les consignes, pannes en cascade.
