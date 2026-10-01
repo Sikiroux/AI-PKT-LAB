@@ -206,8 +206,13 @@ def _topo_multisite_ospf_nat(rng):
     def ospf_line(net):
         return f' network {net.network_address} {net.hostmask} area 0'
 
+    # Lignes dédiées à ce gabarit (plus espacées que ROUTER_Y/SWITCH_Y/PC_Y des
+    # topologies simples, pour éviter le chevauchement visuel ISP/R-EDGE/WEB
+    # signalé lors du premier test réel).
+    isp_row, edge_row, site_router_row, site_switch_row, site_pc_row = 20, 200, 380, 560, 740
+
     lab = PktLab(rng=rng)
-    lab.add('R-EDGE', 'router', '2911', (450, ROUTER_Y - 150), config=[
+    lab.add('R-EDGE', 'router', '2911', (550, edge_row), config=[
         'hostname R-EDGE', '!',
         'interface GigabitEthernet0/0', f' ip address {edge_isp_ip} {isp_wan_net.netmask}',
         ' ip nat outside', ' no shutdown', '!',
@@ -220,29 +225,29 @@ def _topo_multisite_ospf_nat(rng):
         'access-list 1 permit 10.0.0.0 0.255.255.255',
         'ip nat inside source list 1 interface GigabitEthernet0/0 overload', 'end'])
 
-    lab.add('ISP', 'router', '2911', (450, ROUTER_Y - 280), config=[
+    lab.add('ISP', 'router', '2911', (400, isp_row), config=[
         'hostname ISP', '!',
         'interface GigabitEthernet0/0', f' ip address {isp_edge_ip} {isp_wan_net.netmask}', ' no shutdown', '!',
         'interface GigabitEthernet0/1', f' ip address {isp_lan_ip} {mask24}', ' no shutdown', '!', 'end'])
 
-    lab.add('WEB', 'pc', 'Server-PT', (650, ROUTER_Y - 280), settings={
+    lab.add('WEB', 'pc', 'Server-PT', (700, isp_row), settings={
         'ip_address': web_ip, 'subnet_mask': mask24, 'default_gateway': isp_lan_ip, 'dhcp': False})
 
     sites = {}
     for i, (tag, site_net, wan_net, edge_ip, site_wan_ip, gw, x) in enumerate((
             ('SITE1', site1_net, wan1_net, edge_wan1_ip, site1_wan_ip, site1_gw, 200),
-            ('SITE2', site2_net, wan2_net, edge_wan2_ip, site2_wan_ip, site2_gw, 700))):
+            ('SITE2', site2_net, wan2_net, edge_wan2_ip, site2_wan_ip, site2_gw, 900))):
         sw = f'SW-{tag}'
         pcs = {f'PC-{tag}-1': str(site_net.network_address + 10), f'PC-{tag}-2': str(site_net.network_address + 11)}
-        lab.add(tag, 'router', '2911', (x, ROUTER_Y), config=[
+        lab.add(tag, 'router', '2911', (x, site_router_row), config=[
             f'hostname {tag}', '!',
             'interface GigabitEthernet0/0', f' ip address {site_wan_ip} {wan_net.netmask}', ' no shutdown', '!',
             'interface GigabitEthernet0/1', f' ip address {gw} {mask24}', ' no shutdown', '!',
             'router ospf 1', ospf_line(wan_net), ospf_line(site_net), '!', 'end'])
         sw_ip = str(site_net.network_address + 2)
-        lab.add(sw, 'switch', '2960-24TT', (x, SWITCH_Y), config=switch_mgmt_config(sw, sw_ip, mask24, gw))
+        lab.add(sw, 'switch', '2960-24TT', (x, site_switch_row), config=switch_mgmt_config(sw, sw_ip, mask24, gw))
         for name, ip in pcs.items():
-            lab.add(name, 'pc', 'PC-PT', (x + (-70 if name.endswith('-1') else 70), PC_Y), settings={
+            lab.add(name, 'pc', 'PC-PT', (x + (-70 if name.endswith('-1') else 70), site_pc_row), settings={
                 'ip_address': ip, 'subnet_mask': mask24, 'default_gateway': gw, 'dhcp': False})
         sites[tag] = {'net': site_net, 'wan_net': wan_net, 'gw': gw, 'switch': sw, 'pcs': pcs,
                       'wan_iface': 'GigabitEthernet0/0', 'edge_ip': edge_ip}
