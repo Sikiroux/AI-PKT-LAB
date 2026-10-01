@@ -1,24 +1,17 @@
 """
-instructions.py — Construit le bloc <ACTIVITY>/<INSTRUCTIONS> natif de Packet
-Tracer (l'onglet "Instructions" visible dans l'appli), bilingue FR/EN.
+instructions.py — Contenu (titre, objectifs, mise en situation, table
+d'adressage) de la page Instructions d'un lab pkt_lab, bilingue FR/EN.
 
-Structure XML reproduite depuis l'analyse de 2 vrais labs NetAcad (voir
-docs/RULES_TOPOLOGIES.md §7) :
-
-    <ACTIVITY ENABLED="no">
-     <INSTRUCTIONS>
-      <PAGE translate="true">...html...</PAGE>
-     </INSTRUCTIONS>
-    </ACTIVITY>
-
-ENABLED="no" désactive la notation automatique native de PT (Activity Wizard,
-réseau-réponse caché) : la correction reste faite par checker.py, comme pour
-le reste du projet. Absent du template vide actuel
-(templates/packettracer/emptysavefile.xml) : c'est un bloc à ajouter, pas à
-modifier, inséré juste après <OPTIONS> (ordre observé dans les vrais fichiers).
+L'assemblage XML réel (bloc <ACTIVITY>, <COMPARISONS>, <INITIALSETUP>, racine
+<PACKETTRACER5_ACTIVITY>...) est délégué à activity.py (module du fork
+TeodorPetrovic/tracketpacin, déjà présent dans ce dépôt mais jusque-là jamais
+branché) : une tentative d'ajouter <ACTIVITY> "à la main" (version précédente
+de ce fichier) faisait planter Packet Tracer au chargement — la vraie
+structure d'un .pka avec Instructions est un wrapper complet à 3 instantanés
+(initial/working/answer) + des arbres COMPARISONS/INITIALSETUP générés à
+partir d'un vrai template PT (templates/activities/subnetting_activity.xml),
+pas quelques balises ajoutées à un .pkt existant. Voir docs/RULES_TOPOLOGIES.md §7.
 """
-
-import xml.etree.ElementTree as ET
 
 TEXT = {
     'fr': {
@@ -91,10 +84,17 @@ def _addressing_rows(topo):
     return rows
 
 
-def build_html(lang, topo, scenario_paragraphs=(), is_mission=False):
-    """Page HTML pour <PAGE> : titre, objectifs, mise en situation, table d'adressage."""
+def build_title(lang, n=1, is_mission=False):
     t = TEXT[lang]
-    title = t['title_mission'] if is_mission else t['title_fault'].format(n=len(scenario_paragraphs))
+    return t['title_mission'] if is_mission else t['title_fault'].format(n=n)
+
+
+def build_html(lang, topo, scenario_paragraphs=(), is_mission=False):
+    """Page HTML (titre, objectifs, mise en situation, table d'adressage),
+    passée telle quelle à activity.assemble_activity() comme contenu de page
+    d'instructions (détectée comme HTML déjà formaté, pas re-convertie)."""
+    t = TEXT[lang]
+    title = build_title(lang, len(scenario_paragraphs), is_mission=is_mission)
     objectives = t['objectives_mission'] if is_mission else t['objectives_fault']
     rows = _addressing_rows(topo)
     cols = ('col_device', 'col_interface', 'col_type', 'col_ip', 'col_mask', 'col_gateway')
@@ -118,105 +118,6 @@ def build_html(lang, topo, scenario_paragraphs=(), is_mission=False):
     parts.append(f'<p><i>{_esc(t["footer"])}</i></p>')
     parts.append('</body></html>')
     return ''.join(parts)
-
-
-FEEDBACK_TEXT = {
-    'fr': {'incomplete': "Cette activité n'est pas terminée, réessaie.",
-           'complete': "Bravo, tu as terminé cette activité !"},
-    'en': {'incomplete': 'This activity is incomplete, please try again.',
-           'complete': 'Congratulations on completing this activity!'},
-}
-
-# Tags compagnons de <ACTIVITY> : présents dans TOUS les vrais fichiers PT qui
-# contiennent un bloc Instructions, même quand ENABLED="no". Confirmé en
-# faisant planter PT 9 à l'ouverture avec <ACTIVITY> seul (sans ces tags) sur
-# un lab pourtant sain par ailleurs (topologie simple_lan déjà validée) :
-# l'absence de VARIABLE_MANAGER et consorts est bien la cause du crash, pas
-# la topologie. Voir docs/RULES_TOPOLOGIES.md §7.
-_COMPANION_ORDER = ['VARIABLE_MANAGER', 'OVERALL_INCOMPLETE_FEEDBACK', 'OVERALL_COMPLETE_FEEDBACK',
-                    'UNLOCK_ASSESSMENT_ITEM_PERCENT', 'DYNAMIC_PERCENTAGE_FEEDBACK',
-                    'USER_PROFILE_LOCKED', 'USER_PROFILE_NOGUEST', 'COMPONENT_LIST', 'CLEAN_ACTIVITY']
-
-
-def build_activity_element(html):
-    activity = ET.Element('ACTIVITY', {
-        'ELAPSED': '0', 'ENABLED': 'no', 'VALUE': '', 'TIMERTYPE': '0',
-        'COUNTDOWNLEFT': '10000', 'PASS': '0' * 32, 'FORWARD_ANS_SIM_MS': '0', 'COUNTDOWNMS': '10000'})
-    instr = ET.SubElement(activity, 'INSTRUCTIONS')
-    page = ET.SubElement(instr, 'PAGE', {'translate': 'true'})
-    page.text = html
-    return activity
-
-
-def _build_companions(lang):
-    feedback = FEEDBACK_TEXT[lang]
-    companions = {}
-
-    vm = ET.Element('VARIABLE_MANAGER')
-    for tag in ('SEED_POOLS', 'NUMBER_POOLS', 'STRING_POOLS', 'IP_POOLS', 'VARIABLES_POOLS'):
-        ET.SubElement(vm, tag)
-    companions['VARIABLE_MANAGER'] = vm
-
-    incomplete = ET.Element('OVERALL_INCOMPLETE_FEEDBACK', {'translate': 'true'})
-    incomplete.text = feedback['incomplete']
-    companions['OVERALL_INCOMPLETE_FEEDBACK'] = incomplete
-
-    complete = ET.Element('OVERALL_COMPLETE_FEEDBACK', {'translate': 'true'})
-    complete.text = feedback['complete']
-    companions['OVERALL_COMPLETE_FEEDBACK'] = complete
-
-    percent = ET.Element('UNLOCK_ASSESSMENT_ITEM_PERCENT')
-    percent.text = '100'
-    companions['UNLOCK_ASSESSMENT_ITEM_PERCENT'] = percent
-
-    dynamic = ET.Element('DYNAMIC_PERCENTAGE_FEEDBACK', {'TYPE': '2'})
-    dynamic.text = 'true'
-    companions['DYNAMIC_PERCENTAGE_FEEDBACK'] = dynamic
-
-    locked = ET.Element('USER_PROFILE_LOCKED')
-    locked.text = 'true'
-    companions['USER_PROFILE_LOCKED'] = locked
-
-    noguest = ET.Element('USER_PROFILE_NOGUEST')
-    noguest.text = 'false'
-    companions['USER_PROFILE_NOGUEST'] = noguest
-
-    comp_list = ET.Element('COMPONENT_LIST')
-    comp_list.text = 'Other, Ip, Routing, Acl, Switching, Physical, Nat'
-    companions['COMPONENT_LIST'] = comp_list
-
-    clean = ET.Element('CLEAN_ACTIVITY')
-    clean.text = 'true'
-    companions['CLEAN_ACTIVITY'] = clean
-
-    return companions
-
-
-def insert_into(root, activity_elem, lang='fr'):
-    """Insère <ACTIVITY> et ses tags compagnons juste après <OPTIONS>, comme
-    observé dans les vrais fichiers PT. Remplace un bloc déjà présent plutôt
-    que d'en empiler un second (idempotent sur un fichier déjà généré)."""
-    children = list(root)
-    tags = [c.tag for c in children]
-    for tag in ['ACTIVITY'] + _COMPANION_ORDER:
-        if tag in tags:
-            root.remove(children[tags.index(tag)])
-            children = list(root)
-            tags = [c.tag for c in children]
-
-    idx = tags.index('OPTIONS') + 1 if 'OPTIONS' in tags else len(children)
-    companions = _build_companions(lang)
-    block = [activity_elem] + [companions[tag] for tag in _COMPANION_ORDER]
-    for offset, elem in enumerate(block):
-        root.insert(idx + offset, elem)
-
-
-def add_instructions(root, topo, lang='fr', scenario_paragraphs=(), is_mission=False):
-    """Construit la page et l'insère dans l'arbre XML (avec ses tags
-    compagnons obligatoires). Fonction d'entrée unique utilisée par
-    faults.py / missions.py."""
-    html = build_html(lang, topo, scenario_paragraphs, is_mission=is_mission)
-    insert_into(root, build_activity_element(html), lang=lang)
 
 
 if __name__ == '__main__':

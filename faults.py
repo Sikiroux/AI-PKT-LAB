@@ -27,10 +27,21 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ptexplorer as _pte
 import ticket as _ticket
 import instructions as _instructions
+import activity as _activity
 from builder import PktLab
 
 # Réutilise la synchronisation config IOS -> ports du moteur du fork
 _SYNC = PktLab()._sync_ios_interface_ports
+
+# Gabarit d'activité PT réel (racine PACKETTRACER5_ACTIVITY, COMPARISONS et
+# INITIALSETUP pré-générés par PT lui-même) utilisé comme source de
+# prototypes par activity.assemble_activity(). Modèles couverts par ce
+# gabarit : 2960-24TT (switch) et PC-PT (PC/serveur) correspondent
+# exactement aux nôtres ; un modèle absent retombe sur un nœud minimal
+# (pas de crash, juste moins détaillé — la notation native reste désactivée
+# de toute façon, checker.py est seul juge).
+_ACTIVITY_TEMPLATE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                  'templates', 'activities', 'subnetting_activity.xml')
 
 
 # ─── Accès au XML ────────────────────────────────────────────────────────────
@@ -397,15 +408,29 @@ def inject(topo, level=1, theme=None, fault_id=None, fault_ids=None, hidden=None
         raise ValueError(f'Aucune panne pour {topo["name"]}, niveau {level}, thème {theme}')
 
     paragraphs = _ticket.scenario_paragraphs(reports, lang=lang, seed=seed)
-    _instructions.add_instructions(root, topo, lang=lang, scenario_paragraphs=paragraphs)
+    html_content = _instructions.build_html(lang, topo, paragraphs)
+    title = _instructions.build_title(lang, len(reports))
 
     output_path = output_path or topo['pkt_path'].replace('.pkt', '_panne.pka')
     xml_path = output_path.rsplit('.', 1)[0] + '.xml'
     ET.indent(tree, space=' ')
     tree.write(xml_path, encoding='utf-8', xml_declaration=False, short_empty_elements=False)
+
+    # Assemble le vrai wrapper d'activité PT (3 instantanés + arbres de
+    # comparaison générés à partir d'un gabarit réel) plutôt que d'ajouter
+    # <ACTIVITY> à la main : voir instructions.py et docs/RULES_TOPOLOGIES.md §7.
+    # initial_state='generated' : l'apprenant démarre sur la panne injectée
+    # (xml_path), pas sur un lab vierge ; topo['xml_path'] (jamais modifié,
+    # encore sain à ce stade) sert de réseau-réponse pour COMPARISONS/INITIALSETUP.
+    activity_xml = output_path.rsplit('.', 1)[0] + '_activity.xml'
+    _activity.assemble_activity(
+        base_xml_path=xml_path, template_path=_ACTIVITY_TEMPLATE, output_xml_path=activity_xml,
+        pages=[{'title': title, 'content': html_content}],
+        initial_state='generated', answer_xml_path=topo['xml_path'], title=title)
     with contextlib.redirect_stdout(io.StringIO()):
-        _pte.ptfile_encode(xml_path, output_path)
+        _pte.ptfile_encode(activity_xml, output_path)
     os.remove(xml_path)
+    os.remove(activity_xml)
 
     for r in reports:
         r['pkt_path'] = output_path

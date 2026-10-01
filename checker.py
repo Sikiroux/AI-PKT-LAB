@@ -36,6 +36,13 @@ def _load(pkt_path):
         _pte.ptfile_decode(pkt_path, tmp)
     root = ET.parse(tmp).getroot()
     os.remove(tmp)
+    if root.tag == 'PACKETTRACER5_ACTIVITY':
+        # Fichier d'activité (voir activity.py/assemble_activity) : 3 instantanés
+        # (initial, working, answer) dans cet ordre. L'apprenant édite et
+        # sauvegarde le 2e (working) ; c'est ce que PT réécrit à Ctrl+S.
+        snapshots = root.findall('PACKETTRACER5')
+        if len(snapshots) >= 2:
+            return snapshots[1]
     return root
 
 
