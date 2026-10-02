@@ -162,6 +162,8 @@ def new_lab():
     print(f'\n  Lab {number} créé ({pka}).')
     print('  Les consignes complètes (objectifs, mise en situation, table d\'adressage) '
           'sont dans l\'onglet Instructions du fichier, dans Packet Tracer.')
+    print(f'  Fiche de correction autonome (indices + résultat attendu, sans Packet Tracer ni Python) : '
+          f'{pka.rsplit(".", 1)[0]}.html')
     print('  Aperçu :')
     for p in scenario.scenario_paragraphs(reports, lang=lang, seed=seed):
         print(f'   « {p} »')

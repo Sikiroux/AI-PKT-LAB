@@ -61,12 +61,15 @@ Ne pas ouvrir `labs/Lxxxxx/.solution.json` : c'est la correction.
 | `builder.py` | Topologies saines (surcouche de `core.Lab` du fork) |
 | `faults.py` | Catalogue de pannes (dont pannes « cachées »), injection dans le XML |
 | `ticket.py` | Textes de mise en situation bilingues FR/EN (symptôme, jamais la cause) |
-| `instructions.py` | Bloc `<ACTIVITY>/<INSTRUCTIONS>` natif PT (onglet Instructions du `.pka`), bilingue |
+| `instructions.py` | Contenu (titre, objectifs, mise en situation, table d'adressage) de la page Instructions, bilingue |
+| `activity.py` | Assemble le vrai wrapper d'activité PT (racine `PACKETTRACER5_ACTIVITY`, 3 instantanés, `COMPARISONS`/`INITIALSETUP`) à partir d'un gabarit réel — module du fork, resté inutilisé jusqu'ici |
+| `worksheet.py` | Fiche HTML compagnon de chaque `.pka` : indices progressifs + résultat attendu derrière des boutons Montrer/Masquer, utilisable sans Packet Tracer ni Python |
 | `checker.py` | Vérification cause racine (par panne, score partiel) + collatéral + sauvegarde |
 | `exercises.py` | Exercices papier : sous-réseaux, VLSM, IPv6, EUI-64 |
 | `missions.py` | Missions (tâches à réaliser) : déploiement d'un plan VLSM |
 | `twofish_pure.py` | Chiffrement Twofish sans compilateur |
-| `core.py`, `activity.py`, `scenarios.py`, `profiles.py`, `layouts.py`, `ptexplorer.py` | Fork TeodorPetrovic/tracketpacin (modifications marquées `[pkt_lab]`) |
+| `core.py`, `scenarios.py`, `profiles.py`, `layouts.py`, `ptexplorer.py` | Fork TeodorPetrovic/tracketpacin (modifications marquées `[pkt_lab]`) |
+| `templates/activities/subnetting_activity.xml` | Gabarit d'activité PT réel utilisé par `activity.py` comme source de prototypes de comparaison |
 | `templates/packettracer/catalogue_source.xml` | 74 appareils (catalogue PTBuilder) |
 | `docs/RULES_TOPOLOGIES.md` | Règles de construction (adressage, OSPF, NAT, VLAN...) tirées de vrais labs, pour les futurs gabarits multi-sites |
 
@@ -117,19 +120,25 @@ MIT (voir `LICENSE`). Réutilise du code MIT de tracketpacin et ptexplorer :
 voir `THIRD_PARTY_NOTICES.md`.
 
 ## Feuille de route
-- ✅ Fait : génération en `.pka` avec consignes natives bilingues FR/EN (objectifs,
-  mise en situation, table d'adressage), sélection de pannes précises multiples,
-  filtre pannes cachées. Remplace l'ancien flux « ticket » texte séparé.
-- ✅ Fait (à valider dans PT 9) : premier gabarit multi-sites `multisite_ospf_nat`
+- ✅ Fait, validé dans PT 9 : génération en `.pka` avec consignes natives bilingues
+  FR/EN (objectifs, mise en situation, table d'adressage) via `activity.py` (vrai
+  wrapper d'activité, pas une reconstruction maison — voir §"Modifications apportées
+  au fork"), sélection de pannes précises multiples, filtre pannes cachées.
+- ✅ Fait, validé dans PT 9 : premier gabarit multi-sites `multisite_ospf_nat`
   (2 sites + routeur de bordure NAT + ISP + OSPF area 0), avec 3 pannes dédiées
   (OSPF, IP de lien WAN, NAT). Règles dans `docs/RULES_TOPOLOGIES.md`.
+- ✅ Fait : fiche HTML compagnon de chaque `.pka` (`worksheet.py`) — indices
+  progressifs et résultat attendu derrière des boutons Montrer/Masquer, inspirée
+  du "lab companion" NetAcad, utilisable en secours sans Packet Tracer ni Python.
 - VLAN trunking (router-on-a-stick), variantes NAT statique/dynamique, routage
   statique en chaîne : règles déjà posées, pas encore implémentées en gabarit.
-- Mode documentation/exploration (appareils cachés dans un cluster verrouillé
-  `LOCKINGTREE`, telnet/CDP) — nécessite d'abord un exemple réel à décoder.
+- Mode documentation/exploration (appareils cachés dans un cluster verrouillé) —
+  un vrai `<LOCKINGTREE>` a été repéré dans un fichier NetAcad décodé cette
+  session, mais sa structure/sémantique précise n'a pas encore été étudiée en détail.
 - Niveaux 4 et 5 : leurres dans les consignes, pannes en cascade.
 - Demandes de service (faire évoluer un réseau sain) et missions multi-tâches.
-- Exercices papier : tableau d'adressage d'une topologie, analyse de sorties « show ».
+- Exercices papier : tableau d'adressage d'une topologie, analyse de sorties « show »
+  — bons candidats pour le format fiche HTML (`worksheet.py`) plutôt que `checker.py`.
 - Généralisation procédurale des topologies complexes (une fois les gabarits
   validés), IPv6 dans les labs, audit sécurité.
 - Choix de la plage d'adressage (10/8, 172.16/12, 192.168/16) ; DNS interne.

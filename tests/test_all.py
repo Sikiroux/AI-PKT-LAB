@@ -22,6 +22,7 @@ import ptexplorer
 import exercises
 import missions
 import ticket
+import worksheet
 from builder import build, THEMES
 from faults import inject, available, CATALOGUE
 from checker import check, read_state
@@ -117,6 +118,20 @@ def test_instructions_bilingues_dans_le_pka():
         assert page is not None and '<table' in page.text and '<h1>' in page.text
         marker = 'Mise en situation' if lang == 'fr' else 'Background / Scenario'
         assert marker in page.text
+
+
+def test_fiche_html_compagnon():
+    _, topo = build('simple_lan', seed=4, output_dir=TMP)
+    out = os.path.join(TMP, 'fiche.pka')
+    reports = inject(topo, level=3, seed=4, output_path=out, lang='fr')
+    html_path = out.replace('.pka', '.html')
+    assert os.path.exists(html_path)
+    with open(html_path, encoding='utf-8') as f:
+        content = f.read()
+    assert content.count('class="step"') == len(reports)
+    for r in reports:
+        assert r['cause'] in content and r['solution'] in content
+        assert r['device'] in content  # indice 1
 
 
 def test_niveau3_deux_pannes_distinctes():

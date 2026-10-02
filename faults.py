@@ -27,6 +27,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ptexplorer as _pte
 import ticket as _ticket
 import instructions as _instructions
+import worksheet as _worksheet
 import activity as _activity
 from builder import PktLab
 
@@ -438,6 +439,15 @@ def inject(topo, level=1, theme=None, fault_id=None, fault_ids=None, hidden=None
                 'faults': reports, 'pkt': output_path, 'lang': lang}
     with open(output_path.rsplit('.', 1)[0] + '_solution.json', 'w', encoding='utf-8') as f:
         json.dump(solution, f, ensure_ascii=False, indent=2)
+
+    # Fiche HTML compagnon (indices progressifs + résultat attendu derrière
+    # des boutons Montrer/Masquer) : utilisable même sans Packet Tracer ni
+    # Python (contrairement à checker.py), voir worksheet.py.
+    themes = {fid: info['theme'] for fid, info in CATALOGUE.items()}
+    worksheet_html = _worksheet.build_worksheet_html(lang, topo, reports, paragraphs, themes=themes)
+    with open(output_path.rsplit('.', 1)[0] + '.html', 'w', encoding='utf-8') as f:
+        f.write(worksheet_html)
+
     return reports
 
 
