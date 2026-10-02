@@ -173,6 +173,17 @@ def test_fichier_reel_sauvegarde_par_pt():
     assert res['fixed'] == 4 and res['unsaved'] == ['R1'], res
 
 
+def test_fichier_activite_reel_repare_par_pt():
+    """Régression : un vrai .pka (gabarit multisite_ospf_nat, panne OSPF)
+    réparé et sauvegardé par Damien dans PT 9. checker.py lisait le mauvais
+    instantané (le 2e, 'working') et rapportait à tort 'non réparé' alors que
+    la correction était bien là, dans le 1er instantané ('initial') — c'est
+    celui que PT réécrit à Ctrl+S, pas le 2e comme on le pensait."""
+    res, _ = check(os.path.join(FIXTURES, 'ospf_network_missing_damien_fixed_solution.json'),
+                   pkt_path=os.path.join(FIXTURES, 'ospf_network_missing_damien_fixed.pka'))
+    assert res['success'] and res['fixed'] == 1, res
+
+
 def test_exercices_papier_coherents():
     for kind in exercises.GENERATORS:
         for seed in range(50):

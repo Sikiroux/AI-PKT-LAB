@@ -38,11 +38,13 @@ def _load(pkt_path):
     os.remove(tmp)
     if root.tag == 'PACKETTRACER5_ACTIVITY':
         # Fichier d'activité (voir activity.py/assemble_activity) : 3 instantanés
-        # (initial, working, answer) dans cet ordre. L'apprenant édite et
-        # sauvegarde le 2e (working) ; c'est ce que PT réécrit à Ctrl+S.
+        # écrits dans l'ordre (initial, working, answer), mais c'est le 1er
+        # (initial) que PT affiche/édite et réécrit à Ctrl+S — confirmé sur un
+        # vrai fichier réparé par Damien dans PT 9 (la correction apparaissait
+        # dans l'instantané 0, jamais dans le 1, sur 3 sauvegardes distinctes).
         snapshots = root.findall('PACKETTRACER5')
-        if len(snapshots) >= 2:
-            return snapshots[1]
+        if snapshots:
+            return snapshots[0]
     return root
 
 
