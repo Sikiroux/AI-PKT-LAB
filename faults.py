@@ -197,6 +197,20 @@ def f_pc_wrong_dns(root, topo, rng):
             'checks': [['pc_dns', pc, correct]]}
 
 
+def f_pc_firewall_enabled(root, topo, rng):
+    # Pare-feu local du poste (Desktop > Firewall dans PT) activé par erreur :
+    # bloque le trafic ENTRANT vers ce poste (ping, partage...), mais le poste
+    # continue de sortir normalement lui-même — asymétrique, comme un vrai
+    # pare-feu hôte.
+    pc = _pick_pc(topo, rng)
+    _set(_wired_port(_devices(root)[pc].find('ENGINE')), 'PC_FIREWALL', 'true')
+    return {'device': pc,
+            'cause': f'{pc} : pare-feu local activé, plus personne ne peut le joindre (ping, partage...) '
+                     f'alors qu\'il continue de sortir normalement lui-même',
+            'solution': f'Sur {pc} : Desktop > Firewall > Désactiver',
+            'checks': [['pc_firewall', pc, False]]}
+
+
 def f_router_interface_shutdown(root, topo, rng):
     engine = _devices(root)['R1'].find('ENGINE')
     iface = next(iter(topo['devices']['R1']['interfaces']))
@@ -654,6 +668,27 @@ def f_subinterface_shutdown(root, topo, rng):
 # 42/43), rendus procéduraux : chaque fonction retire UNE des 2 lignes de
 # l'ACL réelle de ce lab, jamais une valeur recopiée de l'exemple du PDF.
 
+def f_acl_wrong_direction(root, topo, rng):
+    # Classique CCNA : l'ACL elle-même est correcte, mais appliquée "out"
+    # au lieu de "in" (ou l'inverse) sur l'interface — elle ne filtre plus
+    # le trafic censé être contrôlé.
+    router = 'R-EDGE'
+    iface = rng.choice(list(topo['devices'][router]['acl_applied']))
+    num, direction = topo['devices'][router]['acl_applied'][iface]
+    wrong_direction = 'out' if direction == 'in' else 'in'
+    engine = _devices(root)[router].find('ENGINE')
+    lines = _config_lines(engine)
+    start, end = _interface_block(lines, iface)
+    block = [f' ip access-group {num} {wrong_direction}' if l.strip() == f'ip access-group {num} {direction}' else l
+             for l in lines[start + 1:end]]
+    _write_config(engine, lines[:start + 1] + block + lines[end:])
+    return {'device': router,
+            'cause': f'{router} : ACL {num} appliquée en "{wrong_direction}" au lieu de "{direction}" sur '
+                     f'{iface}, elle ne filtre plus le trafic attendu',
+            'solution': f'{router} : interface {iface} → ip access-group {num} {direction}',
+            'checks': [['acl_direction', router, iface, num, direction]]}
+
+
 def f_acl_http_denied(root, topo, rng):
     router = 'R-EDGE'
     line = next(l for l in topo['devices'][router]['acl_lines'] if ' tcp ' in l)
@@ -684,6 +719,31 @@ def f_acl_implicit_deny(root, topo, rng):
 # Baseline volontairement asymétrique (S1 active / S2 passive, voir
 # builder.py) : patterns tirés du catalogue de Damien (fiche 49) et d'une
 # vraie soumission étudiante (docs/BACKLOG_EXERCICES.md), rendus procéduraux.
+
+def f_port_security_wrong_mac(root, topo, rng):
+    # La vraie MAC du PC est générée aléatoirement par le moteur et lue après
+    # coup (voir builder.py::_post_build_port_security) : la panne remplace
+    # la bonne adresse statique par une MAC inventée (convention reprise de
+    # Catalogue_pannes_Packet_Tracer_Damien.pdf fiche 47 pour la valeur
+    # factice, jamais pour une vraie adresse).
+    candidates = [n for n, d in topo['devices'].items() if d.get('port_security_lines')]
+    switch = _pick_device(topo, rng, candidates)
+    iface, mac_info = next(iter(topo['devices'][switch]['port_security_lines'].items()))
+    correct_mac = mac_info['mac']
+    wrong_mac = '0000.0000.0099' if correct_mac != '0000.0000.0099' else '0000.0000.0098'
+    engine = _devices(root)[switch].find('ENGINE')
+    lines = _config_lines(engine)
+    start, end = _interface_block(lines, iface)
+    block = [f' switchport port-security mac-address {wrong_mac}'
+             if l.strip().startswith('switchport port-security mac-address') else l
+             for l in lines[start + 1:end]]
+    _write_config(engine, lines[:start + 1] + block + lines[end:])
+    return {'device': switch,
+            'cause': f'{switch} : {iface} autorise la MAC {wrong_mac} au lieu de la vraie MAC du poste '
+                     f'({correct_mac}), le trafic est bloqué par le port-security',
+            'solution': f'{switch} : interface {iface} → switchport port-security mac-address {correct_mac}',
+            'checks': [['port_security_mac', switch, iface, correct_mac]]}
+
 
 def f_lacp_both_passive(root, topo, rng):
     candidates = [n for n, d in topo['devices'].items() if d.get('etherchannel', {}).get('mode') == 'active']
@@ -760,6 +820,7 @@ CATALOGUE = {
     'cable_missing':             {'fn': f_cable_missing,             'level': 1, 'theme': 'cablage',   'target': 'pc', 'topos': ['simple_lan', 'dhcp_lan', 'switched_redundant', 'vlan_trunk', 'etherchannel'], 'hidden': False},
     'router_interface_shutdown': {'fn': f_router_interface_shutdown, 'level': 1, 'theme': 'routeur',   'target': 'R1', 'topos': ['simple_lan', 'dhcp_lan'], 'hidden': False},
     'pc_wrong_mask':             {'fn': f_pc_wrong_mask,             'level': 2, 'theme': 'adressage', 'target': 'pc', 'topos': ['simple_lan'], 'hidden': False},
+    'pc_firewall_enabled':       {'fn': f_pc_firewall_enabled,       'level': 1, 'theme': 'pare-feu', 'target': 'pc', 'topos': ['simple_lan', 'dhcp_lan', 'multisite_ospf_nat', 'switched_redundant', 'vlan_trunk', 'etherchannel'], 'hidden': False},
     'router_wrong_ip':           {'fn': f_router_wrong_ip,           'level': 2, 'theme': 'routeur',   'target': 'R1', 'topos': ['simple_lan'], 'hidden': False},
     'dhcp_wrong_default_router': {'fn': f_dhcp_wrong_default_router, 'level': 2, 'theme': 'dhcp',      'target': 'R1', 'topos': ['dhcp_lan'], 'hidden': False},
     'dhcp_wrong_network':        {'fn': f_dhcp_wrong_network,        'level': 2, 'theme': 'dhcp',      'target': 'R1', 'topos': ['dhcp_lan'], 'hidden': False},
@@ -785,6 +846,8 @@ CATALOGUE = {
     'subinterface_shutdown':       {'fn': f_subinterface_shutdown,       'level': 1, 'theme': 'vlan', 'target': 'R1', 'topos': ['vlan_trunk'], 'hidden': False},
     'acl_http_denied':             {'fn': f_acl_http_denied,             'level': 2, 'theme': 'acl', 'target': 'R-EDGE', 'topos': ['multisite_ospf_nat'], 'hidden': False},
     'acl_implicit_deny':           {'fn': f_acl_implicit_deny,           'level': 2, 'theme': 'acl', 'target': 'R-EDGE', 'topos': ['multisite_ospf_nat'], 'hidden': False},
+    'acl_wrong_direction':         {'fn': f_acl_wrong_direction,         'level': 2, 'theme': 'acl', 'target': 'R-EDGE', 'topos': ['multisite_ospf_nat'], 'hidden': False},
+    'port_security_wrong_mac':     {'fn': f_port_security_wrong_mac,     'level': 2, 'theme': 'switch', 'target': 'S1', 'topos': ['simple_lan'], 'hidden': False},
     'lacp_both_passive':           {'fn': f_lacp_both_passive,           'level': 2, 'theme': 'etherchannel', 'target': 'ec_switch', 'topos': ['etherchannel'], 'hidden': False},
     'channel_mode_access':         {'fn': f_channel_mode_access,         'level': 2, 'theme': 'etherchannel', 'target': 'ec_switch', 'topos': ['etherchannel'], 'hidden': False},
     'channel_group_mismatch':      {'fn': f_channel_group_mismatch,      'level': 2, 'theme': 'etherchannel', 'target': 'ec_switch', 'topos': ['etherchannel'], 'hidden': False},

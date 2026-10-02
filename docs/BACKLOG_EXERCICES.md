@@ -117,6 +117,8 @@ remplacent/renforcent les priorités du §Priorités de
 | **EtherChannel** | `channel-group` différent entre les 2 extrémités du bundle | **Confirmé** : vraie soumission étudiante | 2 | ✅ Fait (`channel_group_mismatch`) |
 | ACL | HTTP bloqué par une ACL, ping toujours permis | **Confirmé** : Catalogue_pannes_Packet_Tracer_Damien.pdf fiche 42, rendu procédural | 2 | ✅ Fait (`acl_http_denied`, sur `multisite_ospf_nat`) |
 | ACL | Ligne d'autorisation oubliée avant le deny implicite | Idem, fiche 43 | 2 | ✅ Fait (`acl_implicit_deny`) |
+| ACL | ACL appliquée "out" au lieu de "in" (ou l'inverse) | Pattern classique CCNA, demandé explicitement par Damien | 2 | ✅ Fait (`acl_wrong_direction`) |
+| Sécurité L2 | Port security : mauvaise MAC statique autorisée | **Confirmé** : Catalogue_pannes_Packet_Tracer_Damien.pdf fiche 47, adapté (vraie MAC générée relue après coup, pas une adresse inventée) | 2 | ✅ Fait (`port_security_wrong_mac`) |
 | Routage statique | Route par défaut : mauvais next-hop | **Confirmé officiel** : CCNAv7 SRWE 16.3.1 (voir ci-dessous) | 2 | ✅ Fait (`default_route_wrong_nexthop`) |
 | VLAN | Port d'accès sur le mauvais VLAN | **Confirmé** : Catalogue_pannes_Packet_Tracer_Damien.pdf, rendu procédural | 2 | ✅ Fait (`access_wrong_vlan`, nouveau gabarit `vlan_trunk`) |
 | VLAN | VLAN supprimé de la base du switch | Idem | 2 | ✅ Fait (`vlan_missing`) |
@@ -165,17 +167,15 @@ plutôt que devinées, cohérent avec la règle du projet ("on n'injecte que des
 pannes qu'on sait reconstruire sans supposer la structure interne de PT") :
 
 - **Services DNS/HTTP/DHCP hébergés sur un Server-PT** (fiches 20-28, 44) :
-  le catalogue d'appareils confirme bien les champs `<DNS_SERVER><ENABLED>`,
-  `<HTTP_SERVER><ENABLED>`, `<DHCP_SERVERS>.../<POOL>` dans le gabarit
-  Server-PT (vérifié dans `templates/packettracer/catalogue_source.xml`),
-  donc *techniquement* faisable — mais les construire au moment de la
-  génération demanderait d'étendre `PktLab._apply_settings()` (aujourd'hui
-  seulement capable d'écrire IP/masque/passerelle/DNS **côté poste client**,
-  pas les services d'un serveur), ce qui touche le moteur central plutôt
-  qu'ajouter une fonction de panne isolée. `pc_wrong_dns` a été fait sans ça
-  (le champ DNS *client* existe déjà sur `PktLab`, confirmé dans
-  `core.py::_apply_settings`), mais `dns_service_off`/`http_service_off`/
-  `dhcp_service_off` attendent cette extension.
+  **pas un manque d'information** — le catalogue d'appareils confirme déjà
+  les champs `<DNS_SERVER><ENABLED>`, `<HTTP_SERVER><ENABLED>`,
+  `<DHCP_SERVERS>.../<POOL>` dans le gabarit Server-PT (vérifié dans
+  `templates/packettracer/catalogue_source.xml`). C'est seulement du temps
+  de code : il faut écrire l'équivalent serveur de
+  `_post_build_port_security` (même technique que le port security
+  ci-dessous : poser les valeurs après construction plutôt que d'étendre
+  `_apply_settings`, qui ne gère aujourd'hui que les réglages d'un PC
+  client). Pas commencé faute de priorité, pas faute de blocage technique.
 - **`dns_wrong_a_record`** : le champ `<NAMESERVER-DATABASE>` existe dans le
   gabarit mais toujours vide dans tous les fichiers qu'on a sous la main —
   aucun exemple réel pour en déduire le format d'un enregistrement A. À faire
@@ -189,13 +189,14 @@ pannes qu'on sait reconstruire sans supposer la structure interne de PT") :
   `show running-config`, donc invisible dans notre modèle d'injection par
   lignes de texte). Risque de produire un fichier qui a l'air correct mais
   où SSH ne fonctionne pas en vrai PT — à tester prudemment avant de coder.
-- **Port security avec MAC statique** (fiche 47) : la recette originale fixe
-  une MAC précise, mais l'adresse MAC d'un PC est générée aléatoirement par
-  le moteur (`core.py::_generate_mac`) et n'est pas connue au moment de la
-  construction du gabarit. Variante "sticky" (apprentissage dynamique au
-  lieu d'une MAC statique) envisagée mais écartée : retirer seulement le mot
-  `sticky` ne casse rien en IOS réel (le port-security fonctionne quand même
-  en dynamique), donc ne ferait pas une panne détectable proprement.
+- ~~Port security avec MAC statique~~ ✅ **Fait** (`port_security_wrong_mac`) :
+  le blocage initial (MAC générée aléatoirement par `core.py::_generate_mac`,
+  inconnue à la construction du gabarit) est levé — `builder.py::build()`
+  relit maintenant le XML juste après `to_packettracer_xml()` (c'est à ce
+  moment précis que les MAC sont tirées, voir
+  `core.Lab._randomize_device_macs`), y trouve la vraie MAC de PC1, et
+  injecte le port-security dessus avant le chiffrement final. Pas besoin
+  de variante "sticky" finalement.
 - **Wi-Fi** (fiche 50) : hors périmètre du projet, décision déjà actée dans
   `docs/TAXONOMIE_PANNES_RESEAU.md` §6 (jamais évoqué comme priorité).
 

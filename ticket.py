@@ -385,6 +385,48 @@ SYMPTOMS = {
             "though its site stays normally accessible.",
         ],
     },
+    'pc_firewall_enabled': {
+        'fr': [
+            "Impossible de joindre le poste {device} depuis les autres machines du service depuis ce "
+            "matin, alors que son utilisateur dit que tout fonctionne de son côté.",
+            "Plus personne n'arrive à pinguer {device}, mais la personne dessus navigue normalement "
+            "sur le réseau et Internet.",
+        ],
+        'en': [
+            "Nobody can reach computer {device} from the other machines in the department since this "
+            "morning, even though its user says everything works fine on their end.",
+            "Nobody can ping {device} anymore, but the person using it browses the network and the "
+            "Internet normally.",
+        ],
+    },
+    'acl_wrong_direction': {
+        'fr': [
+            "Depuis la dernière intervention sur le routeur de bordure, le filtrage vers le serveur "
+            "web ne semble plus du tout s'appliquer comme avant.",
+            "On a l'impression que la politique de sécurité vers Internet a changé de comportement "
+            "depuis hier, sans que personne n'ait touché aux règles elles-mêmes.",
+        ],
+        'en': [
+            "Since the last change on the edge router, filtering towards the web server doesn't seem "
+            "to apply the way it used to.",
+            "It looks like the security policy towards the Internet changed behavior since yesterday, "
+            "without anyone touching the rules themselves.",
+        ],
+    },
+    'port_security_wrong_mac': {
+        'fr': [
+            "Le poste PC1 est bien branché et sa carte réseau fonctionne, mais plus aucun trafic ne "
+            "passe depuis ce matin.",
+            "Depuis la dernière intervention sur S1, PC1 ne communique plus du tout, alors que le câble "
+            "et le poste semblent en parfait état.",
+        ],
+        'en': [
+            "PC1 is properly plugged in and its network card works, but no traffic gets through at all "
+            "since this morning.",
+            "Since the last work on S1, PC1 can't communicate at all anymore, even though the cable "
+            "and the computer both look fine.",
+        ],
+    },
     'lacp_both_passive': {
         'fr': [
             "Depuis la dernière intervention sur un des switchs, la bande passante entre les 2 "

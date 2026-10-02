@@ -132,7 +132,8 @@ def _topo_simple_lan(rng):
                                      'mask': adm['mask'], 'gateway': adm['gateway']},
                         'S1': {'model': '2960-24TT', 'type': 'switch',
                                'mgmt': {'ip': sw_ip, 'mask': mask, 'gateway': gw}},
-                        **{n: {'model': 'PC-PT', 'type': 'pc', 'ip': ip, 'mask': mask, 'gateway': gw}
+                        **{n: {'model': 'PC-PT', 'type': 'pc', 'ip': ip, 'mask': mask, 'gateway': gw,
+                               **({'port_security': 'S1'} if n == 'PC1' else {})}
                            for n, ip in pcs.items()}},
             'links': links}
     return lab, info
@@ -283,7 +284,8 @@ def _topo_multisite_ospf_nat(rng):
                    'nat_outside_iface': 'GigabitEthernet0/0',
                    'nat_acl': 1,
                    'default_route_next_hop': isp_edge_ip,
-                   'acl_lines': acl_lines},
+                   'acl_lines': acl_lines,
+                   'acl_applied': {'GigabitEthernet0/1': (120, 'in'), 'GigabitEthernet0/2': (120, 'in')}},
         'ISP': {'model': '2911', 'type': 'router',
                 'interfaces': {'GigabitEthernet0/0': {'ip': isp_edge_ip, 'mask': str(isp_wan_net.netmask)},
                                'GigabitEthernet0/1': {'ip': isp_lan_ip, 'mask': mask24}}},
@@ -537,6 +539,42 @@ def build_vlsm_deploy(plan, seed=None, output_dir='.'):
     return pkt_path, info
 
 
+def _post_build_port_security(xml_path, info):
+    """Verrouille le port d'un PC sur sa VRAIE adresse MAC. Ne peut se faire
+    qu'ici : les MAC sont générées aléatoirement par
+    core.Lab._randomize_device_macs(), appelé dans to_packettracer_xml(),
+    donc inconnues au moment où les topo_*() construisent leur config. On
+    relit le XML déjà écrit, on y lit la MAC réelle, puis on injecte le bloc
+    switchport port-security directement dedans (même principe que
+    faults.py, mais dupliqué en miniature ici pour éviter un import
+    circulaire : faults.py importe déjà builder.py)."""
+    targets = [(pc, d['port_security']) for pc, d in info['devices'].items() if d.get('port_security')]
+    if not targets:
+        return
+    tree = ET.parse(xml_path)
+    root = tree.getroot()
+    by_name = {d.findtext('ENGINE/NAME'): d for d in root.iter('DEVICE') if d.find('ENGINE') is not None}
+    for pc, sw_name in targets:
+        pc_engine = by_name[pc].find('ENGINE')
+        port = next((p for p in pc_engine.iter('PORT') if 'copper' in (p.findtext('TYPE') or '').lower()), None)
+        mac = port.findtext('MACADDRESS') or port.findtext('BIA')
+        _, iface = next(((l[0], l[1]) if l[2] == pc else (l[2], l[3]))
+                        for l in info['links'] if pc in (l[0], l[2]))
+        engine = by_name[sw_name].find('ENGINE')
+        sec = engine.find('RUNNINGCONFIG')
+        lines = [el.text or '' for el in sec.findall('LINE')]
+        block = [f'interface {iface}', ' switchport port-security', ' switchport port-security maximum 1',
+                 f' switchport port-security mac-address {mac}', ' switchport port-security violation shutdown', '!']
+        new_lines = (lines[:-1] + block + [lines[-1]]) if lines and lines[-1].strip() == 'end' else lines + block
+        for section in ('RUNNINGCONFIG', 'STARTUPCONFIG'):
+            s = engine.find(section)
+            s.clear()
+            for l in new_lines:
+                ET.SubElement(s, 'LINE').text = l
+        info['devices'][sw_name].setdefault('port_security_lines', {})[iface] = {'mac': mac}
+    tree.write(xml_path, encoding='utf-8', xml_declaration=False, short_empty_elements=False)
+
+
 def build(theme='simple_lan', seed=None, output_dir='.'):
     """Génère lab_<theme>.pkt dans output_dir. Retourne (chemin_pkt, topology_info)."""
     if theme not in THEMES:
@@ -548,6 +586,7 @@ def build(theme='simple_lan', seed=None, output_dir='.'):
     pkt_path = os.path.join(output_dir, f'lab_{theme}.pkt')
     with contextlib.redirect_stdout(io.StringIO()):
         lab.to_packettracer_xml(xml_path)
+        _post_build_port_security(xml_path, info)
         _pte.ptfile_encode(xml_path, pkt_path)
     info.update(pkt_path=pkt_path, xml_path=xml_path, seed=seed)
     return pkt_path, info

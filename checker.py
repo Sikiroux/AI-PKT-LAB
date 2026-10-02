@@ -69,6 +69,7 @@ def read_state(pkt_path):
             'gateway': (e.findtext('GATEWAY') or (port.findtext('PORT_GATEWAY') if port is not None else '') or ''),
             'dhcp': port is not None and port.findtext('PORT_DHCP_ENABLE') == 'true',
             'dns': port.findtext('PORT_DNS') if port is not None else None,
+            'firewall': port is not None and port.findtext('PC_FIREWALL') == 'true',
             'running': [l.text or '' for l in e.findall('RUNNINGCONFIG/LINE')],
             'startup': [l.text or '' for l in e.findall('STARTUPCONFIG/LINE')],
         }
@@ -195,6 +196,8 @@ def evaluate(check, state):
         return d['mask'] == check[2], f'Masque de {dev} = {check[2]} (actuel : {d["mask"] or "vide"})'
     if kind == 'pc_dns':
         return d['dns'] == check[2], f'DNS de {dev} = {check[2]} (actuel : {d["dns"] or "vide"})'
+    if kind == 'pc_firewall':
+        return d['firewall'] == check[2], f'Pare-feu local de {dev} = {"activé" if check[2] else "désactivé"}'
     if kind == 'power':
         return d['power'] == check[2], f'{dev} allumé'
     if kind == 'link':
@@ -251,6 +254,13 @@ def evaluate(check, state):
         return line in [l.strip() for l in d['running']], f'{dev} : {line} présent'
     if kind == 'acl_line':
         return check[2] in [l.strip() for l in d['running']], f'{dev} : ligne ACL "{check[2]}" présente'
+    if kind == 'acl_direction':
+        line = f'ip access-group {check[3]} {check[4]}'
+        return line in _iface_block(d['running'], check[2]), f'{dev} {check[2]} : {line} présent'
+    if kind == 'port_security_mac':
+        block = _iface_block(d['running'], check[2])
+        v = next((l.split()[-1] for l in block if l.startswith('switchport port-security mac-address')), None)
+        return v == check[3], f'{dev} {check[2]} : MAC autorisée {check[3]} (actuelle : {v or "aucune"})'
     if kind == 'channel_group':
         line = f'channel-group {check[3]} mode {check[4]}'
         return line in _iface_block(d['running'], check[2]), f'{dev} {check[2]} : {line} présent'
@@ -295,6 +305,8 @@ def healthy_checks(topo):
         checks.append(['power', name, True])
         if d['type'] == 'pc' and not d.get('dhcp') and not d.get('unconfigured'):
             checks += [['pc_ip', name, d['ip']], ['pc_mask', name, d['mask']], ['pc_gateway', name, d['gateway']]]
+        if d['type'] == 'pc' and not d.get('unconfigured'):
+            checks.append(['pc_firewall', name, False])
         if 'dns' in d:
             checks.append(['pc_dns', name, d['dns']])
         for iface, cfg in d.get('interfaces', {}).items():
@@ -318,6 +330,10 @@ def healthy_checks(topo):
             checks.append(['pat_rule', name, d['nat_acl'], d['nat_outside_iface']])
         for line in d.get('acl_lines', []):
             checks.append(['acl_line', name, line])
+        for iface, (num, direction) in d.get('acl_applied', {}).items():
+            checks.append(['acl_direction', name, iface, num, direction])
+        for iface, p in d.get('port_security_lines', {}).items():
+            checks.append(['port_security_mac', name, iface, p['mac']])
         if 'default_route_next_hop' in d:
             checks.append(['default_route', name, d['default_route_next_hop']])
         if 'stp_priority' in d:

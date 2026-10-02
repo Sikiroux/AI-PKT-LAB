@@ -48,7 +48,8 @@ THEMES = {'1': ('adressage', 'Adressage IP des postes'),
           '10': ('conformite', 'Conformité (hostname...)'),
           '11': ('acl', 'ACL (multi-sites)'),
           '12': ('etherchannel', 'EtherChannel'),
-          '13': ('dns', 'DNS')}
+          '13': ('dns', 'DNS'),
+          '14': ('pare-feu', 'Pare-feu local (poste)')}
 LANGUES = {'1': ('fr', 'Français'), '2': ('en', 'English')}
 HIDDEN_FILTERS = {'1': (None, 'Toutes'), '2': (False, 'Seulement visibles (plainte utilisateur directe)'),
                   '3': (True, 'Seulement cachées (détectables uniquement depuis la supervision)')}
