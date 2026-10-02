@@ -45,7 +45,10 @@ THEMES = {'1': ('adressage', 'Adressage IP des postes'),
           '7': ('nat', 'NAT (multi-sites)'),
           '8': ('routage', 'Routage statique / par défaut'),
           '9': ('vlan', 'VLAN / trunk / routeur-bâton'),
-          '10': ('conformite', 'Conformité (hostname...)')}
+          '10': ('conformite', 'Conformité (hostname...)'),
+          '11': ('acl', 'ACL (multi-sites)'),
+          '12': ('etherchannel', 'EtherChannel'),
+          '13': ('dns', 'DNS')}
 LANGUES = {'1': ('fr', 'Français'), '2': ('en', 'English')}
 HIDDEN_FILTERS = {'1': (None, 'Toutes'), '2': (False, 'Seulement visibles (plainte utilisateur directe)'),
                   '3': (True, 'Seulement cachées (détectables uniquement depuis la supervision)')}

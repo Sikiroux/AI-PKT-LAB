@@ -112,9 +112,11 @@ remplacent/renforcent les priorités du §Priorités de
 | NAT | `ip nat inside` absent sur une interface | **Confirmé** : solve_issues.xml (Hub) + Practice-Labs (3 variantes) | 2 | ✅ Fait |
 | NAT | Variante statique : mauvaise correspondance `ip nat inside source static` | **Confirmé** : Practice-Labs (NAT static) | 2 | À faire |
 | NAT | Variante dynamique : pool épuisé/mauvaise ACL | **Confirmé** : Practice-Labs (NAT dynamic) | 2 | À faire |
-| **EtherChannel** | Un port du bundle resté en `switchport mode access` au lieu de `trunk` | **Confirmé** : vraie soumission étudiante (EtherChannel) | 2 | À faire |
-| **EtherChannel** | Mode de négociation incompatible (`desirable`/PAgP vs `active`/LACP) | **Confirmé** : vraie soumission étudiante | 2 | À faire |
-| **EtherChannel** | `channel-group` différent entre les 2 extrémités du bundle | **Confirmé** : vraie soumission étudiante | 2 | À faire |
+| **EtherChannel** | Un port du bundle resté en `switchport mode access` au lieu de `channel-group` | **Confirmé** : vraie soumission étudiante (EtherChannel) | 2 | ✅ Fait (`channel_mode_access`, nouveau gabarit `etherchannel`) |
+| **EtherChannel** | Les 2 extrémités en LACP passive (baseline volontairement asymétrique active/passive) | **Confirmé** : Catalogue_pannes_Packet_Tracer_Damien.pdf fiche 49, rendu procédural | 2 | ✅ Fait (`lacp_both_passive`) |
+| **EtherChannel** | `channel-group` différent entre les 2 extrémités du bundle | **Confirmé** : vraie soumission étudiante | 2 | ✅ Fait (`channel_group_mismatch`) |
+| ACL | HTTP bloqué par une ACL, ping toujours permis | **Confirmé** : Catalogue_pannes_Packet_Tracer_Damien.pdf fiche 42, rendu procédural | 2 | ✅ Fait (`acl_http_denied`, sur `multisite_ospf_nat`) |
+| ACL | Ligne d'autorisation oubliée avant le deny implicite | Idem, fiche 43 | 2 | ✅ Fait (`acl_implicit_deny`) |
 | Routage statique | Route par défaut : mauvais next-hop | **Confirmé officiel** : CCNAv7 SRWE 16.3.1 (voir ci-dessous) | 2 | ✅ Fait (`default_route_wrong_nexthop`) |
 | VLAN | Port d'accès sur le mauvais VLAN | **Confirmé** : Catalogue_pannes_Packet_Tracer_Damien.pdf, rendu procédural | 2 | ✅ Fait (`access_wrong_vlan`, nouveau gabarit `vlan_trunk`) |
 | VLAN | VLAN supprimé de la base du switch | Idem | 2 | ✅ Fait (`vlan_missing`) |
@@ -150,9 +152,52 @@ remplacent/renforcent les priorités du §Priorités de
 
 ## Pistes non vérifiées (citées dans les dépôts explorés, jamais décodées)
 
-ACL, port security, QoS, FHRP, SNMP, NTP/syslog, CDP/LLDP. À traiter avec la
+Port security, QoS, FHRP, SNMP, NTP/syslog, CDP/LLDP. À traiter avec la
 même méthode (trouver un vrai avant/après, pas deviner) avant d'ajouter une
 ligne au tableau ci-dessus.
+
+## Pistes du catalogue de Damien volontairement reportées (02/10/2026)
+
+En parcourant les 51 fiches, certaines demandent soit une nouvelle capacité
+du moteur de génération (pas juste une nouvelle fonction de panne), soit une
+structure XML qu'on n'a jamais vérifiée dans un vrai fichier — reportées
+plutôt que devinées, cohérent avec la règle du projet ("on n'injecte que des
+pannes qu'on sait reconstruire sans supposer la structure interne de PT") :
+
+- **Services DNS/HTTP/DHCP hébergés sur un Server-PT** (fiches 20-28, 44) :
+  le catalogue d'appareils confirme bien les champs `<DNS_SERVER><ENABLED>`,
+  `<HTTP_SERVER><ENABLED>`, `<DHCP_SERVERS>.../<POOL>` dans le gabarit
+  Server-PT (vérifié dans `templates/packettracer/catalogue_source.xml`),
+  donc *techniquement* faisable — mais les construire au moment de la
+  génération demanderait d'étendre `PktLab._apply_settings()` (aujourd'hui
+  seulement capable d'écrire IP/masque/passerelle/DNS **côté poste client**,
+  pas les services d'un serveur), ce qui touche le moteur central plutôt
+  qu'ajouter une fonction de panne isolée. `pc_wrong_dns` a été fait sans ça
+  (le champ DNS *client* existe déjà sur `PktLab`, confirmé dans
+  `core.py::_apply_settings`), mais `dns_service_off`/`http_service_off`/
+  `dhcp_service_off` attendent cette extension.
+- **`dns_wrong_a_record`** : le champ `<NAMESERVER-DATABASE>` existe dans le
+  gabarit mais toujours vide dans tous les fichiers qu'on a sous la main —
+  aucun exemple réel pour en déduire le format d'un enregistrement A. À faire
+  si Damien peut exporter un vrai fichier PT avec un enregistrement DNS
+  configuré à la main (même méthode que la découverte du format `.pka`
+  d'activité plus tôt dans le projet).
+- **SSH (`ssh_transport_wrong`, `ssh_wrong_password`)** : les lignes
+  `transport input ssh` / `username ... secret ...` sont de simples lignes
+  IOS, mais on ne sait pas si Packet Tracer simule réellement SSH sans
+  l'étape `crypto key generate rsa` (qui ne laisse pas de ligne dans
+  `show running-config`, donc invisible dans notre modèle d'injection par
+  lignes de texte). Risque de produire un fichier qui a l'air correct mais
+  où SSH ne fonctionne pas en vrai PT — à tester prudemment avant de coder.
+- **Port security avec MAC statique** (fiche 47) : la recette originale fixe
+  une MAC précise, mais l'adresse MAC d'un PC est générée aléatoirement par
+  le moteur (`core.py::_generate_mac`) et n'est pas connue au moment de la
+  construction du gabarit. Variante "sticky" (apprentissage dynamique au
+  lieu d'une MAC statique) envisagée mais écartée : retirer seulement le mot
+  `sticky` ne casse rien en IOS réel (le port-security fonctionne quand même
+  en dynamique), donc ne ferait pas une panne détectable proprement.
+- **Wi-Fi** (fiche 50) : hors périmètre du projet, décision déjà actée dans
+  `docs/TAXONOMIE_PANNES_RESEAU.md` §6 (jamais évoqué comme priorité).
 
 ## Recalibrage de niveau déjà appliqué
 

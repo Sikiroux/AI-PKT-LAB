@@ -102,13 +102,18 @@ Topologie VLAN/trunk : `vlan_trunk` — routeur-bâton R1 (sous-interfaces dot1Q
 10/20) relié en trunk à S1, lui-même relié en trunk à S2 ; 2 VLAN, 2 PC par
 VLAN répartis sur les 2 switchs.
 
+Topologie EtherChannel : `etherchannel` — S1 (LACP active) et S2 (LACP
+passive, asymétrie volontaire et valide) reliés par 2 liens agrégés en
+Port-channel1, 1 PC par switch.
+
 Le catalogue de pannes ne vient plus seulement de patterns génériques : depuis
 l'étude directe des 10 vraies activités officielles "Troubleshoot..." du
 programme CCNAv7 (voir `docs/BACKLOG_EXERCICES.md`), certaines pannes sont
 désormais confirmées par diff d'un vrai fichier NetAcad plutôt que supposées,
 et un catalogue de 51 pistes supplémentaires (fourni par Damien) a été passé
-au crible pour en extraire des versions procédurales (24 pannes au total,
-5 topologies). Table ci-dessous non exhaustive (les pannes les plus récentes
+au crible pour en extraire des versions procédurales (35 pannes au total,
+6 topologies — le détail de ce qui a été volontairement reporté, et pourquoi,
+est dans `docs/BACKLOG_EXERCICES.md`). Table ci-dessous non exhaustive (les pannes les plus récentes
 sont listées avec leur source dans `docs/BACKLOG_EXERCICES.md`) :
 
 | Panne | Niveau | Thème | Cachée | Validée dans PT |

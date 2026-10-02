@@ -211,17 +211,24 @@ def _topo_multisite_ospf_nat(rng):
     # signalé lors du premier test réel).
     isp_row, edge_row, site_router_row, site_switch_row, site_pc_row = 100, 260, 420, 580, 740
 
+    # ACL 120 : seuls icmp (diagnostic) et http (le site web de l'ISP) sont
+    # autorisés à sortir des sites, posée en entrée sur les 2 interfaces
+    # internes — politique de sécurité volontaire, pas une porte grande
+    # ouverte à verrouiller plus tard (cf. Catalogue_pannes_Packet_Tracer_
+    # Damien.pdf fiches 42/43, rendu procédural).
+    acl_lines = [f'access-list 120 permit icmp any host {web_ip}',
+                f'access-list 120 permit tcp any host {web_ip} eq 80']
     lab = PktLab(rng=rng)
     lab.add('R-EDGE', 'router', '2911', (550, edge_row), config=[
         'hostname R-EDGE', '!',
         'interface GigabitEthernet0/0', f' ip address {edge_isp_ip} {isp_wan_net.netmask}',
         ' ip nat outside', ' no shutdown', '!',
         'interface GigabitEthernet0/1', f' ip address {edge_wan1_ip} {wan1_net.netmask}',
-        ' ip nat inside', ' no shutdown', '!',
+        ' ip nat inside', ' ip access-group 120 in', ' no shutdown', '!',
         'interface GigabitEthernet0/2', f' ip address {edge_wan2_ip} {wan2_net.netmask}',
-        ' ip nat inside', ' no shutdown', '!',
+        ' ip nat inside', ' ip access-group 120 in', ' no shutdown', '!',
         'router ospf 1', ospf_line(wan1_net), ospf_line(wan2_net), ' default-information originate', '!',
-        f'ip route 0.0.0.0 0.0.0.0 {isp_edge_ip}', '!',
+        f'ip route 0.0.0.0 0.0.0.0 {isp_edge_ip}'] + acl_lines + [
         'access-list 1 permit 10.0.0.0 0.255.255.255',
         'ip nat inside source list 1 interface GigabitEthernet0/0 overload', 'end'])
 
@@ -275,7 +282,8 @@ def _topo_multisite_ospf_nat(rng):
                    'nat_inside_ifaces': ['GigabitEthernet0/1', 'GigabitEthernet0/2'],
                    'nat_outside_iface': 'GigabitEthernet0/0',
                    'nat_acl': 1,
-                   'default_route_next_hop': isp_edge_ip},
+                   'default_route_next_hop': isp_edge_ip,
+                   'acl_lines': acl_lines},
         'ISP': {'model': '2911', 'type': 'router',
                 'interfaces': {'GigabitEthernet0/0': {'ip': isp_edge_ip, 'mask': str(isp_wan_net.netmask)},
                                'GigabitEthernet0/1': {'ip': isp_lan_ip, 'mask': mask24}}},
@@ -407,9 +415,60 @@ def _topo_vlan_trunk(rng):
     return lab, {'name': 'vlan_trunk', 'mask': mask, 'devices': devices, 'links': links}
 
 
+def _topo_etherchannel(rng):
+    """Gabarit EtherChannel : S1 <-> S2 reliés par 2 liens FastEthernet
+    agrégés en Port-channel1 (LACP), 1 PC par switch. Baseline volontairement
+    asymétrique (S1 active / S2 passive) : c'est un vrai mode LACP valide qui
+    forme l'agrégat, pas une simplification — matche le scénario confirmé du
+    catalogue de Damien (fiche 49 : la panne, c'est que LES DEUX finissent en
+    passive, pas qu'un seul le soit)."""
+    net = _random_lan(rng)
+    mask = '255.255.255.0'
+    gw = str(net.network_address + 1)   # réservée par convention, aucun routeur ici (cf switched_redundant)
+    s1_ip, s2_ip = str(net.network_address + 2), str(net.network_address + 3)
+    pc1_ip, pc2_ip = str(net.network_address + 10), str(net.network_address + 11)
+    group = 1
+    members = ['FastEthernet0/1', 'FastEthernet0/2']
+
+    def switch_config(name, ip, mode):
+        cfg = ['hostname ' + name, '!', 'interface Vlan1', f' ip address {ip} {mask}', ' no shutdown', '!',
+               f'ip default-gateway {gw}', '!']
+        for m in members:
+            cfg += [f'interface {m}', f' channel-group {group} mode {mode}', '!']
+        cfg += ['interface FastEthernet0/3', ' switchport mode access', '!', 'end']
+        return cfg
+
+    lab = PktLab(rng=rng)
+    lab.add('S1', 'switch', '2960-24TT', (300, SWITCH_Y), config=switch_config('S1', s1_ip, 'active'))
+    lab.add('S2', 'switch', '2960-24TT', (700, SWITCH_Y), config=switch_config('S2', s2_ip, 'passive'))
+    lab.add('PC1', 'pc', 'PC-PT', (300, PC_Y), settings={
+        'ip_address': pc1_ip, 'subnet_mask': mask, 'default_gateway': gw, 'dhcp': False})
+    lab.add('PC2', 'pc', 'PC-PT', (700, PC_Y), settings={
+        'ip_address': pc2_ip, 'subnet_mask': mask, 'default_gateway': gw, 'dhcp': False})
+
+    links = [
+        ('S1', members[0], 'S2', members[0]),
+        ('S1', members[1], 'S2', members[1]),
+        ('S1', 'FastEthernet0/3', 'PC1', 'FastEthernet0'),
+        ('S2', 'FastEthernet0/3', 'PC2', 'FastEthernet0'),
+    ]
+    for l in links:
+        lab.add_link(*l)
+
+    devices = {
+        'S1': {'model': '2960-24TT', 'type': 'switch', 'mgmt': {'ip': s1_ip, 'mask': mask, 'gateway': gw},
+               'etherchannel': {'members': members, 'group': group, 'mode': 'active'}},
+        'S2': {'model': '2960-24TT', 'type': 'switch', 'mgmt': {'ip': s2_ip, 'mask': mask, 'gateway': gw},
+               'etherchannel': {'members': members, 'group': group, 'mode': 'passive'}},
+        'PC1': {'model': 'PC-PT', 'type': 'pc', 'ip': pc1_ip, 'mask': mask, 'gateway': gw},
+        'PC2': {'model': 'PC-PT', 'type': 'pc', 'ip': pc2_ip, 'mask': mask, 'gateway': gw},
+    }
+    return lab, {'name': 'etherchannel', 'mask': mask, 'devices': devices, 'links': links}
+
+
 THEMES = {'simple_lan': _topo_simple_lan, 'dhcp_lan': _topo_dhcp_lan,
           'multisite_ospf_nat': _topo_multisite_ospf_nat, 'switched_redundant': _topo_switched_redundant,
-          'vlan_trunk': _topo_vlan_trunk}
+          'vlan_trunk': _topo_vlan_trunk, 'etherchannel': _topo_etherchannel}
 
 
 # ─── Déploiement d'un plan d'adressage (exercice VLSM → Packet Tracer) ──────

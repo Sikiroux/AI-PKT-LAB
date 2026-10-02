@@ -249,6 +249,11 @@ def evaluate(check, state):
     if kind == 'pat_rule':
         line = f'ip nat inside source list {check[2]} interface {check[3]} overload'
         return line in [l.strip() for l in d['running']], f'{dev} : {line} présent'
+    if kind == 'acl_line':
+        return check[2] in [l.strip() for l in d['running']], f'{dev} : ligne ACL "{check[2]}" présente'
+    if kind == 'channel_group':
+        line = f'channel-group {check[3]} mode {check[4]}'
+        return line in _iface_block(d['running'], check[2]), f'{dev} {check[2]} : {line} présent'
     if kind == 'hostname':
         h = next((l.strip().split(None, 1)[1] for l in d['running'] if l.strip().startswith('hostname ')), None)
         return h == check[2], f'{dev} : hostname {check[2]} (actuel : {h or "aucun"})'
@@ -311,6 +316,8 @@ def healthy_checks(topo):
             checks.append(['nat_outside', name, d['nat_outside_iface']])
         if 'nat_acl' in d:
             checks.append(['pat_rule', name, d['nat_acl'], d['nat_outside_iface']])
+        for line in d.get('acl_lines', []):
+            checks.append(['acl_line', name, line])
         if 'default_route_next_hop' in d:
             checks.append(['default_route', name, d['default_route_next_hop']])
         if 'stp_priority' in d:
@@ -328,6 +335,9 @@ def healthy_checks(topo):
             checks += [['trunk_allowed_vlan', name, iface, v] for v in allowed]
         for iface, sub in d.get('subinterfaces', {}).items():
             checks.append(['dot1q_vlan', name, iface, sub['vlan']])
+        ec = d.get('etherchannel')
+        if ec:
+            checks += [['channel_group', name, iface, ec['group'], ec['mode']] for iface in ec['members']]
     for link in topo['links']:   # (a, port_a, b, port_b[, type_de_câble])
         checks.append(['link', link[0], link[2]])
     return checks

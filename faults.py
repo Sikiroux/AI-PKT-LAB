@@ -115,14 +115,6 @@ def _pc_access_point(topo, pc):
     return next(((l[0], l[1]) if l[2] == pc else (l[2], l[3])) for l in topo['links'] if pc in (l[0], l[2]))
 
 
-def _append_before_end(lines, new_lines):
-    """Insère new_lines juste avant le 'end' final plutôt qu'après (ordre
-    réaliste d'une running-config, au cas où PT la réinterprète en ordre)."""
-    if lines and lines[-1].strip() == 'end':
-        return lines[:-1] + new_lines + [lines[-1]]
-    return lines + new_lines
-
-
 def _set_pc_gateway(engine, gw):
     _set(engine, 'GATEWAY', gw)
     port = _wired_port(engine)
@@ -655,6 +647,103 @@ def f_subinterface_shutdown(root, topo, rng):
             'checks': [['iface_up', router, iface]]}
 
 
+# ─── Pannes ACL (multisite_ospf_nat) ──────────────────────────────────────────
+# L'ACL 120 (icmp + http vers WEB uniquement) est posée dans le gabarit
+# lui-même comme politique de sécurité volontaire, pas une porte grande
+# ouverte (voir builder.py). Patterns tirés du catalogue de Damien (fiches
+# 42/43), rendus procéduraux : chaque fonction retire UNE des 2 lignes de
+# l'ACL réelle de ce lab, jamais une valeur recopiée de l'exemple du PDF.
+
+def f_acl_http_denied(root, topo, rng):
+    router = 'R-EDGE'
+    line = next(l for l in topo['devices'][router]['acl_lines'] if ' tcp ' in l)
+    engine = _devices(root)[router].find('ENGINE')
+    lines = [l for l in _config_lines(engine) if l.strip() != line]
+    _write_config(engine, lines)
+    return {'device': router,
+            'cause': f'{router} : ligne ACL "{line}" supprimée, le ping vers le serveur web passe '
+                     f'toujours mais plus la page HTTP',
+            'solution': f'{router} : {line}',
+            'checks': [['acl_line', router, line]]}
+
+
+def f_acl_implicit_deny(root, topo, rng):
+    router = 'R-EDGE'
+    line = next(l for l in topo['devices'][router]['acl_lines'] if ' icmp ' in l)
+    engine = _devices(root)[router].find('ENGINE')
+    lines = [l for l in _config_lines(engine) if l.strip() != line]
+    _write_config(engine, lines)
+    return {'device': router,
+            'cause': f'{router} : ligne ACL "{line}" supprimée, la page HTTP du serveur web reste '
+                     f'accessible mais le ping ne passe plus (deny implicite)',
+            'solution': f'{router} : {line}',
+            'checks': [['acl_line', router, line]]}
+
+
+# ─── Pannes EtherChannel (etherchannel) ────────────────────────────────────────
+# Baseline volontairement asymétrique (S1 active / S2 passive, voir
+# builder.py) : patterns tirés du catalogue de Damien (fiche 49) et d'une
+# vraie soumission étudiante (docs/BACKLOG_EXERCICES.md), rendus procéduraux.
+
+def f_lacp_both_passive(root, topo, rng):
+    candidates = [n for n, d in topo['devices'].items() if d.get('etherchannel', {}).get('mode') == 'active']
+    switch = _pick_device(topo, rng, candidates)
+    ec = topo['devices'][switch]['etherchannel']
+    engine = _devices(root)[switch].find('ENGINE')
+    lines = _config_lines(engine)
+    for iface in ec['members']:
+        start, end = _interface_block(lines, iface)
+        lines[start + 1:end] = [f' channel-group {ec["group"]} mode passive'
+                                if l.strip().startswith('channel-group') else l for l in lines[start + 1:end]]
+    _write_config(engine, lines)
+    return {'device': switch,
+            'cause': f'{switch} : les ports du bundle repassés en LACP passive, plus aucun côté ne '
+                     f'négocie activement — l\'agrégat ne se forme plus',
+            'solution': f'{switch} : channel-group {ec["group"]} mode {ec["mode"]} sur {", ".join(ec["members"])}',
+            'checks': [['channel_group', switch, iface, ec['group'], ec['mode']] for iface in ec['members']]}
+
+
+def f_channel_mode_access(root, topo, rng):
+    # Confirmé par une vraie soumission étudiante (docs/BACKLOG_EXERCICES.md) :
+    # un port du bundle resté en switchport mode access au lieu de trunk/channel.
+    candidates = [n for n, d in topo['devices'].items() if d.get('etherchannel')]
+    switch = _pick_device(topo, rng, candidates)
+    ec = topo['devices'][switch]['etherchannel']
+    iface = rng.choice(ec['members'])
+    engine = _devices(root)[switch].find('ENGINE')
+    lines = _config_lines(engine)
+    start, end = _interface_block(lines, iface)
+    block = [l for l in lines[start + 1:end] if not l.strip().startswith('channel-group')]
+    block.append(' switchport mode access')
+    _write_config(engine, lines[:start + 1] + block + lines[end:])
+    return {'device': switch,
+            'cause': f'{switch} : {iface} sorti du bundle (repassé en switchport mode access au lieu '
+                     f'de channel-group), l\'agrégat perd un port sur deux',
+            'solution': f'{switch} : interface {iface} → channel-group {ec["group"]} mode {ec["mode"]}',
+            'checks': [['channel_group', switch, iface, ec['group'], ec['mode']]]}
+
+
+def f_channel_group_mismatch(root, topo, rng):
+    # Confirmé par une vraie soumission étudiante (docs/BACKLOG_EXERCICES.md) :
+    # channel-group différent entre les 2 extrémités du bundle.
+    candidates = [n for n, d in topo['devices'].items() if d.get('etherchannel')]
+    switch = _pick_device(topo, rng, candidates)
+    ec = topo['devices'][switch]['etherchannel']
+    wrong_group = ec['group'] + 1
+    engine = _devices(root)[switch].find('ENGINE')
+    lines = _config_lines(engine)
+    for iface in ec['members']:
+        start, end = _interface_block(lines, iface)
+        lines[start + 1:end] = [f' channel-group {wrong_group} mode {ec["mode"]}'
+                                if l.strip().startswith('channel-group') else l for l in lines[start + 1:end]]
+    _write_config(engine, lines)
+    return {'device': switch,
+            'cause': f'{switch} : le bundle utilise channel-group {wrong_group} au lieu de {ec["group"]}, '
+                     f'ne correspond plus au numéro utilisé par l\'autre extrémité',
+            'solution': f'{switch} : channel-group {ec["group"]} mode {ec["mode"]} sur {", ".join(ec["members"])}',
+            'checks': [['channel_group', switch, iface, ec['group'], ec['mode']] for iface in ec['members']]}
+
+
 # ─── Catalogue ───────────────────────────────────────────────────────────────
 # level  = difficulté minimale
 # topos  = topologies compatibles
@@ -667,8 +756,8 @@ CATALOGUE = {
     'pc_wrong_gateway':          {'fn': f_pc_wrong_gateway,          'level': 1, 'theme': 'adressage', 'target': 'pc', 'topos': ['simple_lan'], 'hidden': False},
     'pc_wrong_ip':               {'fn': f_pc_wrong_ip,               'level': 1, 'theme': 'adressage', 'target': 'pc', 'topos': ['simple_lan'], 'hidden': False},
     'pc_wrong_dns':              {'fn': f_pc_wrong_dns,              'level': 1, 'theme': 'dns', 'target': 'pc', 'topos': ['multisite_ospf_nat'], 'hidden': False},
-    'pc_power_off':              {'fn': f_pc_power_off,              'level': 1, 'theme': 'materiel',  'target': 'pc', 'topos': ['simple_lan', 'dhcp_lan', 'switched_redundant', 'vlan_trunk'], 'hidden': False},
-    'cable_missing':             {'fn': f_cable_missing,             'level': 1, 'theme': 'cablage',   'target': 'pc', 'topos': ['simple_lan', 'dhcp_lan', 'switched_redundant', 'vlan_trunk'], 'hidden': False},
+    'pc_power_off':              {'fn': f_pc_power_off,              'level': 1, 'theme': 'materiel',  'target': 'pc', 'topos': ['simple_lan', 'dhcp_lan', 'switched_redundant', 'vlan_trunk', 'etherchannel'], 'hidden': False},
+    'cable_missing':             {'fn': f_cable_missing,             'level': 1, 'theme': 'cablage',   'target': 'pc', 'topos': ['simple_lan', 'dhcp_lan', 'switched_redundant', 'vlan_trunk', 'etherchannel'], 'hidden': False},
     'router_interface_shutdown': {'fn': f_router_interface_shutdown, 'level': 1, 'theme': 'routeur',   'target': 'R1', 'topos': ['simple_lan', 'dhcp_lan'], 'hidden': False},
     'pc_wrong_mask':             {'fn': f_pc_wrong_mask,             'level': 2, 'theme': 'adressage', 'target': 'pc', 'topos': ['simple_lan'], 'hidden': False},
     'router_wrong_ip':           {'fn': f_router_wrong_ip,           'level': 2, 'theme': 'routeur',   'target': 'R1', 'topos': ['simple_lan'], 'hidden': False},
@@ -684,7 +773,7 @@ CATALOGUE = {
     'stp_root_priority_missing':   {'fn': f_stp_root_priority_missing,   'level': 2, 'theme': 'switch',  'target': 'stp_switch', 'topos': ['switched_redundant'], 'hidden': False},
     'nat_outside_missing':         {'fn': f_nat_outside_missing,         'level': 2, 'theme': 'nat',     'target': 'R-EDGE', 'topos': ['multisite_ospf_nat'], 'hidden': False},
     'pat_rule_missing':            {'fn': f_pat_rule_missing,            'level': 2, 'theme': 'nat',     'target': 'R-EDGE', 'topos': ['multisite_ospf_nat'], 'hidden': False},
-    'hostname_wrong':              {'fn': f_hostname_wrong,              'level': 1, 'theme': 'conformite', 'target': 'any_device', 'topos': ['simple_lan', 'dhcp_lan', 'multisite_ospf_nat', 'switched_redundant', 'vlan_trunk'], 'hidden': False},
+    'hostname_wrong':              {'fn': f_hostname_wrong,              'level': 1, 'theme': 'conformite', 'target': 'any_device', 'topos': ['simple_lan', 'dhcp_lan', 'multisite_ospf_nat', 'switched_redundant', 'vlan_trunk', 'etherchannel'], 'hidden': False},
     'ospf_wrong_area':             {'fn': f_ospf_wrong_area,             'level': 2, 'theme': 'routeur', 'target': 'multisite_router', 'topos': ['multisite_ospf_nat'], 'hidden': False},
     'ospf_transit_passive':        {'fn': f_ospf_transit_passive,        'level': 2, 'theme': 'routeur', 'target': 'multisite_router', 'topos': ['multisite_ospf_nat'], 'hidden': False},
     'ospf_timer_mismatch':         {'fn': f_ospf_timer_mismatch,         'level': 2, 'theme': 'routeur', 'target': 'multisite_router', 'topos': ['multisite_ospf_nat'], 'hidden': False},
@@ -694,6 +783,11 @@ CATALOGUE = {
     'trunk_vlan_filtered':         {'fn': f_trunk_vlan_filtered,         'level': 2, 'theme': 'vlan', 'target': 'vlan_switch', 'topos': ['vlan_trunk'], 'hidden': False},
     'dot1q_wrong_vlan':            {'fn': f_dot1q_wrong_vlan,            'level': 2, 'theme': 'vlan', 'target': 'R1', 'topos': ['vlan_trunk'], 'hidden': False},
     'subinterface_shutdown':       {'fn': f_subinterface_shutdown,       'level': 1, 'theme': 'vlan', 'target': 'R1', 'topos': ['vlan_trunk'], 'hidden': False},
+    'acl_http_denied':             {'fn': f_acl_http_denied,             'level': 2, 'theme': 'acl', 'target': 'R-EDGE', 'topos': ['multisite_ospf_nat'], 'hidden': False},
+    'acl_implicit_deny':           {'fn': f_acl_implicit_deny,           'level': 2, 'theme': 'acl', 'target': 'R-EDGE', 'topos': ['multisite_ospf_nat'], 'hidden': False},
+    'lacp_both_passive':           {'fn': f_lacp_both_passive,           'level': 2, 'theme': 'etherchannel', 'target': 'ec_switch', 'topos': ['etherchannel'], 'hidden': False},
+    'channel_mode_access':         {'fn': f_channel_mode_access,         'level': 2, 'theme': 'etherchannel', 'target': 'ec_switch', 'topos': ['etherchannel'], 'hidden': False},
+    'channel_group_mismatch':      {'fn': f_channel_group_mismatch,      'level': 2, 'theme': 'etherchannel', 'target': 'ec_switch', 'topos': ['etherchannel'], 'hidden': False},
 }
 
 # Nombre de pannes simultanées selon la difficulté

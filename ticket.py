@@ -357,6 +357,74 @@ SYMPTOMS = {
             "group has no issue.",
         ],
     },
+    'acl_http_denied': {
+        'fr': [
+            "Le serveur web répond bien au ping depuis les sites, mais la page ne s'affiche plus dans "
+            "le navigateur depuis ce matin.",
+            "Depuis la dernière intervention sur le routeur de bordure, le site intranet ne s'ouvre "
+            "plus du tout, alors que le serveur répond toujours au ping.",
+        ],
+        'en': [
+            "The web server still responds to ping from the sites, but the page won't load in the "
+            "browser anymore since this morning.",
+            "Since the last change on the edge router, the intranet site no longer opens at all, even "
+            "though the server still answers ping.",
+        ],
+    },
+    'acl_implicit_deny': {
+        'fr': [
+            "La page du serveur web s'ouvre toujours très bien, mais plus aucun ping ne passe vers lui "
+            "depuis ce matin.",
+            "Depuis la dernière intervention sur le routeur de bordure, impossible de pinguer le "
+            "serveur web, alors que son site reste accessible normalement.",
+        ],
+        'en': [
+            "The web server's page still opens just fine, but no ping gets through to it anymore "
+            "since this morning.",
+            "Since the last change on the edge router, the web server can't be pinged anymore, even "
+            "though its site stays normally accessible.",
+        ],
+    },
+    'lacp_both_passive': {
+        'fr': [
+            "Depuis la dernière intervention sur un des switchs, la bande passante entre les 2 "
+            "bâtiments semble avoir chuté de moitié, sans coupure complète.",
+            "Le lien entre les 2 switchs fonctionne toujours, mais il semble beaucoup moins rapide "
+            "que d'habitude depuis hier.",
+        ],
+        'en': [
+            "Since the last work on one of the switches, bandwidth between the 2 buildings seems to "
+            "have dropped by half, without a full outage.",
+            "The link between the 2 switches still works, but seems much slower than usual since "
+            "yesterday.",
+        ],
+    },
+    'channel_mode_access': {
+        'fr': [
+            "Depuis la dernière intervention sur un switch, la liaison entre les 2 bâtiments semble "
+            "moins performante qu'avant, sans coupure franche.",
+            "Le lien entre les 2 switchs fonctionne toujours mais la capacité semble réduite depuis hier.",
+        ],
+        'en': [
+            "Since the last switch maintenance, the link between the 2 buildings seems less performant "
+            "than before, without a clear outage.",
+            "The link between the 2 switches still works but capacity seems reduced since yesterday.",
+        ],
+    },
+    'channel_group_mismatch': {
+        'fr': [
+            "Depuis l'intervention d'hier sur un des switchs, le lien entre les 2 bâtiments est tombé "
+            "à la moitié de sa capacité habituelle.",
+            "La liaison entre les 2 switchs a perdu en performance depuis la dernière maintenance, "
+            "sans que personne n'ait débranché quoi que ce soit.",
+        ],
+        'en': [
+            "Since yesterday's work on one of the switches, the link between the 2 buildings dropped "
+            "to half its usual capacity.",
+            "The link between the 2 switches lost performance since the last maintenance, without "
+            "anyone having unplugged anything.",
+        ],
+    },
     'pc_wrong_dns': {
         'fr': [
             "Depuis ce matin, je n'arrive plus à ouvrir le site de l'intranet par son nom, mais l'accès "
