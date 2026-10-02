@@ -92,6 +92,37 @@ def _interface_block(lines, interface):
     return start, end
 
 
+def _router_ospf_block(lines):
+    """Même principe que _interface_block, pour le bloc 'router ospf 1'."""
+    start = next(i for i, l in enumerate(lines) if l.strip() == 'router ospf 1')
+    end = start + 1
+    while end < len(lines) and lines[end].startswith(' '):
+        end += 1
+    return start, end
+
+
+def _vlan_block(lines, vid):
+    """Même principe que _interface_block, pour le bloc 'vlan X'."""
+    start = next(i for i, l in enumerate(lines) if l.strip() == f'vlan {vid}')
+    end = start + 1
+    while end < len(lines) and lines[end].startswith(' '):
+        end += 1
+    return start, end
+
+
+def _pc_access_point(topo, pc):
+    """Switch + port auxquels un PC est relié, déduits de topo['links']."""
+    return next(((l[0], l[1]) if l[2] == pc else (l[2], l[3])) for l in topo['links'] if pc in (l[0], l[2]))
+
+
+def _append_before_end(lines, new_lines):
+    """Insère new_lines juste avant le 'end' final plutôt qu'après (ordre
+    réaliste d'une running-config, au cas où PT la réinterprète en ordre)."""
+    if lines and lines[-1].strip() == 'end':
+        return lines[:-1] + new_lines + [lines[-1]]
+    return lines + new_lines
+
+
 def _set_pc_gateway(engine, gw):
     _set(engine, 'GATEWAY', gw)
     port = _wired_port(engine)
@@ -160,6 +191,20 @@ def f_pc_wrong_mask(root, topo, rng):
             'checks': [['pc_mask', pc, topo['mask']]]}
 
 
+def f_pc_wrong_dns(root, topo, rng):
+    candidates = [n for n, d in topo['devices'].items() if d.get('dns')]
+    pc = _pick_device(topo, rng, candidates)
+    correct = topo['devices'][pc]['dns']
+    wrong = ipaddress.IPv4Address(correct)
+    wrong = str(wrong + 1 if int(wrong) % 2 == 0 else wrong - 1)
+    _set(_wired_port(_devices(root)[pc].find('ENGINE')), 'PORT_DNS', wrong)
+    return {'device': pc,
+            'cause': f'DNS de {pc} à {wrong} au lieu de {correct} : les sites web par nom ne s\'ouvrent plus, '
+                     f'mais tout fonctionne encore par adresse IP',
+            'solution': f'Sur {pc} : Desktop > IP Configuration > DNS Server = {correct}',
+            'checks': [['pc_dns', pc, correct]]}
+
+
 def f_router_interface_shutdown(root, topo, rng):
     engine = _devices(root)['R1'].find('ENGINE')
     iface = next(iter(topo['devices']['R1']['interfaces']))
@@ -202,8 +247,7 @@ def f_cable_missing(root, topo, rng):
             break
     # Déduit le switch côté PC depuis la topo plutôt que de supposer 'S1' :
     # vrai sur simple_lan/dhcp_lan, faux dans un gabarit à plusieurs switchs.
-    other, sw_port = next(((l[0], l[1]) if l[2] == pc else (l[2], l[3]))
-                          for l in topo['links'] if pc in (l[0], l[2]))
+    other, sw_port = _pc_access_point(topo, pc)
     return {'device': pc,
             'cause': f'Câble débranché entre {pc} et {other} ({sw_port})',
             'solution': f'Rebrancher {pc} FastEthernet0 ↔ {other} {sw_port} (câble droit)',
@@ -333,14 +377,20 @@ def f_default_route_wrong_nexthop(root, topo, rng):
     # Confirmé sur un vrai lab officiel CCNA (SRWE 16.3.1 Troubleshoot Static
     # and Default Routes, voir docs/BACKLOG_EXERCICES.md) : route par défaut
     # pointant vers une adresse qui n'existe sur aucun appareil du lien, au
-    # lieu du voisin réel. Ici : adresse de broadcast du même /30 que le vrai
-    # next-hop (regarde juste faux, même sous-réseau que le lien réel).
+    # lieu du voisin réel. Décale vers le bloc /30 voisin (même mécanique que
+    # f_wan_wrong_ip) plutôt que d'utiliser l'adresse de broadcast du lien :
+    # un /30 n'a que 2 adresses d'hôte, déjà prises par les 2 extrémités, et
+    # Damien a relevé (Catalogue_pannes_Packet_Tracer_Damien.pdf, fiche 31)
+    # qu'IOS/PT peut refuser un next-hop égal au broadcast d'un sous-réseau
+    # connecté — autant éviter le risque avec un mécanisme déjà utilisé.
     router = 'R-EDGE'
     correct = topo['devices'][router]['default_route_next_hop']
     out_iface = topo['devices'][router]['nat_outside_iface']
     cfg = topo['devices'][router]['interfaces'][out_iface]
     net = ipaddress.IPv4Network(f'{cfg["ip"]}/{cfg["mask"]}', strict=False)
-    wrong = str(net.broadcast_address)
+    wrong_base = ipaddress.IPv4Address(int(net.network_address) + net.num_addresses)
+    wrong_net = ipaddress.IPv4Network(f'{wrong_base}/{net.prefixlen}', strict=False)
+    wrong = str(wrong_net.network_address + 2)
     engine = _devices(root)[router].find('ENGINE')
     lines = [f'ip route 0.0.0.0 0.0.0.0 {wrong}' if l.strip().startswith('ip route 0.0.0.0 0.0.0.0') else l
              for l in _config_lines(engine)]
@@ -370,6 +420,241 @@ def f_stp_root_priority_missing(root, topo, rng):
             'checks': [['stp_priority', switch, prio['vlan'], prio['priority']]]}
 
 
+def f_nat_outside_missing(root, topo, rng):
+    router = 'R-EDGE'
+    iface = topo['devices'][router]['nat_outside_iface']
+    engine = _devices(root)[router].find('ENGINE')
+    lines = _config_lines(engine)
+    start, end = _interface_block(lines, iface)
+    block = [l for l in lines[start + 1:end] if l.strip() != 'ip nat outside']
+    _write_config(engine, lines[:start + 1] + block + lines[end:])
+    return {'device': router,
+            'cause': f'{router} : "ip nat outside" absent sur {iface}, la traduction NAT ne se déclenche plus '
+                     f'pour le trafic sortant vers Internet',
+            'solution': f'{router} : interface {iface} → ip nat outside',
+            'checks': [['nat_outside', router, iface]]}
+
+
+def f_pat_rule_missing(root, topo, rng):
+    router = 'R-EDGE'
+    acl = topo['devices'][router]['nat_acl']
+    iface = topo['devices'][router]['nat_outside_iface']
+    target = f'ip nat inside source list {acl} interface {iface} overload'
+    engine = _devices(root)[router].find('ENGINE')
+    lines = [l for l in _config_lines(engine) if l.strip() != target]
+    _write_config(engine, lines)
+    return {'device': router,
+            'cause': f'{router} : la règle de surcharge NAT ("{target}") a disparu, plus aucune traduction '
+                     f'ne se fait malgré des interfaces inside/outside correctement marquées',
+            'solution': f'{router} : {target}',
+            'checks': [['pat_rule', router, acl, iface]]}
+
+
+def f_switch_svi_wrong_ip(root, topo, rng):
+    engine = _devices(root)['S1'].find('ENGINE')
+    m = topo['devices']['S1']['mgmt']
+    net = ipaddress.IPv4Network(f'{m["ip"]}/{m["mask"]}', strict=False)
+    wrong = str(net.network_address + 254)
+    lines = _config_lines(engine)
+    start, end = _interface_block(lines, 'Vlan1')
+    lines[start + 1:end] = [f' ip address {wrong} {m["mask"]}' if l.strip().startswith('ip address') else l
+                            for l in lines[start + 1:end]]
+    _write_config(engine, lines)
+    return {'device': 'S1',
+            'cause': f'S1 : adresse de management Vlan1 à {wrong} au lieu de {m["ip"]}',
+            'solution': f'S1 : interface Vlan1 → ip address {m["ip"]} {m["mask"]}',
+            'checks': [['iface_addr', 'S1', 'Vlan1', m['ip'], m['mask']]]}
+
+
+def f_hostname_wrong(root, topo, rng):
+    candidates = [n for n, d in topo['devices'].items() if d['type'] in ('router', 'switch')]
+    name = _pick_device(topo, rng, candidates)
+    wrong = f'{name}-TMP'
+    engine = _devices(root)[name].find('ENGINE')
+    lines = [f'hostname {wrong}' if l.strip().startswith('hostname ') else l for l in _config_lines(engine)]
+    _write_config(engine, lines)
+    return {'device': name,
+            'cause': f'{name} : renommé en hostname "{wrong}", ne correspond plus à l\'inventaire réseau',
+            'solution': f'{name} : hostname {name}',
+            'checks': [['hostname', name, name]]}
+
+
+def f_ospf_wrong_area(root, topo, rng):
+    # Confirmé proche d'un pattern réel (secteur OSPF incohérent entre 2
+    # routeurs du même lien, voir Catalogue_pannes_Packet_Tracer_Damien.pdf
+    # fiche 35) : le lien reste joignable en IP, mais l'adjacence OSPF ne se
+    # forme plus puisque les 2 extrémités ne sont pas dans la même area.
+    candidates = [n for n, d in topo['devices'].items() if d.get('ospf_networks')]
+    router = _pick_device(topo, rng, candidates)
+    net_str, area = rng.choice(topo['devices'][router]['ospf_networks'])
+    net = ipaddress.IPv4Network(net_str)
+    target_line = f' network {net.network_address} {net.hostmask} area {area}'
+    wrong_line = f' network {net.network_address} {net.hostmask} area {area + 1}'
+    engine = _devices(root)[router].find('ENGINE')
+    lines = [wrong_line if l == target_line else l for l in _config_lines(engine)]
+    _write_config(engine, lines)
+    return {'device': router,
+            'cause': f'{router} : {net_str} annoncé en area {area + 1} au lieu de {area} (voisin incompatible)',
+            'solution': f'{router} : router ospf 1 → {target_line.strip()}',
+            'checks': [['ospf_network', router, net_str, area]]}
+
+
+def f_ospf_transit_passive(root, topo, rng):
+    # Confirmé proche d'un pattern réel (interface de transit déclarée
+    # passive par erreur, fiche 36) : le lien répond au ping mais l'adjacence
+    # OSPF ne se forme plus puisqu'une interface passive n'envoie plus de
+    # paquets Hello.
+    candidates = [n for n, d in topo['devices'].items() if d.get('wan_iface')]
+    router = _pick_device(topo, rng, candidates)
+    iface = topo['devices'][router]['wan_iface']
+    engine = _devices(root)[router].find('ENGINE')
+    lines = _config_lines(engine)
+    start, _ = _router_ospf_block(lines)
+    lines.insert(start + 1, f' passive-interface {iface}')
+    _write_config(engine, lines)
+    return {'device': router,
+            'cause': f'{router} : {iface} déclarée passive dans OSPF alors qu\'un voisin y est bien connecté '
+                     f'(plus de paquets Hello envoyés sur ce lien)',
+            'solution': f'{router} : router ospf 1 → no passive-interface {iface}',
+            'checks': [['ospf_not_passive', router, iface]]}
+
+
+def f_ospf_timer_mismatch(root, topo, rng):
+    # Confirmé proche d'un pattern réel (timers hello/dead personnalisés sur
+    # un seul côté d'un lien, fiche 37) : le lien IP fonctionne mais le
+    # voisinage OSPF ne reste jamais stable (timers incompatibles entre les
+    # 2 extrémités).
+    candidates = [n for n, d in topo['devices'].items() if d.get('wan_iface')]
+    router = _pick_device(topo, rng, candidates)
+    iface = topo['devices'][router]['wan_iface']
+    engine = _devices(root)[router].find('ENGINE')
+    lines = _config_lines(engine)
+    start, end = _interface_block(lines, iface)
+    block = lines[start + 1:end] + [' ip ospf hello-interval 5', ' ip ospf dead-interval 20']
+    _write_config(engine, lines[:start + 1] + block + lines[end:])
+    return {'device': router,
+            'cause': f'{router} : {iface} a des timers OSPF personnalisés (hello 5 / dead 20) incompatibles '
+                     f'avec les valeurs par défaut utilisées en face',
+            'solution': f'{router} : interface {iface} → no ip ospf hello-interval, no ip ospf dead-interval',
+            'checks': [['ospf_default_timers', router, iface]]}
+
+
+# ─── Pannes VLAN / trunk / routeur-bâton ──────────────────────────────────────
+# Topologie 'vlan_trunk' uniquement (voir builder.py). Patterns tirés du
+# catalogue soumis par Damien (Catalogue_pannes_Packet_Tracer_Damien.pdf),
+# rendus procéduraux : aucune valeur de son exemple illustratif n'est reprise
+# telle quelle, tout est lu depuis topo['devices']/topo['links'] du lab réel.
+
+def f_access_wrong_vlan(root, topo, rng):
+    candidates = [n for n, d in topo['devices'].items() if d.get('access_vlan') is not None]
+    pc = _pick_device(topo, rng, candidates)
+    sw, iface = _pc_access_point(topo, pc)
+    correct_vlan = topo['devices'][pc]['access_vlan']
+    # Seuls 2 VLAN existent dans ce gabarit : bascule vers l'autre.
+    wrong_vlan = next(d['access_vlan'] for d in topo['devices'].values()
+                      if d.get('access_vlan') not in (None, correct_vlan))
+    engine = _devices(root)[sw].find('ENGINE')
+    lines = _config_lines(engine)
+    start, end = _interface_block(lines, iface)
+    block = [f' switchport access vlan {wrong_vlan}' if l.strip().startswith('switchport access vlan') else l
+             for l in lines[start + 1:end]]
+    _write_config(engine, lines[:start + 1] + block + lines[end:])
+    return {'device': pc,
+            'cause': f'{pc} : port {iface} de {sw} basculé sur le VLAN {wrong_vlan} au lieu de {correct_vlan}',
+            'solution': f'{sw} : interface {iface} → switchport access vlan {correct_vlan}',
+            'checks': [['access_vlan', sw, iface, correct_vlan]]}
+
+
+def f_vlan_missing(root, topo, rng):
+    candidates = [n for n, d in topo['devices'].items() if d.get('vlans')]
+    switch = _pick_device(topo, rng, candidates)
+    vid = rng.choice(list(topo['devices'][switch]['vlans']))
+    name = topo['devices'][switch]['vlans'][vid]
+    engine = _devices(root)[switch].find('ENGINE')
+    lines = _config_lines(engine)
+    start, end = _vlan_block(lines, vid)
+    _write_config(engine, lines[:start] + lines[end:])
+    return {'device': switch,
+            'cause': f'{switch} : VLAN {vid} supprimé de la base ({name}), les ports qui y étaient affectés '
+                     f'perdent leur connectivité',
+            'solution': f'{switch} : vlan {vid} puis name {name}',
+            'checks': [['vlan_exists', switch, vid]]}
+
+
+def f_trunk_access_mode(root, topo, rng):
+    candidates = [n for n, d in topo['devices'].items() if d.get('trunk_ifaces')]
+    sw = _pick_device(topo, rng, candidates)
+    iface = rng.choice(list(topo['devices'][sw]['trunk_ifaces']))
+    engine = _devices(root)[sw].find('ENGINE')
+    lines = _config_lines(engine)
+    start, end = _interface_block(lines, iface)
+    block = [l for l in lines[start + 1:end] if l.strip() != 'switchport mode trunk']
+    block += [' switchport mode access', ' switchport access vlan 1']
+    _write_config(engine, lines[:start + 1] + block + lines[end:])
+    return {'device': sw,
+            'cause': f'{sw} : {iface} repassé en mode access (VLAN 1) au lieu de trunk, le lien ne transporte '
+                     f'plus les VLAN utilisateurs',
+            'solution': f'{sw} : interface {iface} → switchport mode trunk',
+            'checks': [['trunk_mode', sw, iface]]}
+
+
+def f_trunk_vlan_filtered(root, topo, rng):
+    candidates = [n for n, d in topo['devices'].items() if d.get('trunk_ifaces')]
+    sw = _pick_device(topo, rng, candidates)
+    iface = rng.choice(list(topo['devices'][sw]['trunk_ifaces']))
+    allowed = topo['devices'][sw]['trunk_ifaces'][iface]
+    removed = rng.choice(allowed)
+    kept = ','.join(str(v) for v in allowed if v != removed)
+    engine = _devices(root)[sw].find('ENGINE')
+    lines = _config_lines(engine)
+    start, end = _interface_block(lines, iface)
+    block = [f' switchport trunk allowed vlan {kept}' if l.strip().startswith('switchport trunk allowed vlan') else l
+             for l in lines[start + 1:end]]
+    _write_config(engine, lines[:start + 1] + block + lines[end:])
+    return {'device': sw,
+            'cause': f'{sw} : VLAN {removed} retiré de la liste autorisée sur le trunk {iface}, ce VLAN ne '
+                     f'traverse plus ce lien',
+            'solution': f'{sw} : interface {iface} → switchport trunk allowed vlan '
+                        f'{",".join(str(v) for v in allowed)}',
+            'checks': [['trunk_allowed_vlan', sw, iface, removed]]}
+
+
+def f_dot1q_wrong_vlan(root, topo, rng):
+    # Confirmé sur un vrai lab officiel CCNA (SRWE 4.4.8 Troubleshoot
+    # Inter-VLAN Routing, voir docs/BACKLOG_EXERCICES.md) : VLAN ID interverti
+    # entre 2 sous-interfaces d'un routeur bâton.
+    router = 'R1'
+    sub_ifaces = list(topo['devices'][router]['subinterfaces'])
+    iface = rng.choice(sub_ifaces)
+    correct_vlan = topo['devices'][router]['subinterfaces'][iface]['vlan']
+    wrong_vlan = next(v['vlan'] for i, v in topo['devices'][router]['subinterfaces'].items() if i != iface)
+    engine = _devices(root)[router].find('ENGINE')
+    lines = _config_lines(engine)
+    start, end = _interface_block(lines, iface)
+    block = [f' encapsulation dot1Q {wrong_vlan}' if l.strip().startswith('encapsulation dot1Q') else l
+             for l in lines[start + 1:end]]
+    _write_config(engine, lines[:start + 1] + block + lines[end:])
+    return {'device': router,
+            'cause': f'{router} : {iface} tagguée en dot1Q {wrong_vlan} au lieu de {correct_vlan}, ce VLAN ne '
+                     f'reçoit plus son routage',
+            'solution': f'{router} : interface {iface} → encapsulation dot1Q {correct_vlan}',
+            'checks': [['dot1q_vlan', router, iface, correct_vlan]]}
+
+
+def f_subinterface_shutdown(root, topo, rng):
+    router = 'R1'
+    iface = rng.choice(list(topo['devices'][router]['subinterfaces']))
+    engine = _devices(root)[router].find('ENGINE')
+    lines = _config_lines(engine)
+    start, end = _interface_block(lines, iface)
+    block = [l for l in lines[start + 1:end] if l.strip() != 'no shutdown'] + [' shutdown']
+    _write_config(engine, lines[:start + 1] + block + lines[end:])
+    return {'device': router,
+            'cause': f'{router} : sous-interface {iface} administrativement éteinte (shutdown)',
+            'solution': f'{router} : interface {iface} → no shutdown',
+            'checks': [['iface_up', router, iface]]}
+
+
 # ─── Catalogue ───────────────────────────────────────────────────────────────
 # level  = difficulté minimale
 # topos  = topologies compatibles
@@ -381,20 +666,34 @@ def f_stp_root_priority_missing(root, topo, rng):
 CATALOGUE = {
     'pc_wrong_gateway':          {'fn': f_pc_wrong_gateway,          'level': 1, 'theme': 'adressage', 'target': 'pc', 'topos': ['simple_lan'], 'hidden': False},
     'pc_wrong_ip':               {'fn': f_pc_wrong_ip,               'level': 1, 'theme': 'adressage', 'target': 'pc', 'topos': ['simple_lan'], 'hidden': False},
-    'pc_power_off':              {'fn': f_pc_power_off,              'level': 1, 'theme': 'materiel',  'target': 'pc', 'topos': ['simple_lan', 'dhcp_lan', 'switched_redundant'], 'hidden': False},
-    'cable_missing':             {'fn': f_cable_missing,             'level': 1, 'theme': 'cablage',   'target': 'pc', 'topos': ['simple_lan', 'dhcp_lan', 'switched_redundant'], 'hidden': False},
+    'pc_wrong_dns':              {'fn': f_pc_wrong_dns,              'level': 1, 'theme': 'dns', 'target': 'pc', 'topos': ['multisite_ospf_nat'], 'hidden': False},
+    'pc_power_off':              {'fn': f_pc_power_off,              'level': 1, 'theme': 'materiel',  'target': 'pc', 'topos': ['simple_lan', 'dhcp_lan', 'switched_redundant', 'vlan_trunk'], 'hidden': False},
+    'cable_missing':             {'fn': f_cable_missing,             'level': 1, 'theme': 'cablage',   'target': 'pc', 'topos': ['simple_lan', 'dhcp_lan', 'switched_redundant', 'vlan_trunk'], 'hidden': False},
     'router_interface_shutdown': {'fn': f_router_interface_shutdown, 'level': 1, 'theme': 'routeur',   'target': 'R1', 'topos': ['simple_lan', 'dhcp_lan'], 'hidden': False},
     'pc_wrong_mask':             {'fn': f_pc_wrong_mask,             'level': 2, 'theme': 'adressage', 'target': 'pc', 'topos': ['simple_lan'], 'hidden': False},
     'router_wrong_ip':           {'fn': f_router_wrong_ip,           'level': 2, 'theme': 'routeur',   'target': 'R1', 'topos': ['simple_lan'], 'hidden': False},
     'dhcp_wrong_default_router': {'fn': f_dhcp_wrong_default_router, 'level': 2, 'theme': 'dhcp',      'target': 'R1', 'topos': ['dhcp_lan'], 'hidden': False},
     'dhcp_wrong_network':        {'fn': f_dhcp_wrong_network,        'level': 2, 'theme': 'dhcp',      'target': 'R1', 'topos': ['dhcp_lan'], 'hidden': False},
-    'switch_no_default_gateway': {'fn': f_switch_no_default_gateway, 'level': 2, 'theme': 'switch',    'target': 'S1', 'topos': ['simple_lan', 'dhcp_lan'], 'hidden': True},
-    'switch_svi_shutdown':       {'fn': f_switch_svi_shutdown,       'level': 1, 'theme': 'switch',    'target': 'S1', 'topos': ['simple_lan', 'dhcp_lan'], 'hidden': True},
+    'switch_no_default_gateway': {'fn': f_switch_no_default_gateway, 'level': 2, 'theme': 'switch',    'target': 'S1', 'topos': ['simple_lan', 'dhcp_lan', 'switched_redundant'], 'hidden': True},
+    'switch_svi_shutdown':       {'fn': f_switch_svi_shutdown,       'level': 1, 'theme': 'switch',    'target': 'S1', 'topos': ['simple_lan', 'dhcp_lan', 'switched_redundant'], 'hidden': True},
+    'switch_svi_wrong_ip':       {'fn': f_switch_svi_wrong_ip,       'level': 2, 'theme': 'switch',    'target': 'S1', 'topos': ['simple_lan', 'dhcp_lan', 'switched_redundant'], 'hidden': True},
     'ospf_network_missing':      {'fn': f_ospf_network_missing,      'level': 1, 'theme': 'routeur',   'target': 'multisite_router', 'topos': ['multisite_ospf_nat'], 'hidden': False},
     'wan_wrong_ip':              {'fn': f_wan_wrong_ip,              'level': 2, 'theme': 'routeur',   'target': 'multisite_router', 'topos': ['multisite_ospf_nat'], 'hidden': False},
     'nat_inside_missing':        {'fn': f_nat_inside_missing,        'level': 2, 'theme': 'nat',       'target': 'R-EDGE',           'topos': ['multisite_ospf_nat'], 'hidden': False},
     'default_route_wrong_nexthop': {'fn': f_default_route_wrong_nexthop, 'level': 2, 'theme': 'routage', 'target': 'R-EDGE', 'topos': ['multisite_ospf_nat'], 'hidden': False},
     'stp_root_priority_missing':   {'fn': f_stp_root_priority_missing,   'level': 2, 'theme': 'switch',  'target': 'stp_switch', 'topos': ['switched_redundant'], 'hidden': False},
+    'nat_outside_missing':         {'fn': f_nat_outside_missing,         'level': 2, 'theme': 'nat',     'target': 'R-EDGE', 'topos': ['multisite_ospf_nat'], 'hidden': False},
+    'pat_rule_missing':            {'fn': f_pat_rule_missing,            'level': 2, 'theme': 'nat',     'target': 'R-EDGE', 'topos': ['multisite_ospf_nat'], 'hidden': False},
+    'hostname_wrong':              {'fn': f_hostname_wrong,              'level': 1, 'theme': 'conformite', 'target': 'any_device', 'topos': ['simple_lan', 'dhcp_lan', 'multisite_ospf_nat', 'switched_redundant', 'vlan_trunk'], 'hidden': False},
+    'ospf_wrong_area':             {'fn': f_ospf_wrong_area,             'level': 2, 'theme': 'routeur', 'target': 'multisite_router', 'topos': ['multisite_ospf_nat'], 'hidden': False},
+    'ospf_transit_passive':        {'fn': f_ospf_transit_passive,        'level': 2, 'theme': 'routeur', 'target': 'multisite_router', 'topos': ['multisite_ospf_nat'], 'hidden': False},
+    'ospf_timer_mismatch':         {'fn': f_ospf_timer_mismatch,         'level': 2, 'theme': 'routeur', 'target': 'multisite_router', 'topos': ['multisite_ospf_nat'], 'hidden': False},
+    'access_wrong_vlan':           {'fn': f_access_wrong_vlan,           'level': 2, 'theme': 'vlan', 'target': 'pc', 'topos': ['vlan_trunk'], 'hidden': False},
+    'vlan_missing':                {'fn': f_vlan_missing,                'level': 2, 'theme': 'vlan', 'target': 'vlan_switch', 'topos': ['vlan_trunk'], 'hidden': False},
+    'trunk_access_mode':           {'fn': f_trunk_access_mode,           'level': 2, 'theme': 'vlan', 'target': 'vlan_switch', 'topos': ['vlan_trunk'], 'hidden': False},
+    'trunk_vlan_filtered':         {'fn': f_trunk_vlan_filtered,         'level': 2, 'theme': 'vlan', 'target': 'vlan_switch', 'topos': ['vlan_trunk'], 'hidden': False},
+    'dot1q_wrong_vlan':            {'fn': f_dot1q_wrong_vlan,            'level': 2, 'theme': 'vlan', 'target': 'R1', 'topos': ['vlan_trunk'], 'hidden': False},
+    'subinterface_shutdown':       {'fn': f_subinterface_shutdown,       'level': 1, 'theme': 'vlan', 'target': 'R1', 'topos': ['vlan_trunk'], 'hidden': False},
 }
 
 # Nombre de pannes simultanées selon la difficulté

@@ -248,7 +248,8 @@ def _topo_multisite_ospf_nat(rng):
         lab.add(sw, 'switch', '2960-24TT', (x, site_switch_row), config=switch_mgmt_config(sw, sw_ip, mask24, gw))
         for name, ip in pcs.items():
             lab.add(name, 'pc', 'PC-PT', (x + (-70 if name.endswith('-1') else 70), site_pc_row), settings={
-                'ip_address': ip, 'subnet_mask': mask24, 'default_gateway': gw, 'dhcp': False})
+                'ip_address': ip, 'subnet_mask': mask24, 'default_gateway': gw, 'dhcp': False,
+                'dns_server': web_ip})
         sites[tag] = {'net': site_net, 'wan_net': wan_net, 'gw': gw, 'switch': sw, 'pcs': pcs,
                       'wan_iface': 'GigabitEthernet0/0', 'edge_ip': edge_ip}
 
@@ -273,6 +274,7 @@ def _topo_multisite_ospf_nat(rng):
                    'ospf_networks': [(str(wan1_net), 0), (str(wan2_net), 0)],
                    'nat_inside_ifaces': ['GigabitEthernet0/1', 'GigabitEthernet0/2'],
                    'nat_outside_iface': 'GigabitEthernet0/0',
+                   'nat_acl': 1,
                    'default_route_next_hop': isp_edge_ip},
         'ISP': {'model': '2911', 'type': 'router',
                 'interfaces': {'GigabitEthernet0/0': {'ip': isp_edge_ip, 'mask': str(isp_wan_net.netmask)},
@@ -288,7 +290,8 @@ def _topo_multisite_ospf_nat(rng):
         devices[s['switch']] = {'model': '2960-24TT', 'type': 'switch',
                                  'mgmt': {'ip': str(s['net'].network_address + 2), 'mask': mask24, 'gateway': s['gw']}}
         for name, ip in s['pcs'].items():
-            devices[name] = {'model': 'PC-PT', 'type': 'pc', 'ip': ip, 'mask': mask24, 'gateway': s['gw']}
+            devices[name] = {'model': 'PC-PT', 'type': 'pc', 'ip': ip, 'mask': mask24, 'gateway': s['gw'],
+                             'dns': web_ip}
 
     return lab, {'name': 'multisite_ospf_nat', 'devices': devices, 'links': links}
 
@@ -341,8 +344,72 @@ def _topo_switched_redundant(rng):
                  'devices': devices, 'links': links}
 
 
+def _topo_vlan_trunk(rng):
+    """Gabarit VLAN/trunk/inter-VLAN : routeur-bâton R1 (sous-interfaces dot1Q
+    10/20) relié en trunk à S1, lui-même relié en trunk à S2 ; 2 VLAN (10/20),
+    2 PC par VLAN répartis sur S1/S2. Couvre les familles de pannes VLAN/trunk
+    et routeur-bâton identifiées dans docs/BACKLOG_EXERCICES.md (section
+    Catalogue_pannes_Packet_Tracer_Damien.pdf). Le VLAN 10 interverti avec le
+    20 sur une sous-interface reproduit exactement la panne officielle CCNA
+    confirmée (SRWE 4.4.8 Troubleshoot Inter-VLAN Routing)."""
+    net10, net20 = _random_lan(rng), _random_lan(rng)
+    mask = '255.255.255.0'
+    gw10, gw20 = str(net10.network_address + 1), str(net20.network_address + 1)
+    sub10, sub20 = 'GigabitEthernet0/0.10', 'GigabitEthernet0/0.20'
+    pcs = {
+        'PC-V10-A': (net10.network_address + 10, 10, gw10), 'PC-V20-A': (net20.network_address + 10, 20, gw20),
+        'PC-V10-B': (net10.network_address + 11, 10, gw10), 'PC-V20-B': (net20.network_address + 11, 20, gw20),
+    }
+
+    lab = PktLab(rng=rng)
+    lab.add('R1', 'router', '2911', (500, ROUTER_Y), config=[
+        'hostname R1', '!', 'interface GigabitEthernet0/0', ' no shutdown', '!',
+        f'interface {sub10}', ' encapsulation dot1Q 10', f' ip address {gw10} {mask}', ' no shutdown', '!',
+        f'interface {sub20}', ' encapsulation dot1Q 20', f' ip address {gw20} {mask}', ' no shutdown', '!', 'end'])
+    lab.add('S1', 'switch', '2960-24TT', (300, SWITCH_Y), config=[
+        'hostname S1', '!', 'vlan 10', ' name V10', 'vlan 20', ' name V20', '!',
+        'interface GigabitEthernet0/1', ' switchport mode trunk', ' switchport trunk allowed vlan 10,20', '!',
+        'interface GigabitEthernet0/2', ' switchport mode trunk', ' switchport trunk allowed vlan 10,20', '!',
+        'interface FastEthernet0/1', ' switchport mode access', ' switchport access vlan 10', '!',
+        'interface FastEthernet0/2', ' switchport mode access', ' switchport access vlan 20', '!', 'end'])
+    lab.add('S2', 'switch', '2960-24TT', (700, SWITCH_Y), config=[
+        'hostname S2', '!', 'vlan 10', ' name V10', 'vlan 20', ' name V20', '!',
+        'interface GigabitEthernet0/1', ' switchport mode trunk', ' switchport trunk allowed vlan 10,20', '!',
+        'interface FastEthernet0/1', ' switchport mode access', ' switchport access vlan 10', '!',
+        'interface FastEthernet0/2', ' switchport mode access', ' switchport access vlan 20', '!', 'end'])
+    for name, x in zip(pcs, (150, 300, 700, 850)):
+        ip, _, gw = pcs[name]
+        lab.add(name, 'pc', 'PC-PT', (x, PC_Y), settings={
+            'ip_address': str(ip), 'subnet_mask': mask, 'default_gateway': gw, 'dhcp': False})
+
+    links = [
+        ('R1', 'GigabitEthernet0/0', 'S1', 'GigabitEthernet0/1'),
+        ('S1', 'GigabitEthernet0/2', 'S2', 'GigabitEthernet0/1'),
+        ('S1', 'FastEthernet0/1', 'PC-V10-A', 'FastEthernet0'),
+        ('S1', 'FastEthernet0/2', 'PC-V20-A', 'FastEthernet0'),
+        ('S2', 'FastEthernet0/1', 'PC-V10-B', 'FastEthernet0'),
+        ('S2', 'FastEthernet0/2', 'PC-V20-B', 'FastEthernet0'),
+    ]
+    for l in links:
+        lab.add_link(*l)
+
+    devices = {
+        'R1': {'model': '2911', 'type': 'router',
+               'interfaces': {sub10: {'ip': gw10, 'mask': mask}, sub20: {'ip': gw20, 'mask': mask}},
+               'subinterfaces': {sub10: {'vlan': 10}, sub20: {'vlan': 20}}},
+        'S1': {'model': '2960-24TT', 'type': 'switch', 'vlans': {10: 'V10', 20: 'V20'},
+               'trunk_ifaces': {'GigabitEthernet0/1': [10, 20], 'GigabitEthernet0/2': [10, 20]}},
+        'S2': {'model': '2960-24TT', 'type': 'switch', 'vlans': {10: 'V10', 20: 'V20'},
+               'trunk_ifaces': {'GigabitEthernet0/1': [10, 20]}},
+        **{n: {'model': 'PC-PT', 'type': 'pc', 'ip': str(ip), 'mask': mask, 'gateway': gw, 'access_vlan': vlan}
+           for n, (ip, vlan, gw) in pcs.items()},
+    }
+    return lab, {'name': 'vlan_trunk', 'mask': mask, 'devices': devices, 'links': links}
+
+
 THEMES = {'simple_lan': _topo_simple_lan, 'dhcp_lan': _topo_dhcp_lan,
-          'multisite_ospf_nat': _topo_multisite_ospf_nat, 'switched_redundant': _topo_switched_redundant}
+          'multisite_ospf_nat': _topo_multisite_ospf_nat, 'switched_redundant': _topo_switched_redundant,
+          'vlan_trunk': _topo_vlan_trunk}
 
 
 # ─── Déploiement d'un plan d'adressage (exercice VLSM → Packet Tracer) ──────

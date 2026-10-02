@@ -68,6 +68,7 @@ def read_state(pkt_path):
             'mask': port.findtext('SUBNET') if port is not None else None,
             'gateway': (e.findtext('GATEWAY') or (port.findtext('PORT_GATEWAY') if port is not None else '') or ''),
             'dhcp': port is not None and port.findtext('PORT_DHCP_ENABLE') == 'true',
+            'dns': port.findtext('PORT_DNS') if port is not None else None,
             'running': [l.text or '' for l in e.findall('RUNNINGCONFIG/LINE')],
             'startup': [l.text or '' for l in e.findall('STARTUPCONFIG/LINE')],
         }
@@ -147,12 +148,8 @@ def _default_route_nexthop(lines):
     return None
 
 
-def _ospf_has_network(lines, cidr):
-    """Le réseau cidr est-il annoncé dans un bloc 'router ospf' (ligne exacte
-    network <adresse> <wildcard> area ...) ? Même format que celui écrit par
-    faults.py/builder.py, pour rester cohérent avec la source de vérité."""
-    net = ipaddress.IPv4Network(cidr)
-    prefix = f'network {net.network_address} {net.hostmask} area '
+def _in_ospf_block(lines):
+    """Générateur des lignes situées dans un bloc 'router ospf' (dépouillées)."""
     inside = False
     for l in lines:
         if l.strip().startswith('router ospf '):
@@ -160,9 +157,23 @@ def _ospf_has_network(lines, cidr):
             continue
         if inside and not l.startswith(' '):
             inside = False
-        if inside and l.strip().startswith(prefix):
-            return True
-    return False
+        if inside:
+            yield l.strip()
+
+
+def _ospf_has_network(lines, cidr, area=0):
+    """Le réseau cidr est-il annoncé dans un bloc 'router ospf' (ligne exacte
+    network <adresse> <wildcard> area <area>) ? Même format que celui écrit
+    par faults.py/builder.py, pour rester cohérent avec la source de vérité.
+    area est comparée exactement (pas juste la présence du mot 'area') : sinon
+    une panne qui change le numéro d'area ne serait jamais détectée."""
+    net = ipaddress.IPv4Network(cidr)
+    target = f'network {net.network_address} {net.hostmask} area {area}'
+    return target in _in_ospf_block(lines)
+
+
+def _ospf_has_passive(lines, iface):
+    return f'passive-interface {iface}' in _in_ospf_block(lines)
 
 
 # ─── Évaluation d'un check ───────────────────────────────────────────────────
@@ -182,6 +193,8 @@ def evaluate(check, state):
         return d['ip'] == check[2], f'IP de {dev} = {check[2]} (actuelle : {d["ip"] or "vide"})'
     if kind == 'pc_mask':
         return d['mask'] == check[2], f'Masque de {dev} = {check[2]} (actuel : {d["mask"] or "vide"})'
+    if kind == 'pc_dns':
+        return d['dns'] == check[2], f'DNS de {dev} = {check[2]} (actuel : {d["dns"] or "vide"})'
     if kind == 'power':
         return d['power'] == check[2], f'{dev} allumé'
     if kind == 'link':
@@ -221,9 +234,41 @@ def evaluate(check, state):
         ok = bool(v) and len(v) >= 2 and str(ipaddress.IPv4Network(f'{v[0]}/{v[1]}')) == check[2]
         return ok, f'Pool DHCP de {dev} déclaré sur {check[2]}'
     if kind == 'ospf_network':
-        return _ospf_has_network(d['running'], check[2]), f'{dev} annonce {check[2]} dans OSPF'
+        area = check[3] if len(check) > 3 else 0
+        return _ospf_has_network(d['running'], check[2], area), f'{dev} annonce {check[2]} dans OSPF (area {area})'
+    if kind == 'ospf_not_passive':
+        return not _ospf_has_passive(d['running'], check[2]), f'{dev} {check[2]} : adjacence OSPF active (pas passive)'
+    if kind == 'ospf_default_timers':
+        block = _iface_block(d['running'], check[2])
+        bad = any(l.startswith('ip ospf hello-interval') or l.startswith('ip ospf dead-interval') for l in block)
+        return not bad, f'{dev} {check[2]} : timers OSPF par défaut (pas de hello/dead-interval personnalisé)'
     if kind == 'nat_inside':
         return 'ip nat inside' in _iface_block(d['running'], check[2]), f'{dev} {check[2]} : ip nat inside présent'
+    if kind == 'nat_outside':
+        return 'ip nat outside' in _iface_block(d['running'], check[2]), f'{dev} {check[2]} : ip nat outside présent'
+    if kind == 'pat_rule':
+        line = f'ip nat inside source list {check[2]} interface {check[3]} overload'
+        return line in [l.strip() for l in d['running']], f'{dev} : {line} présent'
+    if kind == 'hostname':
+        h = next((l.strip().split(None, 1)[1] for l in d['running'] if l.strip().startswith('hostname ')), None)
+        return h == check[2], f'{dev} : hostname {check[2]} (actuel : {h or "aucun"})'
+    if kind == 'vlan_exists':
+        return any(l.strip() == f'vlan {check[2]}' for l in d['running']), f'{dev} : VLAN {check[2]} présent dans la base'
+    if kind == 'access_vlan':
+        block = _iface_block(d['running'], check[2])
+        v = next((l.split()[-1] for l in block if l.startswith('switchport access vlan')), None)
+        return v == str(check[3]), f'{dev} {check[2]} : VLAN d\'accès {check[3]} (actuel : {v or "aucun"})'
+    if kind == 'trunk_mode':
+        return 'switchport mode trunk' in _iface_block(d['running'], check[2]), f'{dev} {check[2]} : mode trunk actif'
+    if kind == 'trunk_allowed_vlan':
+        block = _iface_block(d['running'], check[2])
+        line = next((l for l in block if l.startswith('switchport trunk allowed vlan')), '')
+        vlans = line.split()[-1].split(',') if line else []
+        return str(check[3]) in vlans, f'{dev} {check[2]} : VLAN {check[3]} autorisé sur le trunk'
+    if kind == 'dot1q_vlan':
+        block = _iface_block(d['running'], check[2])
+        v = next((l.split()[-1] for l in block if l.startswith('encapsulation dot1Q')), None)
+        return v == str(check[3]), f'{dev} {check[2]} : encapsulation dot1Q {check[3]} (actuelle : {v or "aucune"})'
     if kind == 'default_route':
         nh = _default_route_nexthop(d['running'])
         return nh == check[2], f'{dev} : route par défaut vers {check[2]} (actuelle : {nh or "aucune"})'
@@ -233,6 +278,11 @@ def evaluate(check, state):
     return False, f'Check inconnu : {kind}'
 
 
+def _pc_access_point(topo, pc):
+    """Switch + port auxquels un PC est relié, déduits de topo['links']."""
+    return next(((l[0], l[1]) if l[2] == pc else (l[2], l[3])) for l in topo['links'] if pc in (l[0], l[2]))
+
+
 def healthy_checks(topo):
     """Tout ce qui doit être vrai dans un lab sain : sert à détecter les dégâts collatéraux."""
     checks = []
@@ -240,6 +290,8 @@ def healthy_checks(topo):
         checks.append(['power', name, True])
         if d['type'] == 'pc' and not d.get('dhcp') and not d.get('unconfigured'):
             checks += [['pc_ip', name, d['ip']], ['pc_mask', name, d['mask']], ['pc_gateway', name, d['gateway']]]
+        if 'dns' in d:
+            checks.append(['pc_dns', name, d['dns']])
         for iface, cfg in d.get('interfaces', {}).items():
             checks += [['iface_up', name, iface], ['iface_ip', name, iface, cfg['ip']]]
         if 'mgmt' in d:   # switch administrable : SVI Vlan1 + passerelle par défaut
@@ -250,14 +302,32 @@ def healthy_checks(topo):
             checks += [['dhcp_default_router', name, d['dhcp_pool']['gateway']],
                        ['dhcp_network', name, d['dhcp_pool']['network']]]
         for net, area in d.get('ospf_networks', []):
-            checks.append(['ospf_network', name, net])
+            checks.append(['ospf_network', name, net, area])
+        if 'wan_iface' in d and d.get('ospf_networks'):
+            checks += [['ospf_not_passive', name, d['wan_iface']], ['ospf_default_timers', name, d['wan_iface']]]
         for iface in d.get('nat_inside_ifaces', []):
             checks.append(['nat_inside', name, iface])
+        if 'nat_outside_iface' in d:
+            checks.append(['nat_outside', name, d['nat_outside_iface']])
+        if 'nat_acl' in d:
+            checks.append(['pat_rule', name, d['nat_acl'], d['nat_outside_iface']])
         if 'default_route_next_hop' in d:
             checks.append(['default_route', name, d['default_route_next_hop']])
         if 'stp_priority' in d:
             p = d['stp_priority']
             checks.append(['stp_priority', name, p['vlan'], p['priority']])
+        if d['type'] in ('router', 'switch'):
+            checks.append(['hostname', name, name])
+        if d.get('access_vlan') is not None:
+            sw, iface = _pc_access_point(topo, name)
+            checks.append(['access_vlan', sw, iface, d['access_vlan']])
+        for vid in d.get('vlans', {}):
+            checks.append(['vlan_exists', name, vid])
+        for iface, allowed in d.get('trunk_ifaces', {}).items():
+            checks.append(['trunk_mode', name, iface])
+            checks += [['trunk_allowed_vlan', name, iface, v] for v in allowed]
+        for iface, sub in d.get('subinterfaces', {}).items():
+            checks.append(['dot1q_vlan', name, iface, sub['vlan']])
     for link in topo['links']:   # (a, port_a, b, port_b[, type_de_câble])
         checks.append(['link', link[0], link[2]])
     return checks

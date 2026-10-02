@@ -33,6 +33,19 @@ de Damien que "pannes à réparer" n'est qu'un des types d'exercices utiles :
   nommées "Troubleshoot..."** (voir liste et diffs ci-dessous) — c'est la
   source la plus fiable possible : c'est le programme d'examen lui-même, pas
   une inspiration tierce.
+- **`Catalogue_pannes_Packet_Tracer_Damien.pdf`** (fourni par Damien, généré
+  par une autre IA à partir de notre `faults.py` de l'époque, 02/10/2026) —
+  51 fiches couvrant VLAN/trunk, inter-VLAN, DHCP, DNS, routage statique,
+  OSPF, NAT, ACL, SSH, port security, STP, EtherChannel, Wi-Fi, conformité.
+  Le document le dit lui-même : aucun fichier `.pkt`/`.pka` n'a été généré ni
+  exécuté pour le produire — ses recettes (IP, interfaces, masques précis de
+  son exemple illustratif) ne sont **pas** reprises telles quelles, seulement
+  les *catégories* de pannes, rendues procédurales (lues depuis la vraie
+  topologie générée) comme le reste de ce projet. A aussi permis de corriger
+  un bug réel avant qu'il parte en prod : `default_route_wrong_nexthop`
+  utilisait l'adresse de broadcast du lien comme mauvais next-hop (fiche 31
+  signale qu'IOS/PT peut la refuser) — corrigé pour réutiliser le même
+  mécanisme que `wan_wrong_ip` (décalage vers le /30 voisin).
 - Tous clonés temporairement en dehors de ce dépôt, jamais committés (contenu
   sous droits) — seuls ce constat et nos propres règles entrent ici.
 
@@ -103,8 +116,21 @@ remplacent/renforcent les priorités du §Priorités de
 | **EtherChannel** | Mode de négociation incompatible (`desirable`/PAgP vs `active`/LACP) | **Confirmé** : vraie soumission étudiante | 2 | À faire |
 | **EtherChannel** | `channel-group` différent entre les 2 extrémités du bundle | **Confirmé** : vraie soumission étudiante | 2 | À faire |
 | Routage statique | Route par défaut : mauvais next-hop | **Confirmé officiel** : CCNAv7 SRWE 16.3.1 (voir ci-dessous) | 2 | ✅ Fait (`default_route_wrong_nexthop`) |
-| VLAN | Port d'accès sur le mauvais VLAN / port oublié en trunk | Pattern générique CCNA, pas encore vu de panne précise dans un vrai lab (seulement des exercices de construction) | 1-2 | À vérifier avant de coder |
+| VLAN | Port d'accès sur le mauvais VLAN | **Confirmé** : Catalogue_pannes_Packet_Tracer_Damien.pdf, rendu procédural | 2 | ✅ Fait (`access_wrong_vlan`, nouveau gabarit `vlan_trunk`) |
+| VLAN | VLAN supprimé de la base du switch | Idem | 2 | ✅ Fait (`vlan_missing`) |
+| VLAN | Trunk repassé en mode access | Idem | 2 | ✅ Fait (`trunk_access_mode`) |
+| VLAN | VLAN retiré de la liste autorisée sur un trunk | Idem | 2 | ✅ Fait (`trunk_vlan_filtered`) |
+| Inter-VLAN | VLAN ID interverti sur une sous-interface (routeur bâton) | **Confirmé officiel** : CCNAv7 SRWE 4.4.8 (voir ci-dessus) | 2 | ✅ Fait (`dot1q_wrong_vlan`) |
+| Inter-VLAN | Sous-interface éteinte | Pattern générique | 1 | ✅ Fait (`subinterface_shutdown`) |
 | STP | Priorité root bridge absente | **Confirmé officiel** : CCNAv7 ENSA 12.5.13 (voir ci-dessous) — le lab "analyzing-STP" trouvé plus tôt n'avait aucune différence de config (exercice d'observation, pas une panne), mais 12.5.13 en a une vraie | 2 | ✅ Fait (`stp_root_priority_missing`, nouveau gabarit `switched_redundant`) |
+| Routage | Mauvais secteur (area) OSPF entre 2 routeurs | **Confirmé** : Catalogue_pannes_Packet_Tracer_Damien.pdf, rendu procédural | 2 | ✅ Fait (`ospf_wrong_area`) |
+| Routage | Interface de transit déclarée passive dans OSPF | Idem | 2 | ✅ Fait (`ospf_transit_passive`) |
+| Routage | Timers OSPF hello/dead personnalisés incompatibles | Idem | 2 | ✅ Fait (`ospf_timer_mismatch`) |
+| NAT | `ip nat outside` absent sur l'interface externe | Idem | 2 | ✅ Fait (`nat_outside_missing`) |
+| NAT | Règle de surcharge PAT supprimée | Idem | 2 | ✅ Fait (`pat_rule_missing`) |
+| Switch | Mauvaise IP sur la SVI de management | Idem | 2 | ✅ Fait (`switch_svi_wrong_ip`) |
+| Conformité | Hostname ne correspondant plus à l'inventaire | Idem | 1 | ✅ Fait (`hostname_wrong`, générique à toutes les topologies) |
+| DNS | Mauvais serveur DNS sur un poste | Idem | 1 | ✅ Fait (`pc_wrong_dns`, sur `multisite_ospf_nat`) |
 
 ## 2. Construction (`missions.py`, modèle à étendre au-delà du VLSM)
 
