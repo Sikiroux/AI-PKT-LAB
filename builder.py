@@ -64,6 +64,22 @@ class PktLab(Lab):
             el.text = gw
 
 
+        records = (dev_info.get('settings') or {}).get('dns_records')
+        if records is not None:
+            engine = device_elem.find('ENGINE')
+            server = engine.find('DNS_SERVER')
+            if server is None:
+                server = ET.SubElement(engine, 'DNS_SERVER')
+            server.clear()
+            ET.SubElement(server, 'ENABLED').text = '1'
+            database = ET.SubElement(server, 'NAMESERVER-DATABASE')
+            for name, address in records.items():
+                record = ET.SubElement(database, 'RESOURCE-RECORD')
+                for tag, value in (('TYPE', 'A-REC'), ('NAME', name),
+                                   ('TTL', '86400'), ('IPADDRESS', address)):
+                    ET.SubElement(record, tag).text = value
+
+
 def switch_mgmt_config(name, ip, mask, gateway):
     """Config de base d'un switch administrable : adresse de management sur la SVI
     Vlan1 + passerelle par défaut (pour répondre aux machines des autres réseaux).
@@ -212,13 +228,15 @@ def _topo_multisite_ospf_nat(rng):
     # signalé lors du premier test réel).
     isp_row, edge_row, site_router_row, site_switch_row, site_pc_row = 100, 260, 420, 580, 740
 
-    # ACL 120 : seuls icmp (diagnostic) et http (le site web de l'ISP) sont
+    # ACL 120 : ICMP, HTTP et DNS (UDP/TCP 53 vers WEB) sont
     # autorisés à sortir des sites, posée en entrée sur les 2 interfaces
     # internes — politique de sécurité volontaire, pas une porte grande
     # ouverte à verrouiller plus tard (cf. Catalogue_pannes_Packet_Tracer_
     # Damien.pdf fiches 42/43, rendu procédural).
     acl_lines = [f'access-list 120 permit icmp any host {web_ip}',
-                f'access-list 120 permit tcp any host {web_ip} eq 80']
+                f'access-list 120 permit tcp any host {web_ip} eq 80',
+                f'access-list 120 permit udp any host {web_ip} eq 53',
+                f'access-list 120 permit tcp any host {web_ip} eq 53']
     lab = PktLab(rng=rng)
     lab.add('R-EDGE', 'router', '2911', (550, edge_row), config=[
         'hostname R-EDGE', '!',
@@ -239,7 +257,8 @@ def _topo_multisite_ospf_nat(rng):
         'interface GigabitEthernet0/1', f' ip address {isp_lan_ip} {mask24}', ' no shutdown', '!', 'end'])
 
     lab.add('WEB', 'pc', 'Server-PT', (700, isp_row), settings={
-        'ip_address': web_ip, 'subnet_mask': mask24, 'default_gateway': isp_lan_ip, 'dhcp': False})
+        'ip_address': web_ip, 'subnet_mask': mask24, 'default_gateway': isp_lan_ip, 'dhcp': False,
+        'dns_records': {'intranet.example.test': web_ip}})
 
     sites = {}
     for i, (tag, site_net, wan_net, edge_ip, site_wan_ip, gw, x) in enumerate((
@@ -303,7 +322,8 @@ def _topo_multisite_ospf_nat(rng):
             devices[name] = {'model': 'PC-PT', 'type': 'pc', 'ip': ip, 'mask': mask24, 'gateway': s['gw'],
                              'dns': web_ip}
 
-    return lab, {'name': 'multisite_ospf_nat', 'devices': devices, 'links': links}
+    return lab, {'name': 'multisite_ospf_nat', 'devices': devices, 'links': links,
+                 'web_hostname': 'intranet.example.test'}
 
 
 def _topo_switched_redundant(rng):

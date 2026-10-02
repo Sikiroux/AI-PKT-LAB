@@ -115,6 +115,9 @@ def build_html(lang, topo, scenario_paragraphs=(), is_mission=False):
     for row in rows:
         parts.append('<tr>' + ''.join(f'<td>{_esc(v)}</td>' for v in row) + '</tr>')
     parts.append('</table>')
+    if topo.get('web_hostname'):
+        label = 'Site web à tester' if lang == 'fr' else 'Website to test'
+        parts.append(f'<p>{label} : http://{_esc(topo["web_hostname"])}</p>')
     parts.append(f'<p><i>{_esc(t["footer"])}</i></p>')
     parts.append('</body></html>')
     return ''.join(parts)

@@ -456,13 +456,13 @@ SYMPTOMS = {
     'channel_group_mismatch': {
         'fr': [
             "Depuis l'intervention d'hier sur un des switchs, le lien entre les 2 bâtiments est tombé "
-            "à la moitié de sa capacité habituelle.",
+            "en fonctionnement dégradé ; vérifiez que les deux liens participent au même agrégat.",
             "La liaison entre les 2 switchs a perdu en performance depuis la dernière maintenance, "
             "sans que personne n'ait débranché quoi que ce soit.",
         ],
         'en': [
             "Since yesterday's work on one of the switches, the link between the 2 buildings dropped "
-            "to half its usual capacity.",
+            "into a degraded state; check that both links belong to the same bundle.",
             "The link between the 2 switches lost performance since the last maintenance, without "
             "anyone having unplugged anything.",
         ],

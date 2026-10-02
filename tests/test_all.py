@@ -198,6 +198,67 @@ def test_vlsm_refuse_les_erreurs():
     assert not all(ok for ok, _ in ex.grade(['10.155.73.4/28', '10.155.73.16/29', '10.155.73.24/29']))  # non aligné
 
 
+
+def test_regression_timers_et_trunks():
+    from checker import evaluate
+    def evaluate_lines(kind, lines, *args):
+        state = {'devices': {'S': {'running': ['interface GigabitEthernet0/1'] +
+                                   [' ' + line for line in lines] + ['!']}}}
+        return evaluate([kind, 'S', 'GigabitEthernet0/1', *args], state)[0]
+    assert evaluate_lines('ospf_default_timers', ['ip ospf hello-interval 10', 'ip ospf dead-interval 40'])
+    assert not evaluate_lines('ospf_default_timers', ['ip ospf hello-interval 5'])
+    for expression in (None, 'all', '10,20', '10-20', '1-9,10-30', 'except 30-40'):
+        lines = ['switchport mode trunk']
+        if expression is not None:
+            lines.append('switchport trunk allowed vlan ' + expression)
+        assert evaluate_lines('trunk_allowed_vlan', lines, 20), expression
+    for expression in ('none', '10', '1-19', 'except 20', 'remove 20', 'bad'):
+        assert not evaluate_lines('trunk_allowed_vlan', ['switchport trunk allowed vlan ' + expression], 20)
+    assert evaluate_lines('trunk_allowed_vlan', ['switchport trunk allowed vlan 10',
+                                               'switchport trunk allowed vlan add 20'], 20)
+
+
+def test_regression_dns_et_bundle_local():
+    from builder import THEMES
+    from faults import f_channel_group_mismatch, _devices, _config_lines, _interface_block
+    import instructions
+    lab, topo = THEMES['multisite_ospf_nat'](random.Random(7))
+    path = os.path.join(TMP, 'dns_regression.xml')
+    with contextlib.redirect_stdout(io.StringIO()):
+        lab.to_packettracer_xml(path)
+    root = ET.parse(path).getroot()
+    engine = _devices(root)['WEB'].find('ENGINE')
+    assert engine.findtext('DNS_SERVER/ENABLED') == '1'
+    records = engine.findall('DNS_SERVER/NAMESERVER-DATABASE/RESOURCE-RECORD')
+    assert len(records) == 1
+    assert records[0].findtext('NAME') == topo['web_hostname']
+    assert records[0].findtext('IPADDRESS') == topo['devices']['WEB']['ip']
+    acl = topo['devices']['R-EDGE']['acl_lines']
+    assert any(' udp ' in line and line.endswith('eq 53') for line in acl)
+    assert any(' tcp ' in line and line.endswith('eq 53') for line in acl)
+    assert topo['web_hostname'] in instructions.build_html('fr', topo)
+    lab, topo = THEMES['etherchannel'](random.Random(7))
+    path = os.path.join(TMP, 'bundle_regression.xml')
+    with contextlib.redirect_stdout(io.StringIO()):
+        lab.to_packettracer_xml(path)
+    root = ET.parse(path).getroot()
+    before = {name: _config_lines(dev.find('ENGINE')) for name, dev in _devices(root).items()}
+    report = f_channel_group_mismatch(root, topo, random.Random(7))
+    switch = report['device']
+    ec = topo['devices'][switch]['etherchannel']
+    lines = _config_lines(_devices(root)[switch].find('ENGINE'))
+    groups = []
+    for iface in ec['members']:
+        start, end = _interface_block(lines, iface)
+        groups += [int(line.split()[1]) for line in lines[start+1:end] if line.strip().startswith('channel-group ')]
+    assert sorted(groups) == [ec['group'], ec['group'] + 1]
+    for name, dev in _devices(root).items():
+        if name != switch:
+            assert _config_lines(dev.find('ENGINE')) == before[name]
+    assert 'switch_no_default_gateway' not in available('switched_redundant', 3)
+    assert 'switch_no_default_gateway' in available('simple_lan', 3)
+
+
 if __name__ == '__main__':
     tests = [(n, f) for n, f in sorted(globals().items()) if n.startswith('test_') and callable(f)]
     failed = 0

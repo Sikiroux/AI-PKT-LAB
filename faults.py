@@ -784,24 +784,24 @@ def f_channel_mode_access(root, topo, rng):
 
 
 def f_channel_group_mismatch(root, topo, rng):
-    # Confirmé par une vraie soumission étudiante (docs/BACKLOG_EXERCICES.md) :
-    # channel-group différent entre les 2 extrémités du bundle.
+    # Les identifiants sont locaux : séparer UN membre sur le même switch.
     candidates = [n for n, d in topo['devices'].items() if d.get('etherchannel')]
     switch = _pick_device(topo, rng, candidates)
     ec = topo['devices'][switch]['etherchannel']
     wrong_group = ec['group'] + 1
+    iface = rng.choice(ec['members'])
     engine = _devices(root)[switch].find('ENGINE')
     lines = _config_lines(engine)
-    for iface in ec['members']:
-        start, end = _interface_block(lines, iface)
-        lines[start + 1:end] = [f' channel-group {wrong_group} mode {ec["mode"]}'
-                                if l.strip().startswith('channel-group') else l for l in lines[start + 1:end]]
+    start, end = _interface_block(lines, iface)
+    lines[start + 1:end] = [f' channel-group {wrong_group} mode {ec["mode"]}'
+                            if l.strip().startswith('channel-group') else l for l in lines[start + 1:end]]
     _write_config(engine, lines)
     return {'device': switch,
-            'cause': f'{switch} : le bundle utilise channel-group {wrong_group} au lieu de {ec["group"]}, '
-                     f'ne correspond plus au numéro utilisé par l\'autre extrémité',
-            'solution': f'{switch} : channel-group {ec["group"]} mode {ec["mode"]} sur {", ".join(ec["members"])}',
-            'checks': [['channel_group', switch, iface, ec['group'], ec['mode']] for iface in ec['members']]}
+            'cause': f'{switch} : {iface} est dans le groupe {wrong_group}, les autres membres '
+                     f'restent dans le groupe {ec["group"]} sur ce même switch ; le bundle est scindé',
+            'solution': f'{switch} : interface {iface} → no channel-group {wrong_group}, puis '
+                        f'channel-group {ec["group"]} mode {ec["mode"]}',
+            'checks': [['channel_group', switch, member, ec['group'], ec['mode']] for member in ec['members']]}
 
 
 # ─── Catalogue ───────────────────────────────────────────────────────────────
@@ -824,7 +824,7 @@ CATALOGUE = {
     'router_wrong_ip':           {'fn': f_router_wrong_ip,           'level': 2, 'theme': 'routeur',   'target': 'R1', 'topos': ['simple_lan'], 'hidden': False},
     'dhcp_wrong_default_router': {'fn': f_dhcp_wrong_default_router, 'level': 2, 'theme': 'dhcp',      'target': 'R1', 'topos': ['dhcp_lan'], 'hidden': False},
     'dhcp_wrong_network':        {'fn': f_dhcp_wrong_network,        'level': 2, 'theme': 'dhcp',      'target': 'R1', 'topos': ['dhcp_lan'], 'hidden': False},
-    'switch_no_default_gateway': {'fn': f_switch_no_default_gateway, 'level': 2, 'theme': 'switch',    'target': 'S1', 'topos': ['simple_lan', 'dhcp_lan', 'switched_redundant'], 'hidden': True},
+    'switch_no_default_gateway': {'fn': f_switch_no_default_gateway, 'level': 2, 'theme': 'switch',    'target': 'S1', 'topos': ['simple_lan', 'dhcp_lan'], 'hidden': True},
     'switch_svi_shutdown':       {'fn': f_switch_svi_shutdown,       'level': 1, 'theme': 'switch',    'target': 'S1', 'topos': ['simple_lan', 'dhcp_lan', 'switched_redundant'], 'hidden': True},
     'switch_svi_wrong_ip':       {'fn': f_switch_svi_wrong_ip,       'level': 2, 'theme': 'switch',    'target': 'S1', 'topos': ['simple_lan', 'dhcp_lan', 'switched_redundant'], 'hidden': True},
     'ospf_network_missing':      {'fn': f_ospf_network_missing,      'level': 1, 'theme': 'routeur',   'target': 'multisite_router', 'topos': ['multisite_ospf_nat'], 'hidden': False},

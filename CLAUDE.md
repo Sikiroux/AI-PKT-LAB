@@ -71,3 +71,16 @@ affirmer un comportement de Packet Tracer sans l'avoir vérifié ou fait tester.
 - [ ] Analyseur de .pkt quelconque → réutiliser des labs externes
 - [ ] Mode documentation (cluster caché + telnet/CDP), mode .pka (indices, auto-correction)
 - [ ] Audit sécurité (ports inutilisés, telnet vs SSH, port-security) → pont Security+
+
+
+## Ateliers à validation manuelle (demande explicite de Damien)
+- Le logiciel reste exclusivement un générateur de missions Packet Tracer.
+- Le correcteur automatique est FACULTATIF et ne doit pas limiter le catalogue.
+- `workshops.py` gère 3 nouveaux gabarits et 40 ateliers ; menu 5 dans `main.py`.
+- Une feuille HTML contient contexte, consignes, table, indices repliables et correction finale avec tests observables. Configurer, ajouter un appareil et appliquer une politique sont aussi des missions valides.
+- `validation=manual` : `checker.check` renvoie `success=None`. Ne jamais attribuer une réussite faute de checks. Le menu autorise seulement une déclaration « vérifié manuellement » après consultation des tests.
+- Les incidents en plusieurs étapes (mail, Wi-Fi, WAN Meraki) font configurer un état sain puis injecter/réparer dans PT ; ne pas les annoncer comme pannes déjà injectées.
+- Ces nouveaux modèles et mutations sont **à tester dans PT 9** ; les tests Python ne prouvent pas le comportement réseau réel.
+- Exécuter `python tests/test_all.py` et `python tests/test_workshops.py` avant livraison.
+- Les anciens templates serveur DNS n’offrent pas tous les services. WorkshopLab préfère le Server-PT complet du catalogue, sans changer les 6 anciens gabarits.
+- Ne pas élargir ce projet aux VM/Windows Server/Docker.

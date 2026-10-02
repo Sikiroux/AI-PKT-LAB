@@ -114,7 +114,7 @@ remplacent/renforcent les priorités du §Priorités de
 | NAT | Variante dynamique : pool épuisé/mauvaise ACL | **Confirmé** : Practice-Labs (NAT dynamic) | 2 | À faire |
 | **EtherChannel** | Un port du bundle resté en `switchport mode access` au lieu de `channel-group` | **Confirmé** : vraie soumission étudiante (EtherChannel) | 2 | ✅ Fait (`channel_mode_access`, nouveau gabarit `etherchannel`) |
 | **EtherChannel** | Les 2 extrémités en LACP passive (baseline volontairement asymétrique active/passive) | **Confirmé** : Catalogue_pannes_Packet_Tracer_Damien.pdf fiche 49, rendu procédural | 2 | ✅ Fait (`lacp_both_passive`) |
-| **EtherChannel** | `channel-group` différent entre les 2 extrémités du bundle | **Confirmé** : vraie soumission étudiante | 2 | ✅ Fait (`channel_group_mismatch`) |
+| **EtherChannel** | Membres répartis dans deux groupes sur un même switch | Mécanisme corrigé : les numéros peuvent différer entre extrémités. À tester dans PT. | 2 | Implémenté (`channel_group_mismatch`) |
 | ACL | HTTP bloqué par une ACL, ping toujours permis | **Confirmé** : Catalogue_pannes_Packet_Tracer_Damien.pdf fiche 42, rendu procédural | 2 | ✅ Fait (`acl_http_denied`, sur `multisite_ospf_nat`) |
 | ACL | Ligne d'autorisation oubliée avant le deny implicite | Idem, fiche 43 | 2 | ✅ Fait (`acl_implicit_deny`) |
 | ACL | ACL appliquée "out" au lieu de "in" (ou l'inverse) | Pattern classique CCNA, demandé explicitement par Damien | 2 | ✅ Fait (`acl_wrong_direction`) |

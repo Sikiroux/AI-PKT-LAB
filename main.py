@@ -35,6 +35,7 @@ import ticket as scenario
 import checker
 import exercises
 import missions
+import workshops
 
 THEMES = {'1': ('adressage', 'Adressage IP des postes'),
           '2': ('cablage', 'Câblage'),
@@ -191,6 +192,15 @@ def validate():
               f'({meta["attempts"]} tentative(s))')
     name, folder, meta = opened[int(ask('  Lab : ', [str(i) for i in range(1, len(opened) + 1)])) - 1]
 
+    if meta.get('validation') == 'manual':
+        print(f'\n  Ouvre la feuille HTML : {meta["worksheet"]}')
+        print('  Effectue les tests de la correction dans Packet Tracer.')
+        choice = ask('  1) Continuer   2) Marquer terminé après vérification manuelle : ', ['1', '2'])
+        if choice == '2':
+            meta['status'] = 'vérifié manuellement'
+            meta['closed'] = datetime.datetime.now().isoformat(timespec='minutes')
+            save_meta(folder, meta)
+        return
     meta['attempts'] += 1
     result, text = checker.check(os.path.join(folder, '.solution.json'), pkt_path=meta['pkt'])
     print('\n' + text)
@@ -330,6 +340,33 @@ def paper_exercises():
         json.dump(hist, f, ensure_ascii=False, indent=2)
 
 
+def new_workshop():
+    print('\n  Ateliers Packet Tracer — correction manuelle dans la feuille HTML')
+    topologies = list(workshops.TOPOLOGIES)
+    for i, name in enumerate(topologies, 1):
+        print(f'   {i}) {workshops.TOPOLOGIES[name]}')
+    topology = topologies[int(ask('  Topologie : ', [str(i) for i in range(1, len(topologies)+1)]))-1]
+    ids = [fid for fid, spec in workshops.CATALOGUE.items() if spec['topology'] == topology]
+    print('   0) Surprise')
+    for i, fid in enumerate(ids, 1):
+        spec = workshops.CATALOGUE[fid]
+        print(f'   {i}) [{workshops.KINDS[spec["kind"]]}] {spec["title"]} — niveau {spec["level"]}')
+    choice = int(ask('  Mission : ', [str(i) for i in range(len(ids)+1)]))
+    fid = random.choice(ids) if choice == 0 else ids[choice-1]
+    raw = input('  Seed (Entrée = aléatoire) : ').strip()
+    seed = int(raw) if raw.isdigit() else random.randint(1, 10**9)
+    # Nom unique même en rejouant la même seed.
+    import tempfile
+    folder = tempfile.mkdtemp(prefix='A', dir=LABS)
+    meta = workshops.generate(fid, seed=seed, output_dir=folder)
+    meta.update(status='ouvert', level=workshops.CATALOGUE[fid]['level'],
+                created=datetime.datetime.now().isoformat(timespec='minutes'), attempts=0, hints=0)
+    save_meta(folder, meta)
+    print(f'\n  Atelier créé : {os.path.join(folder, "lab.pka")}')
+    print(f'  Consignes, indices et correction : {meta["worksheet"]}')
+    print('  La validation est manuelle ; aucun score automatique ne juge cet atelier.')
+
+
 def main():
     # Console Windows : forcer l'UTF-8 pour les traits et symboles (✅, ─, 💡)
     for stream in (sys.stdout, sys.stderr):
@@ -342,9 +379,9 @@ def main():
         print('\n' + '═' * 64)
         print('  pkt_lab — Générateur de labs Packet Tracer (.pka)')
         print('═' * 64)
-        print('  1) Nouveau lab\n  2) Valider un lab\n  3) Historique\n  4) Exercices papier (sous-réseaux, VLSM, IPv6)\n  0) Quitter')
+        print('  1) Nouveau lab\n  2) Valider un lab\n  3) Historique\n  4) Exercices papier (sous-réseaux, VLSM, IPv6)\n  5) Ateliers services / Wi-Fi / Meraki (correction HTML)\n  0) Quitter')
         try:
-            c = ask('  > ', ['0', '1', '2', '3', '4'])
+            c = ask('  > ', ['0', '1', '2', '3', '4', '5'])
             if c == '1':
                 new_lab()
             elif c == '2':
@@ -353,6 +390,8 @@ def main():
                 history()
             elif c == '4':
                 paper_exercises()
+            elif c == '5':
+                new_workshop()
             else:
                 break
         except (EOFError, KeyboardInterrupt):

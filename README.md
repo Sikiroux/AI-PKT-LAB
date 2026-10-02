@@ -166,3 +166,15 @@ voir `THIRD_PARTY_NOTICES.md`.
 - Généralisation procédurale des topologies complexes (une fois les gabarits
   validés), IPv6 dans les labs, audit sécurité.
 - Choix de la plage d'adressage (10/8, 172.16/12, 192.168/16) ; DNS interne.
+
+
+## Corrections du 2 octobre 2026
+
+EtherChannel, DNS, équivalences du correcteur et sélection des pannes de management : voir [la note de correction](docs/CORRECTIONS_2026-10-02.md). Les nouveaux mécanismes XML sont **à tester dans Packet Tracer 9**. Les fichiers nécessaires sont dans `validation/`.
+
+
+## Nouveaux ateliers : services, Wi-Fi et Meraki
+
+**Menu 5** : 3 gabarits supplémentaires et 40 ateliers (17 pannes injectées, 16 missions de configuration et 7 évolutions). Chaque atelier fournit un `.pka`, un `.pkt` et une feuille HTML avec indices et correction finale. Validation manuelle, sans obligation de correcteur automatique.
+
+Voir [le catalogue et les instructions](docs/ATELIERS_PACKET_TRACER.md). Les nouveaux ateliers sont **à tester dans Packet Tracer 9**. Pour les tests de développement, exécuter aussi `python tests/test_workshops.py`.

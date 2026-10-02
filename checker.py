@@ -243,8 +243,9 @@ def evaluate(check, state):
         return not _ospf_has_passive(d['running'], check[2]), f'{dev} {check[2]} : adjacence OSPF active (pas passive)'
     if kind == 'ospf_default_timers':
         block = _iface_block(d['running'], check[2])
-        bad = any(l.startswith('ip ospf hello-interval') or l.startswith('ip ospf dead-interval') for l in block)
-        return not bad, f'{dev} {check[2]} : timers OSPF par défaut (pas de hello/dead-interval personnalisé)'
+        hello = next((l.split()[-1] for l in block if l.startswith('ip ospf hello-interval ')), '10')
+        dead = next((l.split()[-1] for l in block if l.startswith('ip ospf dead-interval ')), '40')
+        return (hello, dead) == ('10', '40'), f'{dev} {check[2]} : timers OSPF Ethernet 10/40'
     if kind == 'nat_inside':
         return 'ip nat inside' in _iface_block(d['running'], check[2]), f'{dev} {check[2]} : ip nat inside présent'
     if kind == 'nat_outside':
@@ -277,9 +278,39 @@ def evaluate(check, state):
         return 'switchport mode trunk' in _iface_block(d['running'], check[2]), f'{dev} {check[2]} : mode trunk actif'
     if kind == 'trunk_allowed_vlan':
         block = _iface_block(d['running'], check[2])
-        line = next((l for l in block if l.startswith('switchport trunk allowed vlan')), '')
-        vlans = line.split()[-1].split(',') if line else []
-        return str(check[3]) in vlans, f'{dev} {check[2]} : VLAN {check[3]} autorisé sur le trunk'
+        allowed = set(range(1, 4095))  # IOS: absence de restriction = tous les VLAN
+        for line in block:
+            prefix = 'switchport trunk allowed vlan '
+            if not line.startswith(prefix):
+                continue
+            expression = line[len(prefix):]
+            operation = 'set'
+            for op in ('add', 'remove', 'except'):
+                if expression.startswith(op + ' '):
+                    operation, expression = op, expression[len(op) + 1:]
+                    break
+            try:
+                values = set()
+                if expression == 'all':
+                    values = set(range(1, 4095))
+                elif expression != 'none':
+                    for item in expression.split(','):
+                        bounds = item.strip().split('-')
+                        low, high = int(bounds[0]), int(bounds[-1])
+                        if not 1 <= low <= high <= 4094:
+                            raise ValueError('VLAN invalide')
+                        values.update(range(low, high + 1))
+                if operation == 'add':
+                    allowed |= values
+                elif operation == 'remove':
+                    allowed -= values
+                elif operation == 'except':
+                    allowed = set(range(1, 4095)) - values
+                else:
+                    allowed = values
+            except ValueError:
+                return False, f'{dev} {check[2]} : liste de VLAN invalide'
+        return int(check[3]) in allowed, f'{dev} {check[2]} : VLAN {check[3]} autorisé sur le trunk'
     if kind == 'dot1q_vlan':
         block = _iface_block(d['running'], check[2])
         v = next((l.split()[-1] for l in block if l.startswith('encapsulation dot1Q')), None)
@@ -372,6 +403,11 @@ def check(solution_path, pkt_path=None, reveal=False):
     """Vérifie le lab (une ou plusieurs pannes). Retourne (résultat, compte rendu texte)."""
     with open(solution_path, encoding='utf-8') as f:
         sol = json.load(f)
+    if sol.get('validation') == 'manual':
+        message = ('Atelier à validation manuelle : consulte la feuille HTML et réalise les tests '
+                   'dans Packet Tracer. Aucun verdict automatique n’est disponible.')
+        return {'success': None, 'manual': True, 'fixed': None, 'total': None,
+                'unfixed': [], 'collateral': [], 'unsaved': []}, message
     topo = sol['topology']
     faults = sol.get('faults') or [sol['fault']]   # compatibilité avec les tickets v1
     mission = sol.get('kind') == 'mission'          # tâches à réaliser plutôt que pannes
