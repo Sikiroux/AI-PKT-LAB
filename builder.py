@@ -272,7 +272,8 @@ def _topo_multisite_ospf_nat(rng):
                                   'GigabitEthernet0/2': {'ip': edge_wan2_ip, 'mask': str(wan2_net.netmask)}},
                    'ospf_networks': [(str(wan1_net), 0), (str(wan2_net), 0)],
                    'nat_inside_ifaces': ['GigabitEthernet0/1', 'GigabitEthernet0/2'],
-                   'nat_outside_iface': 'GigabitEthernet0/0'},
+                   'nat_outside_iface': 'GigabitEthernet0/0',
+                   'default_route_next_hop': isp_edge_ip},
         'ISP': {'model': '2911', 'type': 'router',
                 'interfaces': {'GigabitEthernet0/0': {'ip': isp_edge_ip, 'mask': str(isp_wan_net.netmask)},
                                'GigabitEthernet0/1': {'ip': isp_lan_ip, 'mask': mask24}}},
@@ -292,8 +293,56 @@ def _topo_multisite_ospf_nat(rng):
     return lab, {'name': 'multisite_ospf_nat', 'devices': devices, 'links': links}
 
 
+def _topo_switched_redundant(rng):
+    """Gabarit purement L2 : 3 switchs en triangle (S1 distribution + S2/S3
+    accès), donc un lien redondant/une boucle sur laquelle le Spanning Tree
+    doit élire un root bridge et bloquer un port. Confirmé comme vrai cas
+    officiel CCNA (ENSA 12.5.13 Troubleshoot Enterprise Networks, voir
+    docs/BACKLOG_EXERCICES.md) : priorité STP absente sur le switch censé
+    être root. Pas de routeur ici (pas nécessaire : les PC communiquent en
+    direct, dans le même VLAN/sous-réseau, à travers les 3 switchs) ; la
+    passerelle réservée dans l'adressage n'est donc rattachée à aucun
+    appareil réel, comme pour `admin_segment`."""
+    net = _random_lan(rng)
+    mask = '255.255.255.0'
+    gw = str(net.network_address + 1)   # réservée par convention, aucun routeur ne la porte ici
+    s1_ip = str(net.network_address + 2)
+    pcs = {'PC-S2': str(net.network_address + 10), 'PC-S3': str(net.network_address + 11)}
+    stp_vlan, stp_priority = 1, 4096
+
+    lab = PktLab(rng=rng)
+    lab.add('S1', 'switch', '2960-24TT', (400, SWITCH_Y - 100), config=[
+        'hostname S1', '!', 'interface Vlan1', f' ip address {s1_ip} {mask}', ' no shutdown', '!',
+        f'ip default-gateway {gw}', f'spanning-tree vlan {stp_vlan} priority {stp_priority}', '!', 'end'])
+    lab.add('S2', 'switch', '2960-24TT', (250, SWITCH_Y + 100), config=['hostname S2', '!', 'end'])
+    lab.add('S3', 'switch', '2960-24TT', (550, SWITCH_Y + 100), config=['hostname S3', '!', 'end'])
+    for name, x in zip(pcs, (250, 550)):
+        lab.add(name, 'pc', 'PC-PT', (x, PC_Y + 100), settings={
+            'ip_address': pcs[name], 'subnet_mask': mask, 'default_gateway': gw, 'dhcp': False})
+
+    links = [
+        ('S1', 'FastEthernet0/1', 'S2', 'FastEthernet0/1'),
+        ('S2', 'FastEthernet0/2', 'S3', 'FastEthernet0/1'),
+        ('S3', 'FastEthernet0/2', 'S1', 'FastEthernet0/2'),
+        ('S2', 'FastEthernet0/3', 'PC-S2', 'FastEthernet0'),
+        ('S3', 'FastEthernet0/3', 'PC-S3', 'FastEthernet0'),
+    ]
+    for l in links:
+        lab.add_link(*l)
+
+    devices = {
+        'S1': {'model': '2960-24TT', 'type': 'switch', 'mgmt': {'ip': s1_ip, 'mask': mask, 'gateway': gw},
+               'stp_priority': {'vlan': stp_vlan, 'priority': stp_priority}},
+        'S2': {'model': '2960-24TT', 'type': 'switch'},
+        'S3': {'model': '2960-24TT', 'type': 'switch'},
+        **{n: {'model': 'PC-PT', 'type': 'pc', 'ip': ip, 'mask': mask, 'gateway': gw} for n, ip in pcs.items()},
+    }
+    return lab, {'name': 'switched_redundant', 'network': str(net), 'mask': mask, 'gateway': gw,
+                 'devices': devices, 'links': links}
+
+
 THEMES = {'simple_lan': _topo_simple_lan, 'dhcp_lan': _topo_dhcp_lan,
-          'multisite_ospf_nat': _topo_multisite_ospf_nat}
+          'multisite_ospf_nat': _topo_multisite_ospf_nat, 'switched_redundant': _topo_switched_redundant}
 
 
 # ─── Déploiement d'un plan d'adressage (exercice VLSM → Packet Tracer) ──────

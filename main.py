@@ -41,8 +41,9 @@ THEMES = {'1': ('adressage', 'Adressage IP des postes'),
           '3': ('materiel', 'Matériel'),
           '4': ('routeur', 'Routeur'),
           '5': ('dhcp', 'DHCP'),
-          '6': ('switch', 'Administration du switch'),
-          '7': ('nat', 'NAT (multi-sites)')}
+          '6': ('switch', 'Administration du switch / STP'),
+          '7': ('nat', 'NAT (multi-sites)'),
+          '8': ('routage', 'Routage statique / par défaut')}
 LANGUES = {'1': ('fr', 'Français'), '2': ('en', 'English')}
 HIDDEN_FILTERS = {'1': (None, 'Toutes'), '2': (False, 'Seulement visibles (plainte utilisateur directe)'),
                   '3': (True, 'Seulement cachées (détectables uniquement depuis la supervision)')}

@@ -140,6 +140,13 @@ def _has_link(state, a, b):
     return any({x[0], x[2]} == {a, b} for x in state['links'])
 
 
+def _default_route_nexthop(lines):
+    for l in lines:
+        if l.strip().startswith('ip route 0.0.0.0 0.0.0.0 '):
+            return l.strip().split()[-1]
+    return None
+
+
 def _ospf_has_network(lines, cidr):
     """Le réseau cidr est-il annoncé dans un bloc 'router ospf' (ligne exacte
     network <adresse> <wildcard> area ...) ? Même format que celui écrit par
@@ -217,6 +224,12 @@ def evaluate(check, state):
         return _ospf_has_network(d['running'], check[2]), f'{dev} annonce {check[2]} dans OSPF'
     if kind == 'nat_inside':
         return 'ip nat inside' in _iface_block(d['running'], check[2]), f'{dev} {check[2]} : ip nat inside présent'
+    if kind == 'default_route':
+        nh = _default_route_nexthop(d['running'])
+        return nh == check[2], f'{dev} : route par défaut vers {check[2]} (actuelle : {nh or "aucune"})'
+    if kind == 'stp_priority':
+        line = f'spanning-tree vlan {check[2]} priority {check[3]}'
+        return line in [l.strip() for l in d['running']], f'{dev} : {line} présent'
     return False, f'Check inconnu : {kind}'
 
 
@@ -240,6 +253,11 @@ def healthy_checks(topo):
             checks.append(['ospf_network', name, net])
         for iface in d.get('nat_inside_ifaces', []):
             checks.append(['nat_inside', name, iface])
+        if 'default_route_next_hop' in d:
+            checks.append(['default_route', name, d['default_route_next_hop']])
+        if 'stp_priority' in d:
+            p = d['stp_priority']
+            checks.append(['stp_priority', name, p['vlan'], p['priority']])
     for link in topo['links']:   # (a, port_a, b, port_b[, type_de_câble])
         checks.append(['link', link[0], link[2]])
     return checks

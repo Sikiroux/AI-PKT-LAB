@@ -94,6 +94,15 @@ ISP et un serveur web, le tout annoncé en OSPF area 0 côté privé. Convention
 (adressage, nommage d'interfaces, NAT, OSPF) tirées de vrais labs NetAcad/CCNA,
 voir `docs/RULES_TOPOLOGIES.md`.
 
+Topologie switchée redondante : `switched_redundant` — 3 switchs en triangle
+(S1 distribution + S2/S3 accès, 1 PC chacun), donc une boucle sur laquelle le
+Spanning Tree doit élire un root bridge. Pas de routeur (lab purement L2).
+
+Le catalogue de pannes ne vient plus seulement de patterns génériques : depuis
+l'étude directe des 10 vraies activités officielles "Troubleshoot..." du
+programme CCNAv7 (voir `docs/BACKLOG_EXERCICES.md`), certaines pannes sont
+désormais confirmées par diff d'un vrai fichier NetAcad plutôt que supposées.
+
 | Panne | Niveau | Thème | Cachée | Validée dans PT |
 |---|---|---|---|---|
 | Mauvaise passerelle PC | 1 | adressage | non | ✅ (mécanisme) |
@@ -107,9 +116,11 @@ voir `docs/RULES_TOPOLOGIES.md`.
 | DHCP : pool sur le mauvais réseau | 2 | dhcp | non | à tester |
 | Switch : SVI Vlan1 éteinte | 1 | switch | **oui** | ✅ |
 | Switch : ip default-gateway absente | 2 | switch | **oui** | ✅ |
-| OSPF : réseau non annoncé (multi-sites) | 2 | routeur | non | à tester |
+| OSPF : réseau non annoncé (multi-sites) | 1 | routeur | non | ✅ |
 | IP erronée sur un lien WAN (multi-sites) | 2 | routeur | non | à tester |
 | NAT : `ip nat inside` absent (multi-sites) | 2 | nat | non | à tester |
+| Route par défaut : mauvais next-hop (multi-sites) — confirmé officiel CCNA (SRWE 16.3.1) | 2 | routage | non | à tester |
+| STP : priorité root bridge absente (switchs redondants) — confirmé officiel CCNA (ENSA 12.5.13) | 2 | switch | non | à tester |
 
 ## Développement
 - Tests : `python tests/test_all.py` (avant chaque commit)

@@ -200,11 +200,14 @@ def f_cable_missing(root, topo, rng):
             ports = [p.text for p in c.findall('PORT')]
             links.remove(link)
             break
-    sw_port = next(l[1] for l in topo['links'] if l[2] == pc)
+    # Déduit le switch côté PC depuis la topo plutôt que de supposer 'S1' :
+    # vrai sur simple_lan/dhcp_lan, faux dans un gabarit à plusieurs switchs.
+    other, sw_port = next(((l[0], l[1]) if l[2] == pc else (l[2], l[3]))
+                          for l in topo['links'] if pc in (l[0], l[2]))
     return {'device': pc,
-            'cause': f'Câble débranché entre {pc} et S1 ({sw_port})',
-            'solution': f'Rebrancher {pc} FastEthernet0 ↔ S1 {sw_port} (câble droit)',
-            'checks': [['link', pc, 'S1']]}
+            'cause': f'Câble débranché entre {pc} et {other} ({sw_port})',
+            'solution': f'Rebrancher {pc} FastEthernet0 ↔ {other} {sw_port} (câble droit)',
+            'checks': [['link', pc, other]]}
 
 
 def f_pc_power_off(root, topo, rng):
@@ -326,6 +329,47 @@ def f_nat_inside_missing(root, topo, rng):
             'checks': [['nat_inside', router, iface]]}
 
 
+def f_default_route_wrong_nexthop(root, topo, rng):
+    # Confirmé sur un vrai lab officiel CCNA (SRWE 16.3.1 Troubleshoot Static
+    # and Default Routes, voir docs/BACKLOG_EXERCICES.md) : route par défaut
+    # pointant vers une adresse qui n'existe sur aucun appareil du lien, au
+    # lieu du voisin réel. Ici : adresse de broadcast du même /30 que le vrai
+    # next-hop (regarde juste faux, même sous-réseau que le lien réel).
+    router = 'R-EDGE'
+    correct = topo['devices'][router]['default_route_next_hop']
+    out_iface = topo['devices'][router]['nat_outside_iface']
+    cfg = topo['devices'][router]['interfaces'][out_iface]
+    net = ipaddress.IPv4Network(f'{cfg["ip"]}/{cfg["mask"]}', strict=False)
+    wrong = str(net.broadcast_address)
+    engine = _devices(root)[router].find('ENGINE')
+    lines = [f'ip route 0.0.0.0 0.0.0.0 {wrong}' if l.strip().startswith('ip route 0.0.0.0 0.0.0.0') else l
+             for l in _config_lines(engine)]
+    _write_config(engine, lines)
+    return {'device': router,
+            'cause': f'{router} : route par défaut vers {wrong}, qui n\'existe sur aucun appareil '
+                     f'(au lieu de {correct}, l\'interface de l\'ISP)',
+            'solution': f'{router} : ip route 0.0.0.0 0.0.0.0 {correct}',
+            'checks': [['default_route', router, correct]]}
+
+
+def f_stp_root_priority_missing(root, topo, rng):
+    # Confirmé sur un vrai lab officiel CCNA (ENSA 12.5.13 Troubleshoot
+    # Enterprise Networks, voir docs/BACKLOG_EXERCICES.md) : priorité STP
+    # absente sur le switch censé être root bridge du VLAN.
+    candidates = [n for n, d in topo['devices'].items() if d.get('stp_priority')]
+    switch = _pick_device(topo, rng, candidates)
+    prio = topo['devices'][switch]['stp_priority']
+    target_line = f'spanning-tree vlan {prio["vlan"]} priority {prio["priority"]}'
+    engine = _devices(root)[switch].find('ENGINE')
+    lines = [l for l in _config_lines(engine) if l.strip() != target_line]
+    _write_config(engine, lines)
+    return {'device': switch,
+            'cause': f'{switch} a perdu sa priorité STP ({target_line}) : il n\'est plus garanti d\'être '
+                     f'root bridge, l\'arbre de recouvrement peut bloquer un port différent sur le lien redondant',
+            'solution': f'{switch} : {target_line}',
+            'checks': [['stp_priority', switch, prio['vlan'], prio['priority']]]}
+
+
 # ─── Catalogue ───────────────────────────────────────────────────────────────
 # level  = difficulté minimale
 # topos  = topologies compatibles
@@ -337,8 +381,8 @@ def f_nat_inside_missing(root, topo, rng):
 CATALOGUE = {
     'pc_wrong_gateway':          {'fn': f_pc_wrong_gateway,          'level': 1, 'theme': 'adressage', 'target': 'pc', 'topos': ['simple_lan'], 'hidden': False},
     'pc_wrong_ip':               {'fn': f_pc_wrong_ip,               'level': 1, 'theme': 'adressage', 'target': 'pc', 'topos': ['simple_lan'], 'hidden': False},
-    'pc_power_off':              {'fn': f_pc_power_off,              'level': 1, 'theme': 'materiel',  'target': 'pc', 'topos': ['simple_lan', 'dhcp_lan'], 'hidden': False},
-    'cable_missing':             {'fn': f_cable_missing,             'level': 1, 'theme': 'cablage',   'target': 'pc', 'topos': ['simple_lan', 'dhcp_lan'], 'hidden': False},
+    'pc_power_off':              {'fn': f_pc_power_off,              'level': 1, 'theme': 'materiel',  'target': 'pc', 'topos': ['simple_lan', 'dhcp_lan', 'switched_redundant'], 'hidden': False},
+    'cable_missing':             {'fn': f_cable_missing,             'level': 1, 'theme': 'cablage',   'target': 'pc', 'topos': ['simple_lan', 'dhcp_lan', 'switched_redundant'], 'hidden': False},
     'router_interface_shutdown': {'fn': f_router_interface_shutdown, 'level': 1, 'theme': 'routeur',   'target': 'R1', 'topos': ['simple_lan', 'dhcp_lan'], 'hidden': False},
     'pc_wrong_mask':             {'fn': f_pc_wrong_mask,             'level': 2, 'theme': 'adressage', 'target': 'pc', 'topos': ['simple_lan'], 'hidden': False},
     'router_wrong_ip':           {'fn': f_router_wrong_ip,           'level': 2, 'theme': 'routeur',   'target': 'R1', 'topos': ['simple_lan'], 'hidden': False},
@@ -349,6 +393,8 @@ CATALOGUE = {
     'ospf_network_missing':      {'fn': f_ospf_network_missing,      'level': 1, 'theme': 'routeur',   'target': 'multisite_router', 'topos': ['multisite_ospf_nat'], 'hidden': False},
     'wan_wrong_ip':              {'fn': f_wan_wrong_ip,              'level': 2, 'theme': 'routeur',   'target': 'multisite_router', 'topos': ['multisite_ospf_nat'], 'hidden': False},
     'nat_inside_missing':        {'fn': f_nat_inside_missing,        'level': 2, 'theme': 'nat',       'target': 'R-EDGE',           'topos': ['multisite_ospf_nat'], 'hidden': False},
+    'default_route_wrong_nexthop': {'fn': f_default_route_wrong_nexthop, 'level': 2, 'theme': 'routage', 'target': 'R-EDGE', 'topos': ['multisite_ospf_nat'], 'hidden': False},
+    'stp_root_priority_missing':   {'fn': f_stp_root_priority_missing,   'level': 2, 'theme': 'switch',  'target': 'stp_switch', 'topos': ['switched_redundant'], 'hidden': False},
 }
 
 # Nombre de pannes simultanées selon la difficulté

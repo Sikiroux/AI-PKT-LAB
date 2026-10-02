@@ -73,8 +73,8 @@ programme d'examen CCNA lui-même, pas une inspiration tierce), ils
 remplacent/renforcent les priorités du §Priorités de
 `docs/TAXONOMIE_PANNES_RESEAU.md`. Nouvel ordre recommandé :
 
-1. **Route statique manquante / mauvais next-hop** (16.3.1) — le plus simple à coder, pas de nouveau gabarit nécessaire (le gabarit `multisite_ospf_nat` ou un futur gabarit "chaîne de routeurs statiques" suffit).
-2. **STP root bridge priority manquante** (12.5.13/S4) — enfin un vrai cas officiel, à coder en priorité vu que c'est un théme CCNA central et qu'on n'avait aucune source jusqu'ici.
+1. ✅ **Fait** — **Route par défaut : mauvais next-hop** (`default_route_wrong_nexthop`, sur `multisite_ospf_nat`/R-EDGE) — variante simplifiée de 16.3.1 (sur la route par défaut existante vers l'ISP plutôt qu'une nouvelle chaîne de routeurs statiques, pour éviter un gabarit de plus).
+2. ✅ **Fait** — **STP root bridge priority manquante** (`stp_root_priority_missing`) — a nécessité un nouveau gabarit dédié `switched_redundant` (3 switchs en triangle S1/S2/S3, boucle L2, pas de routeur) puisqu'aucune topologie existante n'avait de lien redondant entre switchs.
 3. **VLAN ID interverti sur routeur bâton** (4.4.8) — nécessite d'abord le gabarit router-on-a-stick (déjà prévu dans `RULES_TOPOLOGIES.md` §10), mais c'est maintenant confirmé officiellement, pas juste un pattern générique.
 4. **Masque incompatible sur un lien d'interco** (12.5.13) — variante simple à ajouter à côté de `wan_wrong_ip` existant, réutilise le gabarit multi-sites tel quel.
 5. **OSPF cost / passive-interface mal posé** (12.5.13) — pannes de manipulation de chemin, plus subtiles (le réseau reste joignable mais pas par le bon chemin), bon niveau 3.
@@ -102,9 +102,9 @@ remplacent/renforcent les priorités du §Priorités de
 | **EtherChannel** | Un port du bundle resté en `switchport mode access` au lieu de `trunk` | **Confirmé** : vraie soumission étudiante (EtherChannel) | 2 | À faire |
 | **EtherChannel** | Mode de négociation incompatible (`desirable`/PAgP vs `active`/LACP) | **Confirmé** : vraie soumission étudiante | 2 | À faire |
 | **EtherChannel** | `channel-group` différent entre les 2 extrémités du bundle | **Confirmé** : vraie soumission étudiante | 2 | À faire |
-| Routage statique | Route manquante / mauvais next-hop (chaîne de routeurs) | **Confirmé** : Practice-Labs (ipv4-static-routes), règles déjà dans RULES_TOPOLOGIES.md §9 | 2 (plus simple qu'OSPF : pas d'adjacence à rétablir) | À faire |
+| Routage statique | Route par défaut : mauvais next-hop | **Confirmé officiel** : CCNAv7 SRWE 16.3.1 (voir ci-dessous) | 2 | ✅ Fait (`default_route_wrong_nexthop`) |
 | VLAN | Port d'accès sur le mauvais VLAN / port oublié en trunk | Pattern générique CCNA, pas encore vu de panne précise dans un vrai lab (seulement des exercices de construction) | 1-2 | À vérifier avant de coder |
-| STP | Rôle/priorité incohérent | ⚠️ Le lab "analyzing-STP" trouvé n'a **aucune** différence de config start/solution — c'est un exercice d'observation (`show spanning-tree`), pas une panne corrigeable. Ne pas l'ajouter ici tant qu'un vrai exemple de panne STP n'est pas trouvé. | — | À rechercher, pas encore un bon candidat |
+| STP | Priorité root bridge absente | **Confirmé officiel** : CCNAv7 ENSA 12.5.13 (voir ci-dessous) — le lab "analyzing-STP" trouvé plus tôt n'avait aucune différence de config (exercice d'observation, pas une panne), mais 12.5.13 en a une vraie | 2 | ✅ Fait (`stp_root_priority_missing`, nouveau gabarit `switched_redundant`) |
 
 ## 2. Construction (`missions.py`, modèle à étendre au-delà du VLSM)
 

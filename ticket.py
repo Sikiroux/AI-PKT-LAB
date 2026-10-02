@@ -163,6 +163,34 @@ SYMPTOMS = {
             "After this morning's general restart, no PC is getting a network address.",
         ],
     },
+    'default_route_wrong_nexthop': {
+        'fr': [
+            "Plus personne n'arrive à sortir sur Internet depuis ce matin, mais les sites communiquent "
+            "toujours très bien entre eux.",
+            "Internet est totalement coupé pour tout le monde depuis l'intervention sur le routeur de bordure. "
+            "Les échanges entre sites, eux, fonctionnent normalement.",
+        ],
+        'en': [
+            "Nobody can reach the Internet anymore since this morning, but the sites still communicate "
+            "perfectly fine with each other.",
+            "Internet access is completely down for everyone since the edge router was touched. "
+            "Traffic between sites, though, still works fine.",
+        ],
+    },
+    'stp_root_priority_missing': {
+        'fr': [
+            "Depuis la dernière maintenance, le réseau est bizarrement plus lent par moments, comme si "
+            "le trafic empruntait un chemin plus long qu'avant.",
+            "Rien n'est complètement coupé, mais certains postes mettent plus de temps que d'habitude "
+            "à joindre le reste du réseau depuis hier.",
+        ],
+        'en': [
+            "Since the last maintenance, the network is oddly slower at times, as if traffic were taking "
+            "a longer path than before.",
+            "Nothing is fully down, but some computers take longer than usual to reach the rest of the "
+            "network since yesterday.",
+        ],
+    },
 }
 
 
