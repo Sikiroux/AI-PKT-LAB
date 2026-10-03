@@ -125,14 +125,17 @@ def server_defaults(e):
         put(e,'DNS_SERVER/ENABLED',0)
 
 
-def make_topology(name, seed, folder):
+def make_topology(name, seed, folder, address_family=None):
     """Crée le socle et retourne son arbre XML et ses valeurs attendues."""
     rng = random.Random(seed)
     folder = Path(folder); folder.mkdir(parents=True, exist_ok=True)
     lab = WorkshopLab(rng=rng)
     devices, links = {}, []
     octet = rng.randint(20,180)
-    nets = {key: ipaddress.IPv4Network(f'10.{octet}.{i}.0/24')
+    family=address_family or '10'
+    if family not in ('10','172','192'):raise ValueError('Famille IPv4 privée invalide')
+    prefixes={'10':f'10.{octet}', '172':f'172.{16+octet%16}', '192':'192.168'}
+    nets = {key: ipaddress.IPv4Network(f'{prefixes[family]}.{octet+i if family=="192" else i}.0/24')
             for i,key in enumerate(('employees','servers','guests'),10)}
     def host(key, number): return str(nets[key][number])
     def add_host(n, ip, gateway, pos, model='PC-PT', dhcp_client=False, dns_ip=None):
@@ -159,7 +162,7 @@ def make_topology(name, seed, folder):
             lab.add(sw,'switch','2960-24TT',(x,320),config=builder.switch_mgmt_config(sw,host(key,2),'255.255.255.0',host(key,1)))
             devices[sw]={'type':'switch','mgmt':{'ip':host(key,2),'mask':'255.255.255.0','gateway':host(key,1)}}
             link('R1',f'GigabitEthernet0/{i}',sw,'GigabitEthernet0/1')
-        for n,key,num,x,sp in [('PC-ALICE','employees',21,100,1),('PC-BOB','employees',22,300,2),('PC-GUEST','guests',21,1000,1)]:
+        for n,key,num,x,sp in [('PC-ALICE','employees',21,100,1),('PC-BOB','employees',22,300,2),('PC-ADMIN','employees',23,450,3),('PC-GUEST','guests',21,1000,1)]:
             add_host(n,host(key,num),host(key,1),(x,540),dns_ip=infra)
             link({'employees':'SW-EMP','guests':'SW-GUEST'}[key],f'FastEthernet0/{sp}',n,'FastEthernet0')
         for i,(n,num,x) in enumerate([('SRV-INFRA',10,420),('SRV-WEB',20,600),('SRV-FTP',30,780),('SRV-MAIL',40,600)],1):
@@ -550,12 +553,12 @@ def render(topo,spec):
     return ''.join(parts)
 
 
-def generate(scenario_id,seed=None,output_dir='.',embed=True):
+def generate(scenario_id,seed=None,output_dir='.',embed=True,address_family=None):
     if scenario_id not in CATALOGUE:raise ValueError(f'Atelier inconnu : {scenario_id}')
     spec=dict(CATALOGUE[scenario_id],id=scenario_id)
     seed=seed if seed is not None else random.SystemRandom().randrange(10**9)
     folder=Path(output_dir).resolve();folder.mkdir(parents=True,exist_ok=True)
-    tree,topo=make_topology(spec['topology'],seed,folder)
+    tree,topo=make_topology(spec['topology'],seed,folder,address_family)
     baseline=folder/'baseline.xml'
     spec['mutate'](tree.getroot(),topo)
     start=folder/'initial.xml';ET.indent(tree,space=' ');tree.write(start,encoding='utf-8',short_empty_elements=False)

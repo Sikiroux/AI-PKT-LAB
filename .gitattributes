@@ -1,5 +1,0 @@
-*.bat text eol=crlf
-*.pkt binary
-*.pka binary
-*.py text eol=lf
-*.md text eol=lf
