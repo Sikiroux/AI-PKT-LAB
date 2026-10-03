@@ -1,0 +1,239 @@
+{
+  "topology": {
+    "name": "multisite_ospf_nat",
+    "devices": {
+      "R-EDGE": {
+        "model": "2911",
+        "type": "router",
+        "interfaces": {
+          "GigabitEthernet0/0": {
+            "ip": "192.0.2.1",
+            "mask": "255.255.255.252"
+          },
+          "GigabitEthernet0/1": {
+            "ip": "10.237.250.1",
+            "mask": "255.255.255.252"
+          },
+          "GigabitEthernet0/2": {
+            "ip": "10.237.250.5",
+            "mask": "255.255.255.252"
+          }
+        },
+        "ospf_networks": [
+          [
+            "10.237.250.0/30",
+            0
+          ],
+          [
+            "10.237.250.4/30",
+            0
+          ]
+        ],
+        "nat_inside_ifaces": [
+          "GigabitEthernet0/1",
+          "GigabitEthernet0/2"
+        ],
+        "nat_outside_iface": "GigabitEthernet0/0"
+      },
+      "ISP": {
+        "model": "2911",
+        "type": "router",
+        "interfaces": {
+          "GigabitEthernet0/0": {
+            "ip": "192.0.2.2",
+            "mask": "255.255.255.252"
+          },
+          "GigabitEthernet0/1": {
+            "ip": "203.0.113.1",
+            "mask": "255.255.255.0"
+          }
+        }
+      },
+      "WEB": {
+        "model": "Server-PT",
+        "type": "pc",
+        "ip": "203.0.113.11",
+        "mask": "255.255.255.0",
+        "gateway": "203.0.113.1"
+      },
+      "SITE1": {
+        "model": "2911",
+        "type": "router",
+        "interfaces": {
+          "GigabitEthernet0/0": {
+            "ip": "10.237.250.2",
+            "mask": "255.255.255.252"
+          },
+          "GigabitEthernet0/1": {
+            "ip": "10.116.221.1",
+            "mask": "255.255.255.0"
+          }
+        },
+        "ospf_networks": [
+          [
+            "10.237.250.0/30",
+            0
+          ],
+          [
+            "10.116.221.0/24",
+            0
+          ]
+        ],
+        "wan_iface": "GigabitEthernet0/0"
+      },
+      "SW-SITE1": {
+        "model": "2960-24TT",
+        "type": "switch",
+        "mgmt": {
+          "ip": "10.116.221.2",
+          "mask": "255.255.255.0",
+          "gateway": "10.116.221.1"
+        }
+      },
+      "PC-SITE1-1": {
+        "model": "PC-PT",
+        "type": "pc",
+        "ip": "10.116.221.10",
+        "mask": "255.255.255.0",
+        "gateway": "10.116.221.1"
+      },
+      "PC-SITE1-2": {
+        "model": "PC-PT",
+        "type": "pc",
+        "ip": "10.116.221.11",
+        "mask": "255.255.255.0",
+        "gateway": "10.116.221.1"
+      },
+      "SITE2": {
+        "model": "2911",
+        "type": "router",
+        "interfaces": {
+          "GigabitEthernet0/0": {
+            "ip": "10.237.250.6",
+            "mask": "255.255.255.252"
+          },
+          "GigabitEthernet0/1": {
+            "ip": "10.144.219.1",
+            "mask": "255.255.255.0"
+          }
+        },
+        "ospf_networks": [
+          [
+            "10.237.250.4/30",
+            0
+          ],
+          [
+            "10.144.219.0/24",
+            0
+          ]
+        ],
+        "wan_iface": "GigabitEthernet0/0"
+      },
+      "SW-SITE2": {
+        "model": "2960-24TT",
+        "type": "switch",
+        "mgmt": {
+          "ip": "10.144.219.2",
+          "mask": "255.255.255.0",
+          "gateway": "10.144.219.1"
+        }
+      },
+      "PC-SITE2-1": {
+        "model": "PC-PT",
+        "type": "pc",
+        "ip": "10.144.219.10",
+        "mask": "255.255.255.0",
+        "gateway": "10.144.219.1"
+      },
+      "PC-SITE2-2": {
+        "model": "PC-PT",
+        "type": "pc",
+        "ip": "10.144.219.11",
+        "mask": "255.255.255.0",
+        "gateway": "10.144.219.1"
+      }
+    },
+    "links": [
+      [
+        "R-EDGE",
+        "GigabitEthernet0/0",
+        "ISP",
+        "GigabitEthernet0/0"
+      ],
+      [
+        "ISP",
+        "GigabitEthernet0/1",
+        "WEB",
+        "FastEthernet0"
+      ],
+      [
+        "R-EDGE",
+        "GigabitEthernet0/1",
+        "SITE1",
+        "GigabitEthernet0/0"
+      ],
+      [
+        "R-EDGE",
+        "GigabitEthernet0/2",
+        "SITE2",
+        "GigabitEthernet0/0"
+      ],
+      [
+        "SITE1",
+        "GigabitEthernet0/1",
+        "SW-SITE1",
+        "GigabitEthernet0/1"
+      ],
+      [
+        "SW-SITE1",
+        "FastEthernet0/1",
+        "PC-SITE1-1",
+        "FastEthernet0"
+      ],
+      [
+        "SW-SITE1",
+        "FastEthernet0/2",
+        "PC-SITE1-2",
+        "FastEthernet0"
+      ],
+      [
+        "SITE2",
+        "GigabitEthernet0/1",
+        "SW-SITE2",
+        "GigabitEthernet0/1"
+      ],
+      [
+        "SW-SITE2",
+        "FastEthernet0/1",
+        "PC-SITE2-1",
+        "FastEthernet0"
+      ],
+      [
+        "SW-SITE2",
+        "FastEthernet0/2",
+        "PC-SITE2-2",
+        "FastEthernet0"
+      ]
+    ],
+    "pkt_path": "/tmp/claude-0/-home-user-Dolibar-audit-chantier/448304ac-262d-5c71-8836-e2060e5bfbfd/scratchpad/pka_a_tester/v4/_tmp_1_ospf_network_missing/lab_multisite_ospf_nat.pkt",
+    "seed": 11
+  },
+  "faults": [
+    {
+      "device": "SITE1",
+      "cause": "SITE1 n'annonce plus le réseau 10.116.221.0/24 dans OSPF (ligne network manquante)",
+      "solution": "SITE1 : router ospf 1 → network 10.116.221.0 0.0.0.255 area 0",
+      "checks": [
+        [
+          "ospf_network",
+          "SITE1",
+          "10.116.221.0/24"
+        ]
+      ],
+      "id": "ospf_network_missing",
+      "pkt_path": "/tmp/claude-0/-home-user-Dolibar-audit-chantier/448304ac-262d-5c71-8836-e2060e5bfbfd/scratchpad/pka_a_tester/v4/_tmp_1_ospf_network_missing/lab_1_ospf_network_missing.pka"
+    }
+  ],
+  "pkt": "/tmp/claude-0/-home-user-Dolibar-audit-chantier/448304ac-262d-5c71-8836-e2060e5bfbfd/scratchpad/pka_a_tester/v4/_tmp_1_ospf_network_missing/lab_1_ospf_network_missing.pka",
+  "lang": "fr"
+}
