@@ -285,7 +285,7 @@ class Tickets:
             if t['kind']!='service' or not self.desk:raise ValueError('Action réservée aux réseaux de tickets.')
             old=next(j for j in self.desk.g.jobs() if j['id']==t['job_id'])
             if old['status'] not in ('failed','interrupted'):raise ValueError('Relance réservée à une génération échouée ou interrompue.')
-            job=self.desk.g.start(dict(mode='depannage',scenario=t['service_scenario'],level=5,count=1,ticket_title=t['title'],**({k:t['procedural'][k] for k in ('seed','address_family')} if t.get('procedural') else {})));t['job_id']=job['id'];self.event(t['id']+' : préparation du réseau relancée.')
+            job=self.desk.g.start(dict(mode='depannage',scenario=t['service_scenario'],level=5,count=1,ticket_title=t['title'],**({k:t['procedural'][k] for k in ('seed','address_family','site_code') if k in t['procedural']} if t.get('procedural') else {}),business_names=bool(t.get('procedural',{}).get('site_code'))));t['job_id']=job['id'];self.event(t['id']+' : préparation du réseau relancée.')
         elif action=='notes':t['notes']=str(data.get('notes',''))[:4000];self.save()
         elif action=='verify':
             if t['kind']=='site_service':return site_services.verify(self,t)

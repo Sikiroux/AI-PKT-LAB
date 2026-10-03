@@ -16,6 +16,7 @@ import xml.etree.ElementTree as ET
 
 import builder
 import ptexplorer
+from addressing import private_networks
 
 KINDS = {'fault':'Dépannage','configuration':'Configuration','evolution':'Évolution'}
 
@@ -134,9 +135,7 @@ def make_topology(name, seed, folder, address_family=None, extra_web_server=Fals
     octet = rng.randint(20,180)
     family=address_family or '10'
     if family not in ('10','172','192'):raise ValueError('Famille IPv4 privée invalide')
-    prefixes={'10':f'10.{octet}', '172':f'172.{16+octet%16}', '192':'192.168'}
-    nets = {key: ipaddress.IPv4Network(f'{prefixes[family]}.{octet+i if family=="192" else i}.0/24')
-            for i,key in enumerate(('employees','servers','guests'),10)}
+    nets = private_networks(seed, family, octet)
     def host(key, number): return str(nets[key][number])
     def add_host(n, ip, gateway, pos, model='PC-PT', dhcp_client=False, dns_ip=None):
         settings={'ip_address': ip, 'subnet_mask':'255.255.255.0','default_gateway':gateway,

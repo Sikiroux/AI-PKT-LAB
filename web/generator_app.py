@@ -35,7 +35,7 @@ class Generator:
    if any(j['status']=='running' for j in self.jobs()):raise ValueError('Une génération est déjà en cours. Attends sa fin.')
    if not hasattr(self,'active'):self.active=set()
    self.active.add(ident);self.save(job)
-  req=dict(site_code=site_code,address_family=data.get('address_family'),folder=str(folder),scenario=chosen['id'],seed=seed,level=level,count=count,ticket_title=str(data.get('ticket_title',''))[:180])
+  req=dict(site_code=site_code,address_family=data.get('address_family'),folder=str(folder),scenario=chosen['id'],seed=seed,level=level,count=count,ticket_title=str(data.get('ticket_title',''))[:180],business_names=bool(data.get('business_names',False)))
   threading.Thread(target=self.work,args=(job,req),daemon=True).start();return job
  def save(self,job):
   path=self.root/job['id']/'job.json';tmp=path.with_suffix('.tmp');tmp.write_text(json.dumps(job,ensure_ascii=False),encoding='utf-8');os.replace(tmp,path)

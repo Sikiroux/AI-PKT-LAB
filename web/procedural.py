@@ -1,6 +1,8 @@
 """Choix contraint des incidents ; versionner les règles pour rejouer un tirage."""
 import random
-VERSION = 1
+VERSION = 2
+SITES = ('ALB', 'MPL', 'ROD', 'TLS', 'LYO', 'BOR')
+REQUESTERS = ('Camille', 'Nora', 'Samir', 'Léa', 'Hugo', 'Mina')
 FAMILIES = [
  ('names', 'Les services ne sont plus accessibles par leur nom', ('dns_service_off',)),
  ('intranet_name', 'Le nom de l’intranet ne mène plus à la bonne page', ('dns_record_delete', 'dns_record_wrong')),
@@ -31,4 +33,7 @@ def choose(seed, requested=None, history=(), opened=()):
   oldest=min(recent.index(x[2]) for x in options)
   options=[x for x in options if recent.index(x[2])==oldest]
  family,title,cause=rng.choice(options)
- return dict(version=VERSION,seed=seed,family=family,title=title,cause=cause,address_family=rng.choice(('10','172','192')))
+ return dict(version=VERSION,seed=seed,family=family,title=title,cause=cause,
+             address_family=rng.choice(('10','172','192')),
+             site_code=rng.choice(SITES)+str(rng.randint(1,99)).zfill(2),
+             requester=rng.choice(REQUESTERS))

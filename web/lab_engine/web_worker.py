@@ -49,7 +49,7 @@ def generate(req):
    ET.indent(tree,space=' ')
    tree.write(folder/'reference.xml',encoding='utf-8',short_empty_elements=False)
   correction_source='reproduction.xml' if reproduce_mutation else 'reference.xml' if reference_extension else 'baseline.xml'
-  layout=organization.finalize(folder,req.get('site_code','AG1'),business=not bool(req.get('ticket_title')))
+  layout=organization.finalize(folder,req.get('site_code','AG1'),business=bool(req.get('business_names')) or not bool(req.get('ticket_title')))
   if layout['applied']:
    for source,target in [('initial.xml','lab.pkt'),('activity.xml','lab.pka'),(correction_source,'correction.pkt')]:
     ptexplorer.ptfile_encode(str(folder/source),str(folder/target))

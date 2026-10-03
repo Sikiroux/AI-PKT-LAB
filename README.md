@@ -183,6 +183,8 @@ Voir [le catalogue et les instructions](docs/ATELIERS_PACKET_TRACER.md). Les nou
 
 Le générateur CLI reste accessible avec `python main.py`. Pour les tickets, les sessions chronométrées et les labs indépendants, lancer `web/LANCER-WINDOWS.bat` ou `python web/tickets_app.py`. Garder le dépôt complet : le portail réutilise le moteur et les templates à la racine.
 
+Les tickets de réseaux indépendants tirent désormais un code de site et un demandeur avec leur cause et leur famille IPv4. Le ticket annonce le réseau employés effectivement généré ; le PKA et la feuille reprennent les noms préfixés du même site. La graine conservée permet de reconstruire le cas après un échec de génération. Les rôles et les gabarits d’appareils restent ceux du catalogue.
+
 Voir [le mode d’emploi du portail](web/LIRE-MOI.md). Les données locales de tickets et les réseaux générés sont exclus de Git. Le pont communautaire et son extension sont livrés avec leur licence dans `web/vendor`.
 
 La mission « Ajouter un serveur web » et sa combinaison avec un dépannage HTTP fournissent une topologie complétée en `correction.pkt`. Les missions « Isoler les invités » et « Bloquer un poste précis » y incluent également un exemple de règle ACL sur R1. L’atelier DHCP centralisé, seul ou mixte avec une panne HTTP, y montre le relais et le service rétablis, avec PC-ALICE en attente de bail DHCP : l’adresse attribuée doit être constatée dans Packet Tracer. Le PKA intègre les consignes et conserve la topologie de départ, avec notation native désactivée.

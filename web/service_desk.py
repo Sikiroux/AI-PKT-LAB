@@ -1,5 +1,9 @@
 """Arrivées de tickets sur le site persistant ou des réseaux indépendants."""
-import random,time
+import random,time,sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).resolve().parents[1]))
+from addressing import private_networks
+from lab_engine import organization
 import timers
 import procedural,live_faults
 import site_services
@@ -74,9 +78,12 @@ class ServiceDesk:
   title=plan['title']
   # La plainte doit correspondre à la portée réelle de chaque mutation.
   if plan['family']=='lease':complaint='PC-ALICE ne reçoit pas de bail DHCP ; PC-BOB en statique reste fonctionnel.'
-  job=self.g.start(dict(mode='depannage',scenario=fid,level=5,count=1,seed=seed,ticket_title=title,address_family=plan['address_family']))
+  site=plan['site_code'];networks=private_networks(seed,plan['address_family'])
+  names=organization.mapping(('R1','PC-ALICE','PC-BOB','SRV-INFRA','SRV-WEB'),site)
+  complaint=organization.replace(complaint,names)
+  job=self.g.start(dict(mode='depannage',scenario=fid,level=5,count=1,seed=seed,ticket_title=title,address_family=plan['address_family'],site_code=site,business_names=True))
   ident='INC-'+str(1001+len(self.t.state['tickets']))
-  t=dict(id=ident,kind='service',service_scenario=fid,procedural=plan,job_id=job['id'],title=title,description=complaint+' Diagnostique et rétablis le service dans le réseau dédié à ce ticket. Conserve les autres services. Consulte la feuille du ticket pour les appareils, adresses et tests attendus.',severity=severity,status='nouveau',created=time.strftime('%Y-%m-%d %H:%M:%S'),checks=[],complete=False,notes='',manual_ssid=False,validation='manual',timer=timers.configure(self.settings['ticket_minutes'],'training'))
+  t=dict(id=ident,kind='service',service_scenario=fid,procedural=plan,job_id=job['id'],title=title,description=f"Agence {site} — {plan['requester']} signale : "+complaint+f" Réseau employés : {networks['employees']}. Diagnostique et rétablis le service dans le réseau dédié à ce ticket. Conserve les autres services. Consulte la feuille du ticket pour les appareils, adresses et tests attendus.",severity=severity,status='nouveau',created=time.strftime('%Y-%m-%d %H:%M:%S'),checks=[],complete=False,notes='',manual_ssid=False,validation='manual',timer=timers.configure(self.settings['ticket_minutes'],'training'))
   self.t.state['tickets'].append(t);self.t.event(ident+' : incident reçu, réseau dédié en préparation.');return self.t.public()
  def create_site(self,scenario,opened):
   if scenario not in (None,'','pc','wifi','incident','site:http','site:dns','site:dhcp'):raise ValueError('Choisis une intervention du catalogue du site.')
