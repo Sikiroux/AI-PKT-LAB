@@ -105,3 +105,32 @@ class BlockTests(unittest.TestCase):
      self.assertIn(' eq 80',deny)
     self.assertLess(after.index(deny),after.index('access-list '+number+' permit ip any any'))
     self.assertEqual(after.count(' ip access-group '+number+' in'),1)
+ def test_dhcp_relay_reference_requests_a_lease(self):
+  for scenario in ('configure_dhcp_relay','mixed:3'):
+   with self.subTest(scenario=scenario),tempfile.TemporaryDirectory() as tmp:
+    with patch.object(web_worker.ptexplorer,'ptfile_encode',side_effect=lambda source,target:Path(target).write_bytes(b'pkt')):
+     result=web_worker.generate(dict(folder=tmp,scenario=scenario,seed=18,level=3,count=1,site_code='LY1'))
+    def state(filename):
+     root=ET.parse(Path(tmp)/filename).getroot()
+     devices={d.findtext('ENGINE/NAME'):d.find('ENGINE') for d in root.findall('NETWORK/DEVICES/DEVICE')}
+     pc=devices['LY1-PC-CPT-01'];port=next(p for p in pc.iter('PORT') if 'copper' in (p.findtext('TYPE') or '').lower())
+     router=[l.text or '' for l in devices['LY1-RTR-01'].findall('RUNNINGCONFIG/LINE')]
+     server=devices['LY1-SRV-INF-01'].find('DHCP_SERVERS/ASSOCIATED_PORTS/ASSOCIATED_PORT/DHCP_SERVER')
+     return port,router,server,devices
+    first,initial_router,initial_dhcp,initial_devices=state('initial.xml')
+    client,router,dhcp,devices=state('reference.xml')
+    self.assertEqual(result['correction_label'],'Topologie complétée (exemple)')
+    self.assertEqual(first.findtext('PORT_DHCP_ENABLE'),'true')
+    def employees(lines):
+     start=lines.index('interface GigabitEthernet0/0')
+     return lines[start:lines.index('!',start)]
+    self.assertFalse(any('ip helper-address' in line for line in employees(initial_router)))
+    self.assertEqual(initial_dhcp.findtext('ENABLED'),'0')
+    self.assertEqual(client.findtext('PORT_DHCP_ENABLE'),'true')
+    self.assertEqual(client.findtext('IP'),'0.0.0.0')
+    self.assertTrue(any('ip helper-address' in line for line in employees(router)))
+    self.assertEqual(dhcp.findtext('ENABLED'),'1')
+    self.assertEqual(devices['LY1-PC-CPT-02'].findtext('.//PORT/IP'),initial_devices['LY1-PC-CPT-02'].findtext('.//PORT/IP'))
+    if scenario=='mixed:3':
+     self.assertEqual(initial_devices['LY1-SRV-WEB-01'].findtext('HTTP_SERVER/ENABLED'),'0')
+     self.assertEqual(devices['LY1-SRV-WEB-01'].findtext('HTTP_SERVER/ENABLED'),'1')

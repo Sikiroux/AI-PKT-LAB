@@ -43,6 +43,11 @@ def generate(req):
                            reference_policy=reference_extension if reference_extension!='web_server' else None)
    shutil.copy2(reference_folder/'baseline.xml',folder/'reference.xml')
    shutil.rmtree(reference_folder)
+  elif reference_extension=='dhcp_relay':
+   tree=ET.parse(folder/'baseline.xml')
+   workshops.dhcp_client_reference(tree.getroot())
+   ET.indent(tree,space=' ')
+   tree.write(folder/'reference.xml',encoding='utf-8',short_empty_elements=False)
   correction_source='reproduction.xml' if reproduce_mutation else 'reference.xml' if reference_extension else 'baseline.xml'
   layout=organization.finalize(folder,req.get('site_code','AG1'),business=not bool(req.get('ticket_title')))
   if layout['applied']:

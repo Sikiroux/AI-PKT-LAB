@@ -357,6 +357,14 @@ def dhcp_blank(root,t):
     pool_change('MAX_USERS',50)(root,t)
 
 
+def dhcp_client_reference(root):
+    """Prépare le client DHCP dans la référence, sans inventer un bail obtenu dans PT."""
+    e=engines(root)['PC-ALICE'];p=port(e)
+    for tag in ('IP','SUBNET','PORT_GATEWAY','PORT_DNS'):put(p,tag,'0.0.0.0')
+    put(p,'PORT_DHCP_ENABLE','true')
+    put(e,'GATEWAY','0.0.0.0')
+
+
 def value(t,device):return t['devices'][device]['ip']
 
 def describe(text,t):
@@ -460,6 +468,7 @@ register('configure_dhcp_relay','Déployer DHCP centralisé','configuration',E,d
  ['Le serveur est situé dans un autre sous-réseau.','Le relais doit être sur l’interface recevant les requêtes des clients.'],
  'SRV-INFRA : activer DHCP et contrôler EMPLOYEES (réseau employees, 50 utilisateurs à partir de .100). R1 G0/0 : ip helper-address {SRV-INFRA}. Renouveler PC-ALICE.',
  ['PC-ALICE reçoit un bail conforme puis ouvre l’intranet par nom.','Le réseau invités et PC-BOB ne doivent pas être modifiés.'],2)
+CATALOGUE['configure_dhcp_relay']['reference_extension']='dhcp_relay'
 register('guest_firewall','Isoler les invités','evolution',E,noop,
  'Les invités peuvent actuellement accéder aux serveurs. Bloque tout trafic initié depuis le réseau guests vers servers. Conserve leur accès à R1 et au réseau employees pour ce lab. Ne change pas les adresses.',
  ['Applique une ACL étendue à l’entrée de l’interface invités.','Le refus ciblé doit précéder permit ip any any.'],
