@@ -35,10 +35,12 @@ def generate(req):
   if reproduce_mutation:
    tree=ET.parse(folder/'baseline.xml');reproduce_mutation(tree.getroot(),meta['topology']);ET.indent(tree,space=' ');tree.write(folder/'reproduction.xml',encoding='utf-8',short_empty_elements=False)
   reference_extension=workshops.CATALOGUE[scenario].get('reference_extension')
-  if reference_extension=='web_server':
-   # Build the completed site independently: the learner starts without the new server.
+  if reference_extension in ('web_server','guest_firewall','ban_one_device'):
+   # Build the completed site independently: the learner starts without the requested change.
    reference_folder=folder/'reference_build'
-   workshops.make_topology(meta['topology']['name'],seed,reference_folder,req.get('address_family'),extra_web_server=True)
+   workshops.make_topology(meta['topology']['name'],seed,reference_folder,req.get('address_family'),
+                           extra_web_server=reference_extension=='web_server',
+                           reference_policy=reference_extension if reference_extension!='web_server' else None)
    shutil.copy2(reference_folder/'baseline.xml',folder/'reference.xml')
    shutil.rmtree(reference_folder)
   correction_source='reproduction.xml' if reproduce_mutation else 'reference.xml' if reference_extension else 'baseline.xml'

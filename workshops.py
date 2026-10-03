@@ -125,7 +125,7 @@ def server_defaults(e):
         put(e,'DNS_SERVER/ENABLED',0)
 
 
-def make_topology(name, seed, folder, address_family=None, extra_web_server=False):
+def make_topology(name, seed, folder, address_family=None, extra_web_server=False, reference_policy=None):
     """Crée le socle et retourne son arbre XML et ses valeurs attendues."""
     rng = random.Random(seed)
     folder = Path(folder); folder.mkdir(parents=True, exist_ok=True)
@@ -154,6 +154,18 @@ def make_topology(name, seed, folder, address_family=None, extra_web_server=Fals
             if key != 'servers': rlines += [f' ip helper-address {infra}']
             rlines += ['!']
         rlines += [f'ntp server {infra}',f'logging {infra}','logging trap informational','end']
+        if reference_policy:
+            if reference_policy not in ('guest_firewall', 'ban_one_device'):
+                raise ValueError('Politique de référence inconnue')
+            interface = rlines.index('interface GigabitEthernet0/2')
+            rlines.insert(interface+3, ' ip access-group '+('130' if reference_policy=='guest_firewall' else '131')+' in')
+            if reference_policy == 'guest_firewall':
+                deny = f'access-list 130 deny ip {nets["guests"].network_address} 0.0.0.255 {nets["servers"].network_address} 0.0.0.255'
+                permit = 'access-list 130 permit ip any any'
+            else:
+                deny = f'access-list 131 deny tcp host {host("guests",21)} host {host("servers",20)} eq 80'
+                permit = 'access-list 131 permit ip any any'
+            rlines[-1:-1] = [deny,permit]
         lab.add('R1','router','2911',(600,120),config=rlines)
         devices['R1']={'type':'router','interfaces':{f'GigabitEthernet0/{i}':{'ip':host(k,1),'mask':'255.255.255.0'} for i,k in enumerate(nets)}}
         for i,key in enumerate(nets):
@@ -464,6 +476,8 @@ register('add_web_server','Ajouter un serveur web','evolution',E,noop,
  'Ajouter SRV-WEB2 ; IP <réseau servers>.50/24, passerelle .1, DNS {SRV-INFRA}. HTTP On ; éditer index.html. Ajouter le A support.entreprise.test vers .50 sur SRV-INFRA.',
  ['Un nouveau serveur nommé SRV-WEB2 est présent et câblé.','PC-ALICE ouvre support.entreprise.test et voit la page du nouveau serveur.','L’intranet d’origine reste accessible.'],2)
 CATALOGUE['add_web_server']['reference_extension']='web_server'
+CATALOGUE['guest_firewall']['reference_extension']='guest_firewall'
+CATALOGUE['ban_one_device']['reference_extension']='ban_one_device'
 register('configure_aaa','Centraliser les accès avec AAA','configuration',E,noop,
  'Configure RADIUS sur SRV-INFRA et R1 pour l’authentification des accès VTY. Compte technicien/Tech123, clé partagée LabRadius123. Garde un compte local de secours.',
  ['Services > AAA : déclarer R1 avec son IP du réseau servers.','Configure le client RADIUS et la méthode AAA sur R1 ; garde la console ouverte pendant les tests.'],

@@ -82,3 +82,26 @@ class BlockTests(unittest.TestCase):
     if scenario=='mixed:6':
      self.assertEqual(before['LY1-SRV-WEB-01'].findtext('HTTP_SERVER/ENABLED'),'0')
      self.assertEqual(after['LY1-SRV-WEB-01'].findtext('HTTP_SERVER/ENABLED'),'1')
+ def test_firewall_reference_targets_only_requested_traffic(self):
+  for scenario,number in (('guest_firewall','130'),('ban_one_device','131')):
+   with self.subTest(scenario=scenario),tempfile.TemporaryDirectory() as tmp:
+    with patch.object(web_worker.ptexplorer,'ptfile_encode',side_effect=lambda source,target:Path(target).write_bytes(b'pkt')):
+     result=web_worker.generate(dict(folder=tmp,scenario=scenario,seed=9,level=2,count=1,site_code='LY1',address_family='192'))
+    def config(filename):
+     root=ET.parse(Path(tmp)/filename).getroot()
+     router=next(d.find('ENGINE') for d in root.findall('NETWORK/DEVICES/DEVICE') if d.findtext('ENGINE/NAME')=='LY1-RTR-01')
+     return [line.text or '' for line in router.findall('RUNNINGCONFIG/LINE')]
+    before,after=config('initial.xml'),config('reference.xml')
+    self.assertEqual(result['correction_label'],'Topologie complétée (exemple)')
+    self.assertFalse(any('ip access-group' in line for line in before))
+    self.assertIn(' ip access-group '+number+' in',after)
+    self.assertIn('access-list '+number+' permit ip any any',after)
+    deny=next(line for line in after if line.startswith('access-list '+number+' deny '))
+    if scenario=='guest_firewall':
+     self.assertIn('deny ip 192.168.',deny)
+     self.assertIn('0.0.0.255',deny)
+    else:
+     self.assertIn('deny tcp host 192.168.',deny)
+     self.assertIn(' eq 80',deny)
+    self.assertLess(after.index(deny),after.index('access-list '+number+' permit ip any any'))
+    self.assertEqual(after.count(' ip access-group '+number+' in'),1)
