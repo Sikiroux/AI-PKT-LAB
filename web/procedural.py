@@ -1,6 +1,6 @@
 """Choix contraint des incidents ; versionner les règles pour rejouer un tirage."""
 import random
-VERSION = 2
+VERSION = 3
 SITES = ('ALB', 'MPL', 'ROD', 'TLS', 'LYO', 'BOR')
 REQUESTERS = ('Camille', 'Nora', 'Samir', 'Léa', 'Hugo', 'Mina')
 FAMILIES = [
@@ -36,4 +36,4 @@ def choose(seed, requested=None, history=(), opened=()):
  return dict(version=VERSION,seed=seed,family=family,title=title,cause=cause,
              address_family=rng.choice(('10','172','192')),
              site_code=rng.choice(SITES)+str(rng.randint(1,99)).zfill(2),
-             requester=rng.choice(REQUESTERS))
+             requester=rng.choice(REQUESTERS),employee_count=rng.randint(2,6))

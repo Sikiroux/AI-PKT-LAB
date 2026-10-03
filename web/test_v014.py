@@ -63,11 +63,12 @@ class BlockTests(unittest.TestCase):
    with self.subTest(scenario=scenario),tempfile.TemporaryDirectory() as tmp:
     def encode(source,target):Path(target).write_bytes(b'encoding-covered-by-core-tests')
     with patch.object(web_worker.ptexplorer,'ptfile_encode',side_effect=encode):
-     result=web_worker.generate(dict(folder=tmp,scenario=scenario,seed=7,level=5,count=1,site_code='LY1'))
+     result=web_worker.generate(dict(folder=tmp,scenario=scenario,seed=7,level=5,count=1,site_code='LY1',employee_count=6))
     initial=ET.parse(Path(tmp)/'initial.xml').getroot()
     complete=ET.parse(Path(tmp)/'reference.xml').getroot()
     def devices(root):return {d.findtext('ENGINE/NAME'):d.find('ENGINE') for d in root.findall('NETWORK/DEVICES/DEVICE')}
     before,after=devices(initial),devices(complete)
+    self.assertEqual(sum('-PC-CPT-' in name for name in before),6)
     self.assertEqual(set(after)-set(before),{'LY1-SRV-WEB-02'})
     new=after['LY1-SRV-WEB-02'];self.assertTrue(new.findtext('.//PORT/IP').endswith('.50'))
     self.assertEqual(new.findtext('HTTP_SERVER/ENABLED'),'1')

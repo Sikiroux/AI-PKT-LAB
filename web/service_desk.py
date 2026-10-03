@@ -81,9 +81,9 @@ class ServiceDesk:
   site=plan['site_code'];networks=private_networks(seed,plan['address_family'])
   names=organization.mapping(('R1','PC-ALICE','PC-BOB','SRV-INFRA','SRV-WEB'),site)
   complaint=organization.replace(complaint,names)
-  job=self.g.start(dict(mode='depannage',scenario=fid,level=5,count=1,seed=seed,ticket_title=title,address_family=plan['address_family'],site_code=site,business_names=True))
+  job=self.g.start(dict(mode='depannage',scenario=fid,level=5,count=1,seed=seed,ticket_title=title,address_family=plan['address_family'],site_code=site,business_names=True,employee_count=plan['employee_count']))
   ident='INC-'+str(1001+len(self.t.state['tickets']))
-  t=dict(id=ident,kind='service',service_scenario=fid,procedural=plan,job_id=job['id'],title=title,description=f"Agence {site} — {plan['requester']} signale : "+complaint+f" Réseau employés : {networks['employees']}. Diagnostique et rétablis le service dans le réseau dédié à ce ticket. Conserve les autres services. Consulte la feuille du ticket pour les appareils, adresses et tests attendus.",severity=severity,status='nouveau',created=time.strftime('%Y-%m-%d %H:%M:%S'),checks=[],complete=False,notes='',manual_ssid=False,validation='manual',timer=timers.configure(self.settings['ticket_minutes'],'training'))
+  t=dict(id=ident,kind='service',service_scenario=fid,procedural=plan,job_id=job['id'],title=title,description=f"Agence {site} — {plan['requester']} signale : "+complaint+f" Réseau employés : {networks['employees']} ; {plan['employee_count']} postes utilisateurs et un poste IT. Diagnostique et rétablis le service dans le réseau dédié à ce ticket. Conserve les autres services. Consulte la feuille du ticket pour les appareils, adresses et tests attendus.",severity=severity,status='nouveau',created=time.strftime('%Y-%m-%d %H:%M:%S'),checks=[],complete=False,notes='',manual_ssid=False,validation='manual',timer=timers.configure(self.settings['ticket_minutes'],'training'))
   self.t.state['tickets'].append(t);self.t.event(ident+' : incident reçu, réseau dédié en préparation.');return self.t.public()
  def create_site(self,scenario,opened):
   if scenario not in (None,'','pc','wifi','incident','site:http','site:dns','site:dhcp'):raise ValueError('Choisis une intervention du catalogue du site.')

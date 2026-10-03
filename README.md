@@ -183,7 +183,7 @@ Voir [le catalogue et les instructions](docs/ATELIERS_PACKET_TRACER.md). Les nou
 
 Le générateur CLI reste accessible avec `python main.py`. Pour les tickets, les sessions chronométrées et les labs indépendants, lancer `web/LANCER-WINDOWS.bat` ou `python web/tickets_app.py`. Garder le dépôt complet : le portail réutilise le moteur et les templates à la racine.
 
-Les tickets de réseaux indépendants tirent désormais un code de site et un demandeur avec leur cause et leur famille IPv4. Le ticket annonce le réseau employés effectivement généré ; le PKA et la feuille reprennent les noms préfixés du même site. La graine conservée permet de reconstruire le cas après un échec de génération. Les rôles et les gabarits d’appareils restent ceux du catalogue.
+Les tickets de réseaux indépendants tirent désormais un code de site, un demandeur et 2 à 6 postes employés avec leur cause et leur famille IPv4. Le ticket annonce le réseau employés et sa composition ; le PKA et la feuille reprennent les noms préfixés du même site, avec un poste IT supplémentaire. Les postes ajoutés ont chacun une adresse et un port dédiés. Les paramètres conservés permettent de reconstruire le cas après un échec de génération. Les rôles et l’architecture à trois sous-réseaux restent ceux du catalogue.
 
 Voir [le mode d’emploi du portail](web/LIRE-MOI.md). Les données locales de tickets et les réseaux générés sont exclus de Git. Le pont communautaire et son extension sont livrés avec leur licence dans `web/vendor`.
 
