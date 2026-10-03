@@ -53,7 +53,8 @@ def physical(root,names,site='AG1'):
  children=building.find('CHILDREN')
  if children is None:children=ET.SubElement(building,'CHILDREN')
  rooms={}
- for index,label in enumerate(('Bureau IT','Bureaux utilisateurs','Accueil'),1):
+ room_labels=('Bureau IT','Bureaux utilisateurs','Accueil') if any('ADMIN' in {v:k for k,v in names.items()}.get(d.findtext('ENGINE/NAME'),d.findtext('ENGINE/NAME','')) for d in devices) else ('Bureaux utilisateurs','Accueil')
+ for index,label in enumerate(room_labels,1):
   room=copy.deepcopy(closet);value(room,'NAME',label);value(room,'UUID_STR','{'+str(uuid.uuid5(uuid.NAMESPACE_URL,site+label+ids['2']))+'}');value(room,'X',index*180);value(room,'Y',220)
   old=room.find('CHILDREN')
   if old is not None:room.remove(old)
@@ -122,6 +123,6 @@ def finalize(folder,site='AG1',business=True):
  return plan
 
 def layout_html(rows):
- result='<section><h2>Implantation physique</h2><p>Ouvre la vue physique : local technique et baie, bureau IT, bureaux utilisateurs et accueil. Les positions dans la baie restent à contrôler visuellement dans Packet Tracer.</p><table><tr><th>Appareil</th><th>Emplacement</th></tr>'
+ result='<section><h2>Implantation physique</h2><p>Ouvre la vue physique : local technique et baie, bureaux utilisateurs et accueil ; bureau IT lorsqu’un poste dédié est présent. Les positions dans la baie restent à contrôler visuellement dans Packet Tracer.</p><table><tr><th>Appareil</th><th>Emplacement</th></tr>'
  for row in rows:result+='<tr><td>'+html.escape(row['device'])+'</td><td>'+html.escape(row['location'])+'</td></tr>'
  return result+'</table></section>'

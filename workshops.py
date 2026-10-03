@@ -126,9 +126,13 @@ def server_defaults(e):
         put(e,'DNS_SERVER/ENABLED',0)
 
 
-def make_topology(name, seed, folder, address_family=None, extra_web_server=False, reference_policy=None, employee_count=2):
+def make_topology(name, seed, folder, address_family=None, extra_web_server=False, reference_policy=None, employee_count=2, has_it=True):
     """Crée le socle et retourne son arbre XML et ses valeurs attendues."""
     rng = random.Random(seed)
+    if type(has_it) is not bool:
+        raise ValueError('Présence du poste IT : booléen requis.')
+    if not has_it and name != 'enterprise_services':
+        raise ValueError('Poste IT facultatif uniquement pour les sites de services entreprise.')
     if type(employee_count) is not int or not 2 <= employee_count <= 6:
         raise ValueError('Nombre de postes employés : entier de 2 à 6, hors poste IT.')
     if employee_count != 2 and name != 'enterprise_services':
@@ -178,6 +182,8 @@ def make_topology(name, seed, folder, address_family=None, extra_web_server=Fals
             devices[sw]={'type':'switch','mgmt':{'ip':host(key,2),'mask':'255.255.255.0','gateway':host(key,1)}}
             link('R1',f'GigabitEthernet0/{i}',sw,'GigabitEthernet0/1')
         for n,key,num,x,sp in [('PC-ALICE','employees',21,100,1),('PC-BOB','employees',22,300,2),('PC-ADMIN','employees',23,450,3),('PC-GUEST','guests',21,1000,1)]:
+            if n == 'PC-ADMIN' and not has_it:
+                continue
             add_host(n,host(key,num),host(key,1),(x,540),dns_ip=infra)
             link({'employees':'SW-EMP','guests':'SW-GUEST'}[key],f'FastEthernet0/{sp}',n,'FastEthernet0')
         for i in range(3,employee_count+1):
@@ -232,7 +238,7 @@ def make_topology(name, seed, folder, address_family=None, extra_web_server=Fals
         shown_networks={'employees':str(nets['employees'])}
     else:
         shown_networks={k:str(v) for k,v in nets.items()}
-    topo={'name':name,'devices':devices,'links':links,'seed':seed,'employee_count':employee_count if name=='enterprise_services' else None,
+    topo={'name':name,'devices':devices,'links':links,'seed':seed,'employee_count':employee_count if name=='enterprise_services' else None,'has_it':has_it,
           'networks':shown_networks,'validation':'manual','status':'A tester dans Packet Tracer 9'}
     if name=='enterprise_services':
         records={'intranet.entreprise.test':host('servers',20),'ftp.entreprise.test':host('servers',30),'mail.entreprise.test':host('servers',40)}
@@ -593,12 +599,12 @@ def render(topo,spec):
     return ''.join(parts)
 
 
-def generate(scenario_id,seed=None,output_dir='.',embed=True,address_family=None,employee_count=2):
+def generate(scenario_id,seed=None,output_dir='.',embed=True,address_family=None,employee_count=2, has_it=True):
     if scenario_id not in CATALOGUE:raise ValueError(f'Atelier inconnu : {scenario_id}')
     spec=dict(CATALOGUE[scenario_id],id=scenario_id)
     seed=seed if seed is not None else random.SystemRandom().randrange(10**9)
     folder=Path(output_dir).resolve();folder.mkdir(parents=True,exist_ok=True)
-    tree,topo=make_topology(spec['topology'],seed,folder,address_family,employee_count=employee_count)
+    tree,topo=make_topology(spec['topology'],seed,folder,address_family,employee_count=employee_count,has_it=has_it)
     baseline=folder/'baseline.xml'
     spec['mutate'](tree.getroot(),topo)
     start=folder/'initial.xml';ET.indent(tree,space=' ');tree.write(start,encoding='utf-8',short_empty_elements=False)

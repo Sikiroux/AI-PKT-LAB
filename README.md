@@ -183,10 +183,12 @@ Voir [le catalogue et les instructions](docs/ATELIERS_PACKET_TRACER.md). Les nou
 
 Le générateur CLI reste accessible avec `python main.py`. Pour les tickets, les sessions chronométrées et les labs indépendants, lancer `web/LANCER-WINDOWS.bat` ou `python web/tickets_app.py`. Garder le dépôt complet : le portail réutilise le moteur et les templates à la racine.
 
-Les tickets de réseaux indépendants tirent désormais un code de site, un demandeur et 2 à 6 postes employés avec leur cause et leur famille IPv4. Le ticket annonce le réseau employés et sa composition ; le PKA et la feuille reprennent les noms préfixés du même site, avec un poste IT supplémentaire. Les postes ajoutés ont chacun une adresse et un port dédiés. Les paramètres conservés permettent de reconstruire le cas après un échec de génération. Les rôles et l’architecture à trois sous-réseaux restent ceux du catalogue.
+Les tickets de réseaux indépendants tirent désormais un code de site, un demandeur et 2 à 6 postes employés avec leur cause et leur famille IPv4. Le ticket annonce le réseau employés et sa composition ; le PKA et la feuille reprennent les noms préfixés du même site, avec ou sans poste IT dédié. Les postes ajoutés ont chacun une adresse et un port dédiés. Les paramètres conservés permettent de reconstruire le cas après un échec de génération. Les rôles et l’architecture à trois sous-réseaux restent ceux du catalogue.
 
 Voir [le mode d’emploi du portail](web/LIRE-MOI.md). Les données locales de tickets et les réseaux générés sont exclus de Git. Le pont communautaire et son extension sont livrés avec leur licence dans `web/vendor`.
 
 La mission « Ajouter un serveur web » et sa combinaison avec un dépannage HTTP fournissent une topologie complétée en `correction.pkt`. Les missions « Isoler les invités » et « Bloquer un poste précis » y incluent également un exemple de règle ACL sur R1. L’atelier DHCP centralisé, seul ou mixte avec une panne HTTP, y montre le relais et le service rétablis, avec PC-ALICE en attente de bail DHCP : l’adresse attribuée doit être constatée dans Packet Tracer. Le PKA intègre les consignes et conserve la topologie de départ, avec notation native désactivée.
 
 Les nouveautés de nommage, implantation physique et services conditionnels restent **à tester dans Packet Tracer 9**. Les tests Python contrôlent les fichiers et les gardes, pas le fonctionnement réel du réseau.
+
+Les nouveaux profils procéduraux conservent aussi la présence facultative du poste IT. Sans ce poste, le ticket décrit une intervention par un prestataire externe ; aucun poste ni câble IT fictif n’est ajouté. Les anciens profils et les ateliers existants gardent leur comportement par défaut. À tester dans PT 9.

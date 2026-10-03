@@ -17,6 +17,7 @@ class Procedural(unittest.TestCase):
   self.assertGreater(len({x['site_code'] for x in plans}),30)
   self.assertGreater(len({x['requester'] for x in plans}),3)
   self.assertEqual({x['employee_count'] for x in plans},set(range(2,7)))
+  self.assertEqual({x['has_it'] for x in plans},{True,False})
  def test_recent_causes_avoided_and_open_family_blocked(self):
   history=[{'service_scenario':'dns_record_delete'}]
   self.assertEqual(procedural.choose(1,'intranet_name',history)['cause'],'dns_record_wrong')
@@ -53,6 +54,7 @@ class PublicPlan(unittest.TestCase):
   self.assertEqual(calls[0]['site_code'],site)
   self.assertTrue(calls[0]['business_names'])
   self.assertEqual(calls[0]['employee_count'],plan['employee_count'])
+  self.assertEqual(calls[0]['has_it'],plan['has_it'])
   with tempfile.TemporaryDirectory() as folder:
    request=dict(calls[0],folder=folder)
    with patch.object(web_worker.ptexplorer,'ptfile_encode',side_effect=lambda source,target:Path(target).write_bytes(b'pkt')):
@@ -61,8 +63,10 @@ class PublicPlan(unittest.TestCase):
    devices={d.findtext('ENGINE/NAME'):d.find('ENGINE') for d in root.findall('NETWORK/DEVICES/DEVICE')}
    self.assertIn(site+'-PC-CPT-01',devices)
    self.assertIn(site+'-RTR-01',devices)
+   self.assertEqual(site+'-PC-IT-01' in devices,plan['has_it'])
    self.assertEqual(sum('-PC-CPT-' in name for name in devices),plan['employee_count'])
    self.assertEqual(len(root.findall('.//PHYSICALWORKSPACE//NODE[TYPE="6"]')),len(devices))
+   self.assertEqual(any(n.findtext('NAME')=='Bureau IT' for n in root.findall('.//PHYSICALWORKSPACE//NODE')),plan['has_it'])
    address=devices[site+'-PC-CPT-02'].findtext('.//PORT/IP')
    self.assertIn(ipaddress.ip_address(address),private_networks(plan['seed'],plan['address_family'])['employees'])
    worksheet=(Path(folder)/'consignes.html').read_text(encoding='utf-8')
@@ -86,6 +90,7 @@ class RetryPlan(unittest.TestCase):
   self.assertEqual(received[0]['site_code'],t['procedural']['site_code'])
   self.assertTrue(received[0]['business_names'])
   self.assertEqual(received[0]['employee_count'],t['procedural']['employee_count'])
+  self.assertEqual(received[0]['has_it'],t['procedural']['has_it'])
   self.assertEqual(received[0]['scenario'],t['service_scenario'])
 
 class VariableSite(unittest.TestCase):
@@ -110,3 +115,18 @@ class VariableSite(unittest.TestCase):
    for count in (1,7,True,2.5,'3'):
     with self.assertRaises(ValueError):workshops.make_topology('enterprise_services',1,folder,employee_count=count)
    with self.assertRaises(ValueError):workshops.make_topology('wifi_deployment',1,folder,employee_count=3)
+
+class OptionalIT(unittest.TestCase):
+ def test_no_it_host_or_cable_and_fault_still_applies(self):
+  with tempfile.TemporaryDirectory() as folder:
+   tree,topo=workshops.make_topology('enterprise_services',7,folder,employee_count=6,has_it=False)
+   self.assertNotIn('PC-ADMIN',topo['devices'])
+   self.assertNotIn('PC-ADMIN',workshops.engines(tree.getroot()))
+   self.assertNotIn('PC-ADMIN',str(topo['links']))
+   self.assertEqual(topo['has_it'],False)
+   workshops.CATALOGUE['dhcp_relay_missing']['mutate'](tree.getroot(),topo)
+ def test_reject_invalid_presence(self):
+  with tempfile.TemporaryDirectory() as folder:
+   for value in (None,0,'false'):
+    with self.assertRaises(ValueError):workshops.make_topology('enterprise_services',7,folder,has_it=value)
+   with self.assertRaises(ValueError):workshops.make_topology('wifi_deployment',7,folder,has_it=False)
