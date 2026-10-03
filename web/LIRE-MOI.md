@@ -256,3 +256,5 @@ L’ancien outil reste accessible en lançant `python diagnostic.py` séparémen
 Extension et pont communautaires : https://github.com/Mats2208/MCP-Packet-Tracer (licence MIT incluse dans vendor). Documentation de déploiement : https://mats2208.github.io/MCP-Packet-Tracer/live-deploy/ . L’extension fournie n’a pas été modifiée. Ce kit n’est pas un produit officiel Cisco.
 
 Les nouveaux profils procéduraux conservent aussi la présence facultative du poste IT. Sans ce poste, le ticket décrit une intervention par un prestataire externe ; aucun poste ni câble IT fictif n’est ajouté. Les anciens profils et les ateliers existants gardent leur comportement par défaut. À tester dans PT 9.
+
+Les profils procéduraux version 5 varient aussi le poste concerné par les incidents DHCP (parmi les employés présents) et la répartition des employés sur un ou deux switches. Les deux switches partagent le même sous-réseau employés ; aucun VLAN supplémentaire n’est annoncé. Cible, câblage, consignes, référence et relance utilisent les mêmes paramètres. À tester dans PT 9.

@@ -50,7 +50,7 @@ class PublicPlan(unittest.TestCase):
   self.assertIn('Agence '+site,t['description'])
   self.assertIn(plan['requester'],t['description'])
   self.assertIn(str(private_networks(plan['seed'],plan['address_family'])['employees']),t['description'])
-  self.assertIn(site+'-PC-CPT-01',t['description'])
+  self.assertIn(site+f"-PC-CPT-{plan['target_employee']:02d}",t['description'])
   self.assertEqual(calls[0]['site_code'],site)
   self.assertTrue(calls[0]['business_names'])
   self.assertEqual(calls[0]['employee_count'],plan['employee_count'])
@@ -91,6 +91,8 @@ class RetryPlan(unittest.TestCase):
   self.assertTrue(received[0]['business_names'])
   self.assertEqual(received[0]['employee_count'],t['procedural']['employee_count'])
   self.assertEqual(received[0]['has_it'],t['procedural']['has_it'])
+  self.assertEqual(received[0]['target_employee'],t['procedural']['target_employee'])
+  self.assertEqual(received[0]['employee_layout'],t['procedural']['employee_layout'])
   self.assertEqual(received[0]['scenario'],t['service_scenario'])
 
 class VariableSite(unittest.TestCase):
@@ -130,3 +132,54 @@ class OptionalIT(unittest.TestCase):
    for value in (None,0,'false'):
     with self.assertRaises(ValueError):workshops.make_topology('enterprise_services',7,folder,has_it=value)
    with self.assertRaises(ValueError):workshops.make_topology('wifi_deployment',7,folder,has_it=False)
+
+class VariableTargets(unittest.TestCase):
+ def test_every_employee_can_be_dhcp_target_without_touching_others(self):
+  for index in range(1,7):
+   with tempfile.TemporaryDirectory() as folder:
+    tree,topo=workshops.make_topology('enterprise_services',7,folder,employee_count=6,has_it=False,target_employee=index,employee_layout='split')
+    topo['vary_dhcp_target']=True
+    before={n:workshops.port(e).findtext('IP') for n,e in workshops.engines(tree.getroot()).items() if n.startswith('PC')}
+    workshops.CATALOGUE['dhcp_relay_missing']['mutate'](tree.getroot(),topo)
+    engines=workshops.engines(tree.getroot())
+    for name,ip in before.items():
+     self.assertEqual(workshops.port(engines[name]).findtext('IP'),'0.0.0.0' if name==topo['dhcp_target'] else ip)
+    text=workshops.describe(workshops.CATALOGUE['dhcp_relay_missing']['statement'],topo)
+    self.assertIn(topo['dhcp_target'],text)
+    workshops.dhcp_client_reference(tree.getroot(),topo['dhcp_target'])
+    self.assertEqual(workshops.port(engines[topo['dhcp_target']]).findtext('PORT_DHCP_ENABLE'),'true')
+ def test_split_network_has_unique_ports_and_same_subnet(self):
+  with tempfile.TemporaryDirectory() as folder:
+   tree,topo=workshops.make_topology('enterprise_services',7,folder,employee_count=6,employee_layout='split')
+   self.assertIn('SW-EMP2',topo['devices'])
+   self.assertIn(ipaddress.ip_address(topo['devices']['SW-EMP2']['mgmt']['ip']),ipaddress.ip_network(topo['networks']['employees']))
+   endpoints=[(device,interface) for a,ap,b,bp in topo['links'] for device,interface in ((a,ap),(b,bp))]
+   self.assertEqual(len(endpoints),len(set(endpoints)))
+   self.assertIn(('SW-EMP','FastEthernet0/24','SW-EMP2','FastEthernet0/24'),topo['links'])
+   self.assertTrue(any(a=='SW-EMP2' and b=='PC-BOB' for a,ap,b,bp in topo['links']))
+ def test_profiles_vary_targets_and_layout(self):
+  plans=[procedural.choose(i,'lease') for i in range(200)]
+  self.assertEqual({p['employee_layout'] for p in plans},{'single','split'})
+  self.assertEqual({p['target_employee'] for p in plans},set(range(1,7)))
+  self.assertTrue(all(p['target_employee']<=p['employee_count'] for p in plans))
+
+class TargetFiles(unittest.TestCase):
+ def test_target_in_initial_reference_and_embedded_instructions(self):
+  with tempfile.TemporaryDirectory() as folder:
+   req=dict(folder=folder,scenario='dhcp_relay_missing',seed=7,level=5,count=1,site_code='TLS42',employee_count=6,has_it=False,target_employee=6,employee_layout='split')
+   with patch.object(web_worker.ptexplorer,'ptfile_encode',side_effect=lambda source,target:Path(target).write_bytes(b'pkt')):
+    web_worker.generate(req)
+   initial=ET.parse(Path(folder)/'initial.xml').getroot()
+   reference=ET.parse(Path(folder)/'baseline.xml').getroot()
+   def by_name(root):return {d.findtext('ENGINE/NAME'):d.find('ENGINE') for d in root.findall('NETWORK/DEVICES/DEVICE')}
+   initial_devices=by_name(initial);ref_devices=by_name(reference)
+   self.assertEqual(workshops.port(initial_devices['TLS42-PC-CPT-06']).findtext('PORT_DHCP_ENABLE'),'true')
+   self.assertNotEqual(workshops.port(initial_devices['TLS42-PC-CPT-01']).findtext('IP'),'0.0.0.0')
+   self.assertNotIn('TLS42-PC-IT-01',initial_devices)
+   self.assertIn('TLS42-SW-EMP2',initial_devices)
+   self.assertEqual(set(initial_devices),set(ref_devices))
+   html=(Path(folder)/'consignes.html').read_text()
+   self.assertIn('TLS42-PC-CPT-06 démarre en DHCP sans bail',html)
+   self.assertNotIn('TLS42-PC-CPT-01 démarre en DHCP sans bail',html)
+   activity=(Path(folder)/'activity.xml').read_text()
+   self.assertIn('TLS42-PC-CPT-06',activity)

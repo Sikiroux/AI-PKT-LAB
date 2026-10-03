@@ -77,11 +77,12 @@ class ServiceDesk:
   fid=plan['cause'];_,_,complaint,severity=next(x for x in CATALOGUE if x[0]==fid)
   title=plan['title']
   # La plainte doit correspondre à la portée réelle de chaque mutation.
-  if plan['family']=='lease':complaint='PC-ALICE ne reçoit pas de bail DHCP ; PC-BOB en statique reste fonctionnel.'
+  target=plan['target_employee'];target_name='PC-ALICE' if target==1 else 'PC-BOB' if target==2 else f'PC-CPT-{target:02d}'
+  if plan['family']=='lease':complaint=target_name+' ne reçoit pas de bail DHCP ; '+('PC-BOB' if target==1 else 'PC-ALICE')+' en statique reste fonctionnel.'
   site=plan['site_code'];networks=private_networks(seed,plan['address_family'])
-  names=organization.mapping(('R1','PC-ALICE','PC-BOB','SRV-INFRA','SRV-WEB'),site)
+  names=organization.mapping(('R1','PC-ALICE','PC-BOB','SRV-INFRA','SRV-WEB',target_name),site)
   complaint=organization.replace(complaint,names)
-  job=self.g.start(dict(mode='depannage',scenario=fid,level=5,count=1,seed=seed,ticket_title=title,address_family=plan['address_family'],site_code=site,business_names=True,employee_count=plan['employee_count'],has_it=plan['has_it']))
+  job=self.g.start(dict(mode='depannage',scenario=fid,level=5,count=1,seed=seed,ticket_title=title,address_family=plan['address_family'],site_code=site,business_names=True,employee_count=plan['employee_count'],has_it=plan['has_it'],target_employee=target,employee_layout=plan['employee_layout']))
   ident='INC-'+str(1001+len(self.t.state['tickets']))
   t=dict(id=ident,kind='service',service_scenario=fid,procedural=plan,job_id=job['id'],title=title,description=f"Agence {site} — {plan['requester']} signale : "+complaint+f" Réseau employés : {networks['employees']} ; {plan['employee_count']} postes utilisateurs {'avec un poste IT dédié' if plan['has_it'] else 'sans poste IT dédié ; intervention par un prestataire externe'}. Diagnostique et rétablis le service dans le réseau dédié à ce ticket. Conserve les autres services. Consulte la feuille du ticket pour les appareils, adresses et tests attendus.",severity=severity,status='nouveau',created=time.strftime('%Y-%m-%d %H:%M:%S'),checks=[],complete=False,notes='',manual_ssid=False,validation='manual',timer=timers.configure(self.settings['ticket_minutes'],'training'))
   self.t.state['tickets'].append(t);self.t.event(ident+' : incident reçu, réseau dédié en préparation.');return self.t.public()

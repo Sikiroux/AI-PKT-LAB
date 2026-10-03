@@ -192,3 +192,5 @@ La mission « Ajouter un serveur web » et sa combinaison avec un dépannage HTT
 Les nouveautés de nommage, implantation physique et services conditionnels restent **à tester dans Packet Tracer 9**. Les tests Python contrôlent les fichiers et les gardes, pas le fonctionnement réel du réseau.
 
 Les nouveaux profils procéduraux conservent aussi la présence facultative du poste IT. Sans ce poste, le ticket décrit une intervention par un prestataire externe ; aucun poste ni câble IT fictif n’est ajouté. Les anciens profils et les ateliers existants gardent leur comportement par défaut. À tester dans PT 9.
+
+Les profils procéduraux version 5 varient aussi le poste concerné par les incidents DHCP (parmi les employés présents) et la répartition des employés sur un ou deux switches. Les deux switches partagent le même sous-réseau employés ; aucun VLAN supplémentaire n’est annoncé. Cible, câblage, consignes, référence et relance utilisent les mêmes paramètres. À tester dans PT 9.

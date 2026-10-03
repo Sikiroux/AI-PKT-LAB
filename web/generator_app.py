@@ -23,6 +23,8 @@ class Generator:
   if data.get('address_family') not in (None,'10','172','192'):raise ValueError('Famille IPv4 privée invalide.')
   has_it=data.get('has_it',True)
   if type(has_it) is not bool:raise ValueError('Présence du poste IT : booléen requis.')
+  target_employee=data.get('target_employee',1)
+  employee_layout=data.get('employee_layout','single')
   employee_count=data.get('employee_count',2)
   if type(employee_count) is not int or not 2<=employee_count<=6:raise ValueError('Nombre de postes employés : entier de 2 à 6.')
   site_code=str(data.get('site_code','AG1')).upper()
@@ -33,6 +35,9 @@ class Generator:
   if not eligible:raise ValueError('Aucun scénario compatible avec ce mode et ce niveau.')
   chosen=random.Random(seed).choice(eligible)
   if not has_it and chosen['topology']!='enterprise_services':raise ValueError('Poste IT facultatif uniquement pour les sites de services entreprise.')
+  if type(target_employee) is not int or not 1<=target_employee<=employee_count:raise ValueError('Poste cible absent.')
+  if employee_layout not in ('single','split'):raise ValueError('Répartition employés invalide.')
+  if chosen['topology']!='enterprise_services' and (target_employee!=1 or employee_layout!='single'):raise ValueError('Variantes réservées aux sites entreprise.')
   if employee_count!=2 and chosen['topology']!='enterprise_services':raise ValueError('La variation des postes est réservée aux sites de services entreprise.')
   import time
   ident=uuid.uuid4().hex;folder=self.root/ident;folder.mkdir()
@@ -41,7 +46,7 @@ class Generator:
    if any(j['status']=='running' for j in self.jobs()):raise ValueError('Une génération est déjà en cours. Attends sa fin.')
    if not hasattr(self,'active'):self.active=set()
    self.active.add(ident);self.save(job)
-  req=dict(site_code=site_code,address_family=data.get('address_family'),folder=str(folder),scenario=chosen['id'],seed=seed,level=level,count=count,ticket_title=str(data.get('ticket_title',''))[:180],business_names=bool(data.get('business_names',False)),employee_count=employee_count,has_it=has_it)
+  req=dict(site_code=site_code,address_family=data.get('address_family'),folder=str(folder),scenario=chosen['id'],seed=seed,level=level,count=count,ticket_title=str(data.get('ticket_title',''))[:180],business_names=bool(data.get('business_names',False)),employee_count=employee_count,has_it=has_it,target_employee=target_employee,employee_layout=employee_layout)
   threading.Thread(target=self.work,args=(job,req),daemon=True).start();return job
  def save(self,job):
   path=self.root/job['id']/'job.json';tmp=path.with_suffix('.tmp');tmp.write_text(json.dumps(job,ensure_ascii=False),encoding='utf-8');os.replace(tmp,path)

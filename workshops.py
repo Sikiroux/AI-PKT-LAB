@@ -126,7 +126,7 @@ def server_defaults(e):
         put(e,'DNS_SERVER/ENABLED',0)
 
 
-def make_topology(name, seed, folder, address_family=None, extra_web_server=False, reference_policy=None, employee_count=2, has_it=True):
+def make_topology(name, seed, folder, address_family=None, extra_web_server=False, reference_policy=None, employee_count=2, has_it=True, target_employee=1, employee_layout="single"):
     """Crée le socle et retourne son arbre XML et ses valeurs attendues."""
     rng = random.Random(seed)
     if type(has_it) is not bool:
@@ -137,6 +137,12 @@ def make_topology(name, seed, folder, address_family=None, extra_web_server=Fals
         raise ValueError('Nombre de postes employés : entier de 2 à 6, hors poste IT.')
     if employee_count != 2 and name != 'enterprise_services':
         raise ValueError('La variation des postes concerne les sites de services entreprise.')
+    if type(target_employee) is not int or not 1 <= target_employee <= employee_count:
+        raise ValueError('Poste cible : numéro parmi les postes employés présents.')
+    if employee_layout not in ('single','split'):
+        raise ValueError('Répartition employés : single ou split.')
+    if name != 'enterprise_services' and (target_employee != 1 or employee_layout != 'single'):
+        raise ValueError('Ces variantes sont réservées aux sites de services entreprise.')
     folder = Path(folder); folder.mkdir(parents=True, exist_ok=True)
     lab = WorkshopLab(rng=rng)
     devices, links = {}, []
@@ -181,15 +187,20 @@ def make_topology(name, seed, folder, address_family=None, extra_web_server=Fals
             lab.add(sw,'switch','2960-24TT',(x,320),config=builder.switch_mgmt_config(sw,host(key,2),'255.255.255.0',host(key,1)))
             devices[sw]={'type':'switch','mgmt':{'ip':host(key,2),'mask':'255.255.255.0','gateway':host(key,1)}}
             link('R1',f'GigabitEthernet0/{i}',sw,'GigabitEthernet0/1')
+        if employee_layout == 'split':
+            lab.add('SW-EMP2','switch','2960-24TT',(450,360),config=builder.switch_mgmt_config('SW-EMP2',host('employees',3),'255.255.255.0',host('employees',1)))
+            devices['SW-EMP2']={'type':'switch','mgmt':{'ip':host('employees',3),'mask':'255.255.255.0','gateway':host('employees',1)}}
+            link('SW-EMP','FastEthernet0/24','SW-EMP2','FastEthernet0/24')
         for n,key,num,x,sp in [('PC-ALICE','employees',21,100,1),('PC-BOB','employees',22,300,2),('PC-ADMIN','employees',23,450,3),('PC-GUEST','guests',21,1000,1)]:
             if n == 'PC-ADMIN' and not has_it:
                 continue
             add_host(n,host(key,num),host(key,1),(x,540),dns_ip=infra)
-            link({'employees':'SW-EMP','guests':'SW-GUEST'}[key],f'FastEthernet0/{sp}',n,'FastEthernet0')
+            client_switch='SW-EMP2' if employee_layout=='split' and n=='PC-BOB' else {'employees':'SW-EMP','guests':'SW-GUEST'}[key]
+            link(client_switch,f'FastEthernet0/{sp}',n,'FastEthernet0')
         for i in range(3,employee_count+1):
             n=f'PC-CPT-{i:02d}'
             add_host(n,host('employees',21+i),host('employees',1),(100+(i-3)%2*200,720+(i-3)//2*180),dns_ip=infra)
-            link('SW-EMP',f'FastEthernet0/{i+1}',n,'FastEthernet0')
+            link('SW-EMP2' if employee_layout=='split' and i%2==0 else 'SW-EMP',f'FastEthernet0/{i+1}',n,'FastEthernet0')
         for i,(n,num,x) in enumerate([('SRV-INFRA',10,420),('SRV-WEB',20,600),('SRV-FTP',30,780),('SRV-MAIL',40,600)],1):
             add_host(n,host('servers',num),host('servers',1),(x,700 if n=='SRV-MAIL' else 520),'Server-PT',dns_ip=infra)
             link('SW-SRV',f'FastEthernet0/{i}',n,'FastEthernet0')
@@ -238,7 +249,7 @@ def make_topology(name, seed, folder, address_family=None, extra_web_server=Fals
         shown_networks={'employees':str(nets['employees'])}
     else:
         shown_networks={k:str(v) for k,v in nets.items()}
-    topo={'name':name,'devices':devices,'links':links,'seed':seed,'employee_count':employee_count if name=='enterprise_services' else None,'has_it':has_it,
+    topo={'name':name,'devices':devices,'links':links,'seed':seed,'employee_count':employee_count if name=='enterprise_services' else None,'has_it':has_it,'target_employee':target_employee,'employee_layout':employee_layout,'dhcp_target':('PC-ALICE' if target_employee==1 else 'PC-BOB' if target_employee==2 else f'PC-CPT-{target_employee:02d}'),
           'networks':shown_networks,'validation':'manual','status':'A tester dans Packet Tracer 9'}
     if name=='enterprise_services':
         records={'intranet.entreprise.test':host('servers',20),'ftp.entreprise.test':host('servers',30),'mail.entreprise.test':host('servers',40)}
@@ -303,7 +314,7 @@ def pool_change(field,value):
         pool=next(p for p in s.findall('POOLS/POOL') if p.findtext('NAME')=='EMPLOYEES')
         put(pool,field,value(t) if callable(value) else value)
         # Le poste test commence sans bail : aucun bail valide ne masque la panne.
-        pc=engines(root)['PC-ALICE'];p=port(pc)
+        pc=engines(root)[t.get('dhcp_target','PC-ALICE')];p=port(pc)
         for tag in ('IP','SUBNET','PORT_GATEWAY','PORT_DNS'):put(p,tag,'0.0.0.0')
         put(p,'PORT_DHCP_ENABLE','true');put(pc,'GATEWAY','0.0.0.0')
     return mutate
@@ -370,9 +381,9 @@ def dhcp_blank(root,t):
     pool_change('MAX_USERS',50)(root,t)
 
 
-def dhcp_client_reference(root):
+def dhcp_client_reference(root,target='PC-ALICE'):
     """Prépare le client DHCP dans la référence, sans inventer un bail obtenu dans PT."""
-    e=engines(root)['PC-ALICE'];p=port(e)
+    e=engines(root)[target];p=port(e)
     for tag in ('IP','SUBNET','PORT_GATEWAY','PORT_DNS'):put(p,tag,'0.0.0.0')
     put(p,'PORT_DHCP_ENABLE','true')
     put(e,'GATEWAY','0.0.0.0')
@@ -381,6 +392,10 @@ def dhcp_client_reference(root):
 def value(t,device):return t['devices'][device]['ip']
 
 def describe(text,t):
+    if t.get('target_employee',1) != 1 and t.get('vary_dhcp_target'):
+        import re
+        substitutions={'PC-ALICE':t['dhcp_target'],'PC-BOB':'PC-ALICE'}
+        text=re.sub(r'PC-ALICE|PC-BOB',lambda m:substitutions[m.group()],text)
     replacements={n:d.get('ip','') for n,d in t['devices'].items()}
     replacements.update(t['networks'])
     replacements.update({k+'_net':str(ipaddress.IPv4Network(v).network_address) for k,v in t['networks'].items()})
@@ -590,7 +605,7 @@ def render(topo,spec):
     for row in rows:parts.append('<tr>'+''.join('<td>'+esc(v)+'</td>' for v in row)+'</tr>')
     parts.append('</table><p>Réseaux : '+esc(', '.join(k+' = '+v for k,v in topo['networks'].items()))+'</p>')
     if spec['id'].startswith('dhcp_') or spec['id']=='configure_dhcp_relay':
-        parts.append('<p>PC-ALICE démarre en DHCP sans bail. Sa ligne dans la table est une référence statique du socle ; le résultat attendu du DHCP est une adresse .100 à .149 du réseau employees.</p>')
+        parts.append('<p>'+esc(topo.get('dhcp_target','PC-ALICE'))+' démarre en DHCP sans bail. Sa ligne dans la table est une référence statique du socle ; le résultat attendu du DHCP est une adresse .100 à .149 du réseau employees.</p>')
     parts.append('<h2>Indices progressifs</h2>')
     for i,hint in enumerate(spec['hints'],1):parts.append('<details><summary>Indice '+str(i)+'</summary><p>'+esc(describe(hint,topo))+'</p></details>')
     parts.append('<h2>Correction — à consulter à la fin</h2><details><summary>Afficher une méthode et les résultats attendus</summary><h3>Méthode possible</h3><p>'+esc(describe(spec['solution'],topo))+'</p><h3>Tests et résultats attendus</h3><ul>')
@@ -599,12 +614,13 @@ def render(topo,spec):
     return ''.join(parts)
 
 
-def generate(scenario_id,seed=None,output_dir='.',embed=True,address_family=None,employee_count=2, has_it=True):
+def generate(scenario_id,seed=None,output_dir='.',embed=True,address_family=None,employee_count=2, has_it=True, target_employee=1, employee_layout="single"):
     if scenario_id not in CATALOGUE:raise ValueError(f'Atelier inconnu : {scenario_id}')
     spec=dict(CATALOGUE[scenario_id],id=scenario_id)
     seed=seed if seed is not None else random.SystemRandom().randrange(10**9)
     folder=Path(output_dir).resolve();folder.mkdir(parents=True,exist_ok=True)
-    tree,topo=make_topology(spec['topology'],seed,folder,address_family,employee_count=employee_count,has_it=has_it)
+    tree,topo=make_topology(spec['topology'],seed,folder,address_family,employee_count=employee_count,has_it=has_it,target_employee=target_employee,employee_layout=employee_layout)
+    topo['vary_dhcp_target']=scenario_id.startswith('dhcp_') or scenario_id=='configure_dhcp_relay'
     baseline=folder/'baseline.xml'
     spec['mutate'](tree.getroot(),topo)
     start=folder/'initial.xml';ET.indent(tree,space=' ');tree.write(start,encoding='utf-8',short_empty_elements=False)

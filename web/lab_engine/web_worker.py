@@ -31,7 +31,7 @@ def generate(req):
    a,b=PAIRS[int(scenario.split(':')[1])];first=workshops.CATALOGUE[a];second=workshops.CATALOGUE[b]
    def mutate(root,topo):first['mutate'](root,topo);second['mutate'](root,topo)
    workshops.CATALOGUE[scenario]=dict(first,title=first['title']+' + '+second['title'],kind='evolution',mutate=mutate,statement='Partie atelier : '+first['statement']+'\nPartie dépannage : '+second['statement'],hints=first['hints']+second['hints'],solution=first['solution']+'\n'+second['solution'],tests=first['tests']+second['tests'])
-  meta=workshops.generate(scenario,seed=seed,output_dir=str(folder),address_family=req.get('address_family'),employee_count=req.get('employee_count',2),has_it=req.get('has_it',True))
+  meta=workshops.generate(scenario,seed=seed,output_dir=str(folder),address_family=req.get('address_family'),employee_count=req.get('employee_count',2),has_it=req.get('has_it',True),target_employee=req.get('target_employee',1),employee_layout=req.get('employee_layout','single'))
   if reproduce_mutation:
    tree=ET.parse(folder/'baseline.xml');reproduce_mutation(tree.getroot(),meta['topology']);ET.indent(tree,space=' ');tree.write(folder/'reproduction.xml',encoding='utf-8',short_empty_elements=False)
   reference_extension=workshops.CATALOGUE[scenario].get('reference_extension')
@@ -41,12 +41,12 @@ def generate(req):
    workshops.make_topology(meta['topology']['name'],seed,reference_folder,req.get('address_family'),
                            extra_web_server=reference_extension=='web_server',
                            reference_policy=reference_extension if reference_extension!='web_server' else None,
-                           employee_count=req.get('employee_count',2),has_it=req.get('has_it',True))
+                           employee_count=req.get('employee_count',2),has_it=req.get('has_it',True),target_employee=req.get('target_employee',1),employee_layout=req.get('employee_layout','single'))
    shutil.copy2(reference_folder/'baseline.xml',folder/'reference.xml')
    shutil.rmtree(reference_folder)
   elif reference_extension=='dhcp_relay':
    tree=ET.parse(folder/'baseline.xml')
-   workshops.dhcp_client_reference(tree.getroot())
+   workshops.dhcp_client_reference(tree.getroot(),meta['topology'].get('dhcp_target','PC-ALICE'))
    ET.indent(tree,space=' ')
    tree.write(folder/'reference.xml',encoding='utf-8',short_empty_elements=False)
   correction_source='reproduction.xml' if reproduce_mutation else 'reference.xml' if reference_extension else 'baseline.xml'
