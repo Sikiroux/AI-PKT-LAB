@@ -1,0 +1,23 @@
+# Données personnelles générées à l'usage
+tickets/
+exercices_historique.json
+
+# Python
+__pycache__/
+*.pyc
+
+# Construction de l'exe
+build/
+dist/
+*.spec
+
+# Fichiers temporaires du générateur
+lab_*.xml
+_tmp_*.xml
+
+# Etat local du portail web
+web/labs/
+web/travail/
+web/donnees-netops.json
+web/data.json
+web/etat-depart.json
