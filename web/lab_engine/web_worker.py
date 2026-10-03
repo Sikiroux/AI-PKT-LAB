@@ -2,7 +2,7 @@ import sys
 from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parents[2]))
 """Génération isolée : aucun accès au réseau de travail du pont."""
-import contextlib,io,json,random,sys
+import contextlib,io,json,random,shutil,sys
 from pathlib import Path
 import builder,faults,workshops,ptexplorer
 import reproduction,worksheet_answers,hashlib,organization
@@ -24,7 +24,6 @@ def generate(req):
   faults.inject(topo,level=level,fault_ids=[fid],count=count,seed=seed,output_path=str(folder/'lab.pka'),lang='fr')
   (folder/'consignes.html').write_text((folder/'lab.html').read_text(encoding='utf-8'),encoding='utf-8')
   # Socle sain séparé pour consultation de la correction.
-  import shutil
   shutil.copy2(topo['pkt_path'],folder/'correction.pkt')
  else:
   reproduce_mutation=reproduction.install(scenario) if scenario in reproduction.SCENARIOS else None
@@ -35,11 +34,17 @@ def generate(req):
   meta=workshops.generate(scenario,seed=seed,output_dir=str(folder),address_family=req.get('address_family'))
   if reproduce_mutation:
    tree=ET.parse(folder/'baseline.xml');reproduce_mutation(tree.getroot(),meta['topology']);ET.indent(tree,space=' ');tree.write(folder/'reproduction.xml',encoding='utf-8',short_empty_elements=False)
-   ptexplorer.ptfile_encode(str(folder/'reproduction.xml'),str(folder/'correction.pkt'))
-  else:ptexplorer.ptfile_encode(str(folder/'baseline.xml'),str(folder/'correction.pkt'))
+  reference_extension=workshops.CATALOGUE[scenario].get('reference_extension')
+  if reference_extension=='web_server':
+   # Build the completed site independently: the learner starts without the new server.
+   reference_folder=folder/'reference_build'
+   workshops.make_topology(meta['topology']['name'],seed,reference_folder,req.get('address_family'),extra_web_server=True)
+   shutil.copy2(reference_folder/'baseline.xml',folder/'reference.xml')
+   shutil.rmtree(reference_folder)
+  correction_source='reproduction.xml' if reproduce_mutation else 'reference.xml' if reference_extension else 'baseline.xml'
   layout=organization.finalize(folder,req.get('site_code','AG1'),business=not bool(req.get('ticket_title')))
   if layout['applied']:
-   for source,target in [('initial.xml','lab.pkt'),('activity.xml','lab.pka'),('reproduction.xml' if reproduce_mutation else 'baseline.xml','correction.pkt')]:
+   for source,target in [('initial.xml','lab.pkt'),('activity.xml','lab.pka'),(correction_source,'correction.pkt')]:
     ptexplorer.ptfile_encode(str(folder/source),str(folder/target))
  # Compte rendu saisissable dans le HTML compagnon.
  html=(folder/'consignes.html').read_text(encoding='utf-8')
@@ -49,7 +54,7 @@ def generate(req):
  form+='</table><p>Utilise l’impression du navigateur pour conserver tes réponses. La sauvegarde locale et l’export JSON sont disponibles ci-dessous.</p><button onclick="window.print()">Imprimer mes réponses</button></section>'
  key=hashlib.sha256((str(folder.resolve())+str(seed)+scenario).encode()).hexdigest()[:24]
  html=html.replace('</body>',form+worksheet_answers.script(key)+'</body>');(folder/'consignes.html').write_text(html,encoding='utf-8')
- return {'correction_label':'Exemple de panne reproduite' if scenario in reproduction.SCENARIOS else 'Réseau de référence (socle sain)', 'scenario':None if req.get('ticket_title') else scenario,'seed':seed,'validation':'Correction et tests manuels dans Packet Tracer','files':[p.name for p in folder.iterdir() if p.name in ('lab.pka','lab.pkt','consignes.html','correction.pkt','implantation.json')]}
+ return {'correction_label':'Exemple de panne reproduite' if scenario in reproduction.SCENARIOS else 'Topologie complétée (exemple)' if not scenario.startswith('classic:') and reference_extension else 'Réseau de référence (socle sain)', 'scenario':None if req.get('ticket_title') else scenario,'seed':seed,'validation':'Correction et tests manuels dans Packet Tracer','files':[p.name for p in folder.iterdir() if p.name in ('lab.pka','lab.pkt','consignes.html','correction.pkt','implantation.json')]}
 if __name__=='__main__':
  if sys.argv[1]=='catalogue':print(json.dumps(catalogue(),ensure_ascii=False))
  else:

@@ -4,6 +4,8 @@ Lancer `web/LANCER-WINDOWS.bat` depuis une copie complète du dépôt, ou `pytho
 
 Nouveaux labs d’ateliers : code de site configurable (AG1 par défaut), noms par rôle, pièces physiques et baie informatique. Sept combinaisons atelier + dépannage sont proposées. `implantation.json` et les consignes décrivent les emplacements. Les slots sont ceux du modèle Packet Tracer, pas un calcul d’encombrement en unités U. Le rendu physique doit être testé dans PT 9.
 
+La mission « Ajouter un serveur web » (seule ou combinée au dépannage HTTP) génère aussi une topologie complétée `correction.pkt` : second Server-PT câblé, adresse .50, service HTTP et entrée DNS support.entreprise.test. Le PKA conserve la topologie initiale et les consignes ; sa notation native est désactivée. Les autres missions d’ajout restent corrigées par la feuille.
+
 Les réseaux existants et les labs associés aux tickets conservent leurs noms pour préserver les contrôles et les consignes. Les anciens scénarios réseau classiques gardent leur implantation initiale.
 
 Les services HTTP/DNS/DHCP du site persistant utilisent des adaptateurs expérimentaux : détection en lecture seule, injection bloquée si aucun adaptateur compatible n’est détecté. Les noms de processus et méthodes candidats ne sont pas encore confirmés dans PT 9. Une API compatible prouve seulement un état de configuration ; les tests fonctionnels restent déclarés manuellement après compte rendu.

@@ -58,3 +58,27 @@ class BlockTests(unittest.TestCase):
    worksheet=(Path(tmp)/'consignes.html').read_text();self.assertIn('Implantation physique',worksheet)
    activity=ET.parse(Path(tmp)/'activity.xml').getroot();self.assertTrue(any(n.text and 'Implantation physique' in n.text for n in activity.iter()))
    self.assertEqual(len(activity.findall('PACKETTRACER5')),3)
+ def test_new_server_has_a_real_completed_topology(self):
+  for scenario in ('add_web_server','mixed:6'):
+   with self.subTest(scenario=scenario),tempfile.TemporaryDirectory() as tmp:
+    def encode(source,target):Path(target).write_bytes(b'encoding-covered-by-core-tests')
+    with patch.object(web_worker.ptexplorer,'ptfile_encode',side_effect=encode):
+     result=web_worker.generate(dict(folder=tmp,scenario=scenario,seed=7,level=5,count=1,site_code='LY1'))
+    initial=ET.parse(Path(tmp)/'initial.xml').getroot()
+    complete=ET.parse(Path(tmp)/'reference.xml').getroot()
+    def devices(root):return {d.findtext('ENGINE/NAME'):d.find('ENGINE') for d in root.findall('NETWORK/DEVICES/DEVICE')}
+    before,after=devices(initial),devices(complete)
+    self.assertEqual(set(after)-set(before),{'LY1-SRV-WEB-02'})
+    new=after['LY1-SRV-WEB-02'];self.assertTrue(new.findtext('.//PORT/IP').endswith('.50'))
+    self.assertEqual(new.findtext('HTTP_SERVER/ENABLED'),'1')
+    self.assertIn('Support entreprise',next(f.findtext('FILE_CONTENT/TEXT') for f in new.iter('FILE') if f.findtext('NAME')=='index.html'))
+    dns=after['LY1-SRV-INF-01'].find('DNS_SERVER/NAMESERVER-DATABASE')
+    record=next(r for r in dns if r.findtext('NAME')=='support.entreprise.test')
+    self.assertEqual(record.findtext('IPADDRESS'),new.findtext('.//PORT/IP'))
+    self.assertEqual(len(complete.findall('NETWORK/LINKS/LINK')),len(initial.findall('NETWORK/LINKS/LINK'))+1)
+    self.assertEqual(len(complete.findall('.//PHYSICALWORKSPACE//NODE[TYPE="6"]')),len(after))
+    self.assertEqual(result['correction_label'],'Topologie complétée (exemple)')
+    self.assertIn('LY1-SRV-WEB-02',(Path(tmp)/'consignes.html').read_text())
+    if scenario=='mixed:6':
+     self.assertEqual(before['LY1-SRV-WEB-01'].findtext('HTTP_SERVER/ENABLED'),'0')
+     self.assertEqual(after['LY1-SRV-WEB-01'].findtext('HTTP_SERVER/ENABLED'),'1')

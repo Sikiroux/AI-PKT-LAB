@@ -185,4 +185,6 @@ Le générateur CLI reste accessible avec `python main.py`. Pour les tickets, le
 
 Voir [le mode d’emploi du portail](web/LIRE-MOI.md). Les données locales de tickets et les réseaux générés sont exclus de Git. Le pont communautaire et son extension sont livrés avec leur licence dans `web/vendor`.
 
+La mission « Ajouter un serveur web » et sa combinaison avec un dépannage HTTP fournissent une topologie complétée en `correction.pkt`. Le PKA intègre les consignes et conserve la topologie de départ, avec notation native désactivée.
+
 Les nouveautés de nommage, implantation physique et services conditionnels restent **à tester dans Packet Tracer 9**. Les tests Python contrôlent les fichiers et les gardes, pas le fonctionnement réel du réseau.

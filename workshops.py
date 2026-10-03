@@ -125,7 +125,7 @@ def server_defaults(e):
         put(e,'DNS_SERVER/ENABLED',0)
 
 
-def make_topology(name, seed, folder, address_family=None):
+def make_topology(name, seed, folder, address_family=None, extra_web_server=False):
     """Crée le socle et retourne son arbre XML et ses valeurs attendues."""
     rng = random.Random(seed)
     folder = Path(folder); folder.mkdir(parents=True, exist_ok=True)
@@ -168,6 +168,9 @@ def make_topology(name, seed, folder, address_family=None):
         for i,(n,num,x) in enumerate([('SRV-INFRA',10,420),('SRV-WEB',20,600),('SRV-FTP',30,780),('SRV-MAIL',40,600)],1):
             add_host(n,host('servers',num),host('servers',1),(x,700 if n=='SRV-MAIL' else 520),'Server-PT',dns_ip=infra)
             link('SW-SRV',f'FastEthernet0/{i}',n,'FastEthernet0')
+        if extra_web_server:
+            add_host('SRV-WEB2',host('servers',50),host('servers',1),(960,520),'Server-PT',dns_ip=infra)
+            link('SW-SRV','FastEthernet0/5','SRV-WEB2','FastEthernet0')
     elif name == 'wifi_deployment':
         net=nets['employees'];gw=host('employees',1)
         lab.add('R1','router','2911',(300,100),config=['hostname R1','!','interface GigabitEthernet0/0',f' ip address {gw} 255.255.255.0',' no shutdown','!',f'ip dhcp excluded-address {gw} {host("employees",49)}','ip dhcp pool WIFI',f' network {net.network_address} 255.255.255.0',f' default-router {gw}',f' dns-server {host("employees",10)}','!','end'])
@@ -214,10 +217,16 @@ def make_topology(name, seed, folder, address_family=None):
           'networks':shown_networks,'validation':'manual','status':'A tester dans Packet Tracer 9'}
     if name=='enterprise_services':
         records={'intranet.entreprise.test':host('servers',20),'ftp.entreprise.test':host('servers',30),'mail.entreprise.test':host('servers',40)}
+        if extra_web_server:
+            records['support.entreprise.test']=host('servers',50)
         dns(e['SRV-INFRA'],records)
         dhcp(e['SRV-INFRA'],[{'name':key.upper(),'network':str(nets[key]),'gateway':host(key,1),'dns':host('servers',10)} for key in ('employees','guests')])
         for svc in ('SYSLOG_SERVER','NTP_SERVER','TFTP_SERVER'):put(e['SRV-INFRA'],svc+'/ENABLED',1)
         put(e['SRV-WEB'],'HTTP_SERVER/ENABLED',1)
+        if extra_web_server:
+            put(e['SRV-WEB2'],'HTTP_SERVER/ENABLED',1)
+            index=next(f for f in e['SRV-WEB2'].iter('FILE') if f.findtext('NAME')=='index.html')
+            put(index,'FILE_CONTENT/TEXT','<html><body><h1>Support entreprise - SRV-WEB2</h1></body></html>')
         put(e['SRV-FTP'],'FTP_SERVER/ENABLED',1)
         accounts=e['SRV-FTP'].find('FTP_SERVER/USER_ACCOUNT_MNGR');accounts.clear()
         for user,password,permissions in [('lecteur','Lecture123','RL'),('depot','Depot123','RWNL')]:
@@ -454,6 +463,7 @@ register('add_web_server','Ajouter un serveur web','evolution',E,noop,
  ['Ajoute un Server-PT et un câble sur un port libre de SW-SRV.','Adresse, service HTTP et DNS sont trois étapes distinctes.'],
  'Ajouter SRV-WEB2 ; IP <réseau servers>.50/24, passerelle .1, DNS {SRV-INFRA}. HTTP On ; éditer index.html. Ajouter le A support.entreprise.test vers .50 sur SRV-INFRA.',
  ['Un nouveau serveur nommé SRV-WEB2 est présent et câblé.','PC-ALICE ouvre support.entreprise.test et voit la page du nouveau serveur.','L’intranet d’origine reste accessible.'],2)
+CATALOGUE['add_web_server']['reference_extension']='web_server'
 register('configure_aaa','Centraliser les accès avec AAA','configuration',E,noop,
  'Configure RADIUS sur SRV-INFRA et R1 pour l’authentification des accès VTY. Compte technicien/Tech123, clé partagée LabRadius123. Garde un compte local de secours.',
  ['Services > AAA : déclarer R1 avec son IP du réseau servers.','Configure le client RADIUS et la méthode AAA sur R1 ; garde la console ouverte pendant les tests.'],

@@ -4,7 +4,7 @@ sys.path.append(str(Path(__file__).resolve().parents[2]))
 """Convention de noms et implantation physique, après les mutations pédagogiques."""
 import copy,re,uuid,json,html
 import xml.etree.ElementTree as ET
-KNOWN={'R1':'RTR-01','ISP':'RTR-ISP-01','SW1':'SW-01','SW-EMP':'SW-USR-01','SW-SRV':'SW-SRV-01','SW-GUEST':'SW-ACC-01','SW-WAN':'SW-WAN-01','SW-LAN':'SW-LAN-01','PC-ADMIN':'PC-IT-01','PC-ALICE':'PC-CPT-01','PC-BOB':'PC-CPT-02','PC-GUEST':'PC-ACC-01','PC-CLIENT':'PC-USR-01','SRV-INFRA':'SRV-INF-01','SRV-WEB':'SRV-WEB-01','SRV-FTP':'SRV-FIC-01','SRV-MAIL':'SRV-MSG-01','AP1':'AP-01','MX1':'FW-01','MERAKI-CLOUD':'SRV-MRK-01','WEB-PUBLIC':'SRV-PUB-01'}
+KNOWN={'R1':'RTR-01','ISP':'RTR-ISP-01','SW1':'SW-01','SW-EMP':'SW-USR-01','SW-SRV':'SW-SRV-01','SW-GUEST':'SW-ACC-01','SW-WAN':'SW-WAN-01','SW-LAN':'SW-LAN-01','PC-ADMIN':'PC-IT-01','PC-ALICE':'PC-CPT-01','PC-BOB':'PC-CPT-02','PC-GUEST':'PC-ACC-01','PC-CLIENT':'PC-USR-01','SRV-INFRA':'SRV-INF-01','SRV-WEB':'SRV-WEB-01','SRV-WEB2':'SRV-WEB-02','SRV-FTP':'SRV-FIC-01','SRV-MAIL':'SRV-MSG-01','AP1':'AP-01','MX1':'FW-01','MERAKI-CLOUD':'SRV-MRK-01','WEB-PUBLIC':'SRV-PUB-01'}
 def prefix(value):
  value=str(value).upper()
  if not re.fullmatch(r'[A-Z][A-Z0-9]{1,5}',value):raise ValueError('Code de site : 2 à 6 lettres/chiffres, commençant par une lettre.')
@@ -90,9 +90,14 @@ def finalize(folder,site='AG1',business=True):
  folder=__import__('pathlib').Path(folder);site=prefix(site)
  initial=folder/'initial.xml';baseline=folder/'baseline.xml'
  if not initial.exists() or not baseline.exists():return dict(applied=False,reason='Organisation avancée réservée aux topologies d’ateliers et services.')
- root=ET.parse(initial).getroot();names=mapping([d.findtext('ENGINE/NAME') for d in root.findall('NETWORK/DEVICES/DEVICE')],site) if business else {}
+ root=ET.parse(initial).getroot()
+ device_names=[d.findtext('ENGINE/NAME') for d in root.findall('NETWORK/DEVICES/DEVICE')]
+ if (folder/'reference.xml').exists():
+  reference_root=ET.parse(folder/'reference.xml').getroot()
+  device_names.extend(d.findtext('ENGINE/NAME') for d in reference_root.findall('NETWORK/DEVICES/DEVICE'))
+ names=mapping(device_names,site) if business else {}
  rows=[]
- for filename in ('initial.xml','baseline.xml','reproduction.xml','activity.xml'):
+ for filename in ('initial.xml','baseline.xml','reproduction.xml','reference.xml','activity.xml'):
   path=folder/filename
   if not path.exists():continue
   tree=ET.parse(path);rename_tree(tree.getroot(),names)
