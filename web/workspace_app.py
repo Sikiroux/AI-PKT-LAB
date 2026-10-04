@@ -45,9 +45,9 @@ class Controller:
             found[role] = matches[0]
         return found
 
-    def observe(self):
+    def observe(self, blocking=False):
         # Ne jamais attendre le pont si une action utilisateur l'utilise déjà.
-        if not self.lock.acquire(blocking=False):
+        if not self.lock.acquire(blocking=blocking):
             return
         try:
             s = self.workspace.state
@@ -98,87 +98,9 @@ class Controller:
 
 
 def run():
-    bridge = PTCommandBridge()
-    bridge.start()
-    controller = Controller(Engine(bridge), ROOT / 'workspace-session')
-    token = secrets.token_urlsafe(32)
-    stop = threading.Event()
-    def poll():
-        while not stop.is_set():
-            controller.observe()
-            stop.wait(10)
-    threading.Thread(target=poll, daemon=True).start()
-
-    class Handler(BaseHTTPRequestHandler):
-        def send(self, code, value, kind='application/json'):
-            body = (value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)).encode()
-            self.send_response(code)
-            self.send_header('Content-Type', kind + '; charset=utf-8')
-            self.send_header('Content-Length', str(len(body)))
-            self.send_header('Cache-Control', 'no-store')
-            self.end_headers()
-            self.wfile.write(body)
-
-        def allowed(self):
-            return self.headers.get('Host') in ('localhost:8766', '127.0.0.1:8766')
-
-        def do_GET(self):
-            if not self.allowed():
-                return self.send(403, {'error': 'Host refusé'})
-            if self.path == '/':
-                return self.send(200, (ROOT / 'workspace.html').read_text(encoding='utf-8').replace('__TOKEN__', token), 'text/html')
-            if self.path == '/state':
-                with controller.lock:
-                    return self.send(200, controller.workspace.public())
-            self.send(404, {'error': 'Page inconnue'})
-
-        def do_POST(self):
-            if not self.allowed() or not secrets.compare_digest(self.headers.get('X-Workspace-Token', ''), token):
-                return self.send(403, {'error': 'Accès refusé'})
-            try:
-                n = int(self.headers.get('Content-Length', '0'))
-                if not 0 <= n <= 8192:
-                    raise ValueError('Requête trop grande')
-                data = json.loads(self.rfile.read(n) or b'{}')
-                if self.path == '/new':
-                    result = controller.new(data.get('seed', ''))
-                elif self.path == '/action':
-                    result = controller.action(data['action'])
-                elif self.path == '/refresh':
-                    controller.observe()
-                    with controller.lock:
-                        result = controller.workspace.public()
-                elif self.path == '/ping':
-                    result = controller.ping(data['target'])
-                elif self.path == '/open':
-                    with controller.lock:
-                        if not controller.workspace.state:
-                            raise ValueError('Génère un environnement.')
-                        path = controller.workspace.state['network_file']
-                    if os.name != 'nt':
-                        raise ValueError('Ouverture automatique réservée à Windows ; ouvre le fichier affiché manuellement.')
-                    os.startfile(path)
-                    result = {'message': 'Ouverture demandée à Windows.'}
-                else:
-                    return self.send(404, {'error': 'Action inconnue'})
-                self.send(200, result)
-            except Exception as e:
-                self.send(400, {'error': str(e)})
-
-        def log_message(self, *args):
-            pass
-
-    server = ThreadingHTTPServer(('127.0.0.1', 8766), Handler)
-    print('Prototype : http://127.0.0.1:8766 — fermer les autres serveurs utilisant le pont.')
-    webbrowser.open('http://127.0.0.1:8766')
-    try:
-        server.serve_forever()
-    except KeyboardInterrupt:
-        pass
-    finally:
-        stop.set()
-        server.server_close()
-        bridge.stop()
+    # Compatibilité avec l'ancien lanceur : toujours utiliser le serveur unifié.
+    from tickets_app import run as unified_run
+    unified_run()
 
 
 if __name__ == '__main__':

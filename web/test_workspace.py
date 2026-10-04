@@ -11,6 +11,30 @@ from workspace_network import build
 
 
 class ModelTests(unittest.TestCase):
+    def test_manual_refresh_waits_for_busy_controller_and_closes_session(self):
+        import threading
+        class Broken:
+            lock = threading.Lock()
+            def snapshot(self): raise RuntimeError('offline')
+        with tempfile.TemporaryDirectory() as d:
+            c = Controller(Broken(), d)
+            c.workspace.state = generate('abc')
+            c.workspace.state['remote_session'] = True
+            entered = threading.Event()
+            done = threading.Event()
+            def refresh():
+                entered.set()
+                c.observe(blocking=True)
+                done.set()
+            with c.lock:
+                worker = threading.Thread(target=refresh)
+                worker.start()
+                self.assertTrue(entered.wait(1))
+                self.assertFalse(done.wait(.05))
+            worker.join(2)
+            self.assertTrue(done.is_set())
+            self.assertFalse(c.workspace.public()['remote_session'])
+
     def test_seed_and_separate_draws(self):
         self.assertEqual(generate('abc'), generate('abc'))
         self.assertNotEqual(generate('abc'), generate('other'))

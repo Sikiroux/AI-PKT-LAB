@@ -1,3 +1,7 @@
+# Version intégrée 0.15
+
+Le lancement et le bureau OS.js sont maintenant réunis avec les tickets et le générateur sur le port 8765. Voir docs/INTEGRATION-OSJS.md. Les instructions ci-dessous décrivent le prototype initial ; le port 8766 et le bureau HTML provisoire sont remplacés.
+
 # Prototype 1 — poste et partage
 
 ## Installation et lancement

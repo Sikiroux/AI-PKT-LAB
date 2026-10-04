@@ -58,3 +58,8 @@ SOFTWARE.
 ## Pont web Packet Tracer
 
 `web/vendor/live_bridge.py`, `web/vendor/bridge_token.py` et `web/V5.2.pts` proviennent du projet communautaire Mats2208/MCP-Packet-Tracer (MIT). La licence est conservée dans `web/vendor/LICENSE-MCP-Packet-Tracer`. Extension fournie sans modification. Les templates Packet Tracer conservent les réserves décrites ci-dessus.
+
+
+## OS.js client 3.10.0
+
+Distribution npm @osjs/client incluse dans web/vendor/osjs, copyright Anders Evenrud, BSD 2-Clause. Licence complète : web/vendor/osjs/LICENSE. Sources : https://github.com/os-js/osjs-client. Les notices intégrées au bundle sont conservées.

@@ -1,0 +1,61 @@
+"""Routes du bureau avec le pont et le jeton du serveur principal."""
+import mimetypes
+import os
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+
+class WorkspaceRoutes:
+    def __init__(self, controller, token):
+        self.controller, self.token = controller, token
+
+    def get(self, handler):
+        path = handler.path
+        if path in ('/workspace', '/workspace/desktop'):
+            name = 'workspace.html' if path == '/workspace' else 'desktop.html'
+            html = (ROOT / name).read_text(encoding='utf-8')
+            html = html.replace('__TOKEN__', self.token).replace('__API_BASE__', '/workspace')
+            handler.send(200, html, 'text/html')
+        elif path == '/workspace/state':
+            with self.controller.lock:
+                handler.send(200, self.controller.workspace.public())
+        elif path.startswith('/osjs/'):
+            name = path.removeprefix('/osjs/')
+            allowed = {'main.js', 'main.css', 'LICENSE',
+                       '881c86876af63b732063d7bdd51bb226.png', 'f4cfc6708cf6bfc17d4b1e775f594ae2.png'}
+            if name not in allowed:
+                handler.send(404, {'error': 'Ressource inconnue'})
+            else:
+                body = (ROOT / 'vendor' / 'osjs' / name).read_bytes()
+                handler.send_response(200)
+                handler.send_header('Content-Type', mimetypes.guess_type(name)[0] or 'application/octet-stream')
+                handler.send_header('Content-Length', str(len(body)))
+                handler.end_headers()
+                handler.wfile.write(body)
+        else:
+            return False
+        return True
+
+    def post(self, handler, data):
+        if not handler.path.startswith('/workspace/'):
+            return False
+        c = self.controller
+        action = handler.path.removeprefix('/workspace/')
+        if action == 'new': result = c.new(data.get('seed', ''))
+        elif action == 'refresh':
+            c.observe(blocking=True)
+            with c.lock: result = c.workspace.public()
+        elif action == 'action': result = c.action(data['action'])
+        elif action == 'ping': result = c.ping(data['target'])
+        elif action == 'open':
+            with c.lock:
+                if not c.workspace.state: raise ValueError('Génère un environnement.')
+                path = c.workspace.state['network_file']
+            if os.name != 'nt': raise ValueError('Ouvre manuellement le fichier affiché dans Packet Tracer.')
+            os.startfile(path)
+            result = {'message': 'Ouverture demandée à Windows.'}
+        else:
+            handler.send(404, {'error': 'Action inconnue'})
+            return True
+        handler.send(200, result)
+        return True

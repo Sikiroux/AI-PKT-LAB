@@ -6,6 +6,8 @@ from diagnostic import Engine, checks, ROOT
 from vendor.live_bridge import PTCommandBridge
 from console_tools import CLEAN_JS, cleaned
 from generator_app import Generator
+from workspace_app import Controller
+from workspace_routes import WorkspaceRoutes
 import timers
 import re
 import live_faults,vlan_faults
@@ -336,12 +338,20 @@ def run():
                 try:tickets.desk.tick()
                 except Exception:pass
     threading.Thread(target=arrival_loop,daemon=True).start();token=secrets.token_urlsafe(32)
+    workspace=Controller(engine,ROOT/'workspace-session')
+    workspace_routes=WorkspaceRoutes(workspace,token)
+    def workspace_loop():
+        while not stop_arrivals.is_set():
+            workspace.observe()
+            stop_arrivals.wait(10)
+    threading.Thread(target=workspace_loop,daemon=True).start()
     class Handler(BaseHTTPRequestHandler):
         def send(self,code,data,ctype='application/json'):
             body=data.encode() if isinstance(data,str) else json.dumps(data,ensure_ascii=False).encode();self.send_response(code);self.send_header('Content-Type',ctype+'; charset=utf-8');self.send_header('Content-Length',str(len(body)));self.send_header('Cache-Control','no-store');self.end_headers();self.wfile.write(body)
         def allowed(self):return self.headers.get('Host') in ('127.0.0.1:8765','localhost:8765')
         def do_GET(self):
             if not self.allowed():return self.send(403,{'error':'Acces refuse'})
+            if workspace_routes.get(self):return
             if self.path=='/':return self.send(200,(ROOT/'tickets.html').read_text(encoding='utf-8').replace('__UI_TOKEN__',token),'text/html')
             if self.path=='/generator':return self.send(200,{'catalogue':generator.catalogue,'jobs':generator.jobs()})
             if self.path.startswith('/lab-file?'):
@@ -358,6 +368,7 @@ def run():
                 n=int(self.headers.get('Content-Length','0'))
                 if not 0<=n<=8192:raise ValueError('Requete trop grande')
                 data=json.loads(self.rfile.read(n) or b'{}')
+                if workspace_routes.post(self,data):return
                 if self.path in ('/session-config','/session-control','/service-ticket'):
                     with engine.lock:
                         if self.path=='/session-config':result=tickets.desk.configure(data)
