@@ -110,13 +110,15 @@ class Controller:
                 self.workspace.save()
             self.lock.release()
 
-    def ping(self, target):
+    def ping(self, target, source='client'):
+        if source not in ('client', 'technician'):
+            raise ValueError('Poste source inconnu.')
         target = str(ipaddress.ip_address(target))
         with self.lock, self.engine.lock:
             if not self.workspace.state:
                 raise ValueError('Génère un environnement.')
             found = self.identities(self.engine.snapshot())
-            return self.engine.ping(found['client']['name'], target)
+            return self.engine.ping(found[source]['name'], target)
 
     def action(self, action):
         with self.lock:

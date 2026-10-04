@@ -11,9 +11,10 @@ class WorkspaceRoutes:
 
     def get(self, handler):
         path = handler.path
-        if path in ('/workspace', '/workspace/desktop'):
+        if path in ('/workspace', '/workspace/desktop', '/workspace/technician'):
             name = 'workspace.html' if path == '/workspace' else 'desktop.html'
             html = (ROOT / name).read_text(encoding='utf-8')
+            html = html.replace('__TECHNICIAN__', 'true' if path == '/workspace/technician' else 'false')
             html = html.replace('__TOKEN__', self.token).replace('__API_BASE__', '/workspace')
             handler.send(200, html, 'text/html')
         elif path == '/workspace/environments':
@@ -61,7 +62,10 @@ class WorkspaceRoutes:
             c.observe(blocking=True)
             with c.lock: result = c.workspace.public()
         elif action == 'action': result = c.action(data['action'])
-        elif action == 'ping': result = c.ping(data['target'])
+        elif action == 'ping':
+            if data.get('source', 'client') not in ('client', 'technician'):
+                raise ValueError('Poste source inconnu.')
+            result = c.ping(data['target'], source='technician') if data.get('source') == 'technician' else c.ping(data['target'])
         elif action == 'open':
             with c.lock:
                 if not c.workspace.state: raise ValueError('Génère un environnement.')
