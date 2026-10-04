@@ -11,7 +11,7 @@ def choices(device):
  except (ValueError,KeyError):pass
  return out
 
-def plan(device,fault,snapshot,seed):
+def plan(device,fault,snapshot,seed,target='192.168.50.10'):
  allowed=choices(device)
  if fault=='random':fault=random.Random(seed).choice(allowed)
  if fault not in allowed:raise ValueError('Panne incompatible : les mutations IPv4 exigent un PC statique et une API lisible/modifiable.')
@@ -23,7 +23,7 @@ def plan(device,fault,snapshot,seed):
   masks=[]
   for prefix in (30,29,28,27,26,25):
    net=ipaddress.ip_network((p['ip'],prefix),strict=False)
-   if address not in (net.network_address,net.broadcast_address) and ipaddress.ip_address('192.168.50.10') not in net:masks.append(str(net.netmask))
+   if address not in (net.network_address,net.broadcast_address) and ipaddress.ip_address(target) not in net:masks.append(str(net.netmask))
   if not masks:raise ValueError('Aucun masque de panne compatible avec cette adresse.')
   after['mask']=masks[0]
  else:

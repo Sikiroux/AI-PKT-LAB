@@ -26,6 +26,7 @@ class Controller:
         active = self.environments.data['active']
         self.workspace = Workspace(self.environments.path(active) if active else self.folder / 'session.json')
         self.lock = threading.RLock()
+        self.on_change = None
 
     def new(self, seed):
         with self.lock:
@@ -39,6 +40,7 @@ class Controller:
             self._close_current()
             self.environments.register(ident, path)
             self.workspace = candidate
+            if self.on_change:self.on_change(self.workspace.state,self.workspace.path.parent)
             return self.workspace.public()
 
     def _close_current(self):
@@ -58,6 +60,7 @@ class Controller:
             candidate.save()
             self.environments.activate(ident)
             self.workspace = candidate
+            if self.on_change:self.on_change(self.workspace.state,self.workspace.path.parent)
             return self.workspace.public()
 
     def identities(self, snapshot):
@@ -124,8 +127,10 @@ class Controller:
                 ident = self.environments.data['active']
                 state = build(seed, self.workspace.path.parent / 'network')
                 state['environment_id'] = ident
+                state['reset_id'] = secrets.token_hex(8)
                 self.workspace.state = state
                 self.workspace.save()
+                if self.on_change:self.on_change(self.workspace.state,self.workspace.path.parent)
                 return self.workspace.public()
             return self.workspace.action(action)
 

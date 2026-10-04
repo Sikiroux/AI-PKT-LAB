@@ -1,4 +1,5 @@
 """NetOps Lab local — tickets persistants, Python standard uniquement."""
+import ipaddress
 import json, os, secrets, threading, time, webbrowser, shutil, ntpath
 from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -35,12 +36,41 @@ class Tickets:
             if t.get('injection',{}).get('state')=='pending':
                 t['injection']['state']='uncertain';t['status']='a_controler';interrupted=True
         if interrupted:self.save()
+    def bind_environment(self, state, folder, generator, controller):
+        if self.desk:
+            self.desk.settings.update(active=False, next_at=None)
+            self.save()
+        path = Path(folder) / 'tickets.json'
+        fresh = Tickets(self.engine, path)
+        if state.get('reset_id') and (fresh.state.get('site') or {}).get('reset_id')!=state['reset_id']:
+            if path.exists():shutil.copy2(path,path.with_name('tickets-before-reset-'+state['reset_id']+'.json'))
+            fresh.state={'site':None,'tickets':[],'events':[]}
+        self.__dict__.update(fresh.__dict__)
+        self.controller = controller
+        client = state['devices']['client']
+        self.state['site'] = self.state.get('site') or dict(devices=[dict(name=d['name'], serial=d['serial']) for d in state['devices'].values()], inventory=[])
+        self.state['site'].update(name=state['company'], file=state['network_file'], environment_id=state.get('environment_id','legacy'),
+            reset_id=state.get('reset_id'), profile=dict(switch=state['expected_cable']['peer'], server=state['devices']['server']['ip'],
+                         network=str(ipaddress.ip_network(client['ip']+'/24',strict=False)), client=client['name'], site=state['site'], ap=None))
+        if not any(t['kind']=='workspace' for t in self.state['tickets']):
+            self.state['tickets'].append(dict(id='INC-1000', kind='workspace', name=client['name'], title='Documents partagés inaccessibles',
+                description=state['ticket']+' Poste concerné : '+client['name']+'. Rétablis le réseau puis l’accès en lecture depuis le bureau distant.',
+                status='nouveau', severity='moderee', created=now(), checks=[], complete=False, notes=''))
+        self.desk = ServiceDesk(self, generator)
+        self.desk.settings.update(source='site',active=False,next_at=None)
+        self.save()
+
+    def profile(self, key):
+        defaults = dict(switch='SW1',server='192.168.50.10',network='192.168.50.0/24',client='PC-ADMIN',ap='AP1',site='AG1')
+        return (self.state.get('site') or {}).get('profile',{}).get(key,defaults[key])
+
     def save(self):
+        self.path.parent.mkdir(parents=True, exist_ok=True)
         temp=self.path.with_suffix('.tmp')
         temp.write_text(json.dumps(self.state,ensure_ascii=False,indent=2),encoding='utf-8');os.replace(temp,self.path)
     def event(self,text): self.state['events'].append({'date':now(),'text':text});self.save()
     def public(self):
-        return {'site':{'name':'Agence de test','devices':len(self.state['site']['devices']),'file':self.state['site'].get('file'),'ready':self.readiness,'inventory':self.state['site'].get('inventory',[]),'inventory_at':self.state['site'].get('inventory_at'),'service_capabilities':self.state['site'].get('service_capabilities',[])} if self.state['site'] else None,
+        return {'site':{'name':self.state['site'].get('name','Agence de test'),'environment_id':self.state['site'].get('environment_id'),'profile':self.state['site'].get('profile',{}),'devices':len(self.state['site']['devices']),'file':self.state['site'].get('file'),'ready':self.readiness,'inventory':self.state['site'].get('inventory',[]),'inventory_at':self.state['site'].get('inventory_at'),'service_capabilities':self.state['site'].get('service_capabilities',[])} if self.state['site'] else None,
                 'tickets':[{k:v for k,v in t.items() if k not in ('baseline','injection','service_scenario','procedural')} for t in self.state['tickets']],
                 'session':self.desk.public() if self.desk else None,'service_jobs':self.desk.g.jobs() if self.desk else [],'console_diagnostic':self.state.get('console_diagnostic'),'events':self.state['events'][-40:]}
     def check_file(self,snapshot,expected):
@@ -62,7 +92,7 @@ class Tickets:
             d=device(s,name)
             if not d.get('serial'):raise ValueError('Identite non disponible : '+name)
             anchors.append({'name':name,'serial':d['serial']})
-        if device(s,'SW1')['model']!='2960-24TT':raise ValueError('Utilise le reseau-test.pkt fourni.')
+        if device(s,self.profile('switch'))['model']!='2960-24TT':raise ValueError('Utilise le reseau-test.pkt fourni.')
         self.state['site']={'devices':anchors,'file':s.get('saved_filename') if s.get('saved_filename') and ntpath.isabs(s['saved_filename']) else None};self.remember_inventory(s);self.event('Site de test enregistre.')
     def remember_inventory(self,snapshot):
         site=self.state['site']
@@ -82,7 +112,7 @@ class Tickets:
         self.event('Inventaire du site actualisé ; appareils absents conservés dans l’historique.')
         return self.public()
     def next_device_name(self,kind,snapshot):
-        base='PC-NOUVEAU' if kind=='pc' else 'LAPTOP-WIFI'
+        base=(self.profile('site')+'-PC-USR' if kind=='pc' else self.profile('site')+'-LT-USR') if self.state['site'].get('profile') else ('PC-NOUVEAU' if kind=='pc' else 'LAPTOP-WIFI')
         used={d['name'] for d in snapshot['devices']}
         used.update(d['name'] for d in self.state['site'].get('inventory',[]))
         used.update(t.get('name') for t in self.state['tickets'])
@@ -93,16 +123,16 @@ class Tickets:
     def endpoint(self,name):
         # Discover the port attached to a known wired PC; never target a trunk/uplink.
         code=r'''try {var d=ipc.network().getDevice(NAME),p=d.getPort("FastEthernet0"),l=p.getLink();var a=l.getPort1(),b=l.getPort2();reportResult(JSON.stringify({ends:[{device:a.getOwnerDevice().getName(),port:a.getName()},{device:b.getOwnerDevice().getName(),port:b.getName()}]}));}catch(e){reportResult(JSON.stringify({error:String(e)}));}'''.replace('NAME',json.dumps(name))
-        link=json.loads(self.engine.call(LINK_JS if name=='PC-ADMIN' else code))
+        link=json.loads(self.engine.call(LINK_JS if name=='PC-ADMIN' and self.profile('switch')=='SW1' else code))
         ends=link.get('ends',[])
         if len(ends)!=2 or not any(e.get('device')==name and e.get('port')=='FastEthernet0' for e in ends):raise ValueError('Le poste doit être directement câblé à SW1.')
-        matches=[e for e in ends if e.get('device')=='SW1' and re.fullmatch(r'(FastEthernet|GigabitEthernet)0/[0-9]+',e.get('port',''))]
+        matches=[e for e in ends if e.get('device')==self.profile('switch') and re.fullmatch(r'(FastEthernet|GigabitEthernet)0/[0-9]+',e.get('port',''))]
         if len(matches)!=1:raise ValueError('Liaison non prise en charge : poste directement relié à SW1 requis.')
         return matches[0]['port']
     def set_port(self,port,up):
         if not re.fullmatch(r'(FastEthernet|GigabitEthernet)0/[0-9]+',port):raise ValueError('Port invalide.')
         command='enable\nconfigure terminal\ninterface '+port+'\n'+('no shutdown' if up else 'shutdown')+'\nend'
-        return self.engine.call('configureIosDevice("SW1", '+json.dumps(command)+');reportResult("ok");')
+        return self.engine.call('configureIosDevice('+json.dumps(self.profile('switch'))+', '+json.dumps(command)+');reportResult("ok");')
     def get(self,ident):
         return next(t for t in self.state['tickets'] if t['id']==ident)
     def attach(self,path):
@@ -114,7 +144,11 @@ class Tickets:
         try:self.guard(snapshot)
         finally:self.state['site']['file']=previous;self.open_target=previous_target
         self.check_file(snapshot,str(p.resolve()))
-        self.open_target=None;self.state['site']['file']=str(p.resolve());self.event('Fichier de travail associé au site.')
+        self.open_target=None;self.state['site']['file']=str(p.resolve())
+        if self.state['site'].get('environment_id'):
+            self.controller.workspace.state.update(network_file=str(p.resolve()),bound_file=None,observation=None,remote_session=False,validated=False)
+            self.controller.workspace.save()
+        self.event('Fichier de travail associé au site.')
         self.readiness={'status':'non_verifie','message':'Fichier associé ; son contenu sera contrôlé après ouverture.'}
     def open_network(self):
         if os.name!='nt':raise ValueError('L’ouverture automatique est prévue pour Windows dans cette version.')
@@ -151,19 +185,21 @@ class Tickets:
         if kind not in ('incident','pc','wifi'):raise ValueError('Type inconnu')
         if any(t['kind']==kind and t['status']!='clos' for t in self.state['tickets']):raise ValueError('Un ticket de ce type est deja ouvert.')
         if kind=='incident' and fault=='vlan_wrong' and trace_mode!='technician':raise ValueError('La panne VLAN exige le mode traces visibles : aucune lecture/modification VLAN sans historique CLI n’est confirmée par ce pont.')
+        if self.state['site'].get('profile') and kind=='wifi':raise ValueError('Cet environnement ne comporte pas encore de point d’accès Wi-Fi configuré.')
+        if self.state['site'].get('profile') and fault=='vlan_wrong':raise ValueError('Panne VLAN à adapter aux switches procéduraux avant activation.')
         s=self.engine.snapshot();self.guard(s)
         self.remember_inventory(s)
-        name=(target or 'PC-ADMIN') if kind=='incident' else self.next_device_name(kind,s)
+        name=(target or self.profile('client')) if kind=='incident' else self.next_device_name(kind,s)
         if kind=='incident':
             candidate=device(s,name)
             known=next((d for d in self.state['site']['inventory'] if d['name']==name and d.get('present')),None)
             if not known or candidate.get('model')!='PC-PT':raise ValueError('Choisis un PC filaire présent dans l’inventaire du site.')
         if kind=='incident':
             incident_port=self.endpoint(name)
-            p=next(p for p in device(s,'SW1')['ports'] if p['name']==incident_port)
+            p=next(p for p in device(s,self.profile('switch'))['ports'] if p['name']==incident_port)
             if not p['up'] or not p['protocol_up']:raise ValueError('Le poste doit fonctionner avant de creer un incident.')
-            mutation=vlan_faults.plan(self.engine,incident_port) if fault=='vlan_wrong' else live_faults.plan(candidate,fault,s,int(time.time_ns()%10**9))
-            if self.engine.ping(name,'192.168.50.10')['status']!='valide':raise ValueError('Le ping initial echoue ou reste incertain. Reessaie quand le reseau fonctionne.')
+            mutation=vlan_faults.plan(self.engine,incident_port) if fault=='vlan_wrong' else live_faults.plan(candidate,fault,s,int(time.time_ns()%10**9),target=self.profile('server'))
+            if self.engine.ping(name,self.profile('server'))['status']!='valide':raise ValueError('Le ping initial echoue ou reste incertain. Reessaie quand le reseau fonctionne.')
         if kind=='incident' and trace_mode=='hidden' and mutation['kind']=='port_down':
             report=self.clean_console()
             if not cleaned(report):raise ValueError('Injection bloquée : effacement de la console et de l’historique non confirmé. Ouvre Site de test pour consulter le diagnostic. Le mode traces visibles est réservé au scénario d’erreur humaine.')
@@ -179,16 +215,17 @@ class Tickets:
             t['description']+=' Le plan d’adressage prévoit '+mutation['before']['ip']+' avec le masque '+mutation['before']['mask']+' pour ce poste.'
         elif kind=='pc':t['description']=t['description'].replace('PC-NOUVEAU',name)
         else:t['description']=t['description'].replace('LAPTOP-WIFI',name)
+        t['description']=t['description'].replace('192.168.50.10',self.profile('server')).replace('192.168.50.0/24',self.profile('network'))
         self.state['tickets'].append(t);self.event(t['id']+' : ticket cree.')
         if kind=='incident':
-            t['injection']={'device':'SW1','switch_port':incident_port,'port':incident_port,'target_serial':candidate['serial'],'before_up':True,'state':'pending',**mutation};self.save()
+            t['injection']={'device':self.profile('switch'),'switch_port':incident_port,'port':incident_port,'target_serial':candidate['serial'],'before_up':True,'state':'pending',**mutation};self.save()
             try:
                 if self.apply_fault(t,False)!='ok':raise RuntimeError('Injection sans confirmation')
                 time.sleep(.5)
                 current=self.engine.snapshot();self.guard(current)
-                p=next(p for p in device(current,'SW1')['ports'] if p['name']==incident_port)
+                p=next(p for p in device(current,self.profile('switch'))['ports'] if p['name']==incident_port)
                 if not self.fault_matches(t,current,False):raise RuntimeError('Modification non confirmée')
-                failure=self.engine.ping(name,'192.168.50.10')
+                failure=self.engine.ping(name,self.profile('server'))
                 if failure['status']!='non satisfait':
                     if self.apply_fault(t,True)!='ok':raise RuntimeError('Rétablissement non confirmé')
                     restored=self.engine.snapshot();self.guard(restored)
@@ -223,11 +260,11 @@ class Tickets:
         injection=t['injection']
         if injection.get('kind')=='vlan_wrong':return vlan_faults.matches(self.engine,injection,restore)
         if injection.get('kind','port_down')=='port_down':
-            port=next((p for p in device(snapshot,'SW1')['ports'] if p['name']==injection['port']),None)
+            port=next((p for p in device(snapshot,self.profile('switch'))['ports'] if p['name']==injection['port']),None)
             return bool(port and port.get('up') is restore)
         return live_faults.matches(snapshot,injection,restore)
     def clean_console(self):
-        try:report=json.loads(self.engine.call(CLEAN_JS))
+        try:report=json.loads(self.engine.call(CLEAN_JS.replace('SW1',self.profile('switch'))))
         except Exception:report={'display':False,'history':False,'reason':'Aucune confirmation du pont'}
         self.state['console_diagnostic']=report;self.save();return report
     def cleanup(self,t):
@@ -238,7 +275,7 @@ class Tickets:
     def verify(self,t):
         s=self.engine.snapshot();self.guard(s)
         if sum(d['name']==t['name'] for d in s['devices'])>1:raise ValueError('Nom du poste ambigu : utilise un nom unique.')
-        result=checks(s,t['baseline'],t['name'],'wifi' if t['kind']=='wifi' else 'wired','192.168.50.0/24')
+        result=checks(s,t['baseline'],t['name'],'wifi' if t['kind']=='wifi' else 'wired',self.profile('network'))
         found=next((d for d in s['devices'] if d['name']==t['name']),None)
         if found:
             allowed=('PC-PT','Laptop-PT') if t['kind']=='wifi' else ('PC-PT',)
@@ -246,7 +283,7 @@ class Tickets:
         if t['kind']=='incident' and t.get('injection',{}).get('target_serial'):
             result.append(dict(label='Identité du poste conservée',status='valide' if found and found.get('serial')==t['injection']['target_serial'] else 'non satisfait',detail='Le poste concerné doit conserver son numéro de série.'))
         if t['kind']=='incident':
-            old_switch=device(t['baseline'],'SW1');current_switch=device(s,'SW1')
+            old_switch=device(t['baseline'],self.profile('switch'));current_switch=device(s,self.profile('switch'))
             injected_port=next((p for p in current_switch['ports'] if p['name']==t['injection'].get('switch_port',t['injection']['port'])),None)
             result.append(dict(label='Port concerné actif',status='valide' if injected_port and injected_port.get('up') else 'non satisfait',detail='La liaison du poste doit être active.'))
             expected=[p['name'] for p in old_switch['ports'] if p.get('up') and p.get('linked') and p['name']!=t['injection'].get('switch_port',t['injection']['port'])]
@@ -260,11 +297,32 @@ class Tickets:
             except Exception:correct=None
             result.append(dict(label='VLAN d’accès attendu rétabli',status='inconnu' if correct is None else ('valide' if correct else 'non satisfait'),detail='Lecture IOS fraîche ; un ping réussi seul ne valide pas le VLAN.'))
         if t['kind']=='incident':result=[c for c in result if c['label']!='Nouvel equipement depuis le point de depart']
-        if any(c['label']=='Equipement present' and c['status']=='valide' for c in result):result.append(self.engine.ping(t['name'],'192.168.50.10'))
+        if any(c['label']=='Equipement present' and c['status']=='valide' for c in result):result.append(self.engine.ping(t['name'],self.profile('server')))
         t['checks']=result;t['complete']=all(c['status']=='valide' for c in result);t['checked']=now();t['manual_ssid']=False
         self.event(t['id']+' : verification effectuee.');return self.public()
+    def workspace_action(self, t, action, data):
+        if t['status']=='clos':raise ValueError('Ce ticket est clos.')
+        if action=='notes':t['notes']=str(data.get('notes',''))[:4000]
+        elif action in ('take','wait'):
+            t['status']='en_cours' if action=='take' else 'en_attente'
+        elif action in ('verify','close'):
+            self.controller.observe(blocking=True)
+            public=self.controller.workspace.public()
+            result=public['checks']['read']
+            t['checks']=[dict(label='Réseau et accès en lecture du partage',status='valide' if result['allowed'] else 'non satisfait',detail='Contrôle actuel du réseau Packet Tracer et des droits simulés.')]
+            t['complete']=result['allowed'];t['checked']=now()
+            if action=='close':
+                if not t['complete']:self.save();raise ValueError('Accès au partage non rétabli.')
+                if t.get('timer') and t['timer'].get('started'):timers.operate(t['timer'],'finish')
+                t.update(status='clos',closed=now())
+        else:raise ValueError('Action non prise en charge pour ce ticket.')
+        self.save()
+        return self.public()
+
     def action(self,ident,action,data):
         t=self.get(ident)
+        if t['kind']=='workspace' and action in ('verify','close'):
+            return self.workspace_action(t,action,data)
         if t['status']=='clos':raise ValueError('Ce ticket est deja clos.')
         if action=='timer':
             cmd=data.get('timer_action');timer=t.get('timer')
@@ -332,13 +390,16 @@ class Tickets:
 def run():
     generator=Generator()
     bridge=PTCommandBridge();bridge.start();engine=Engine(bridge);tickets=Tickets(engine,ROOT/'donnees-netops.json');tickets.desk=ServiceDesk(tickets,generator);stop_arrivals=threading.Event()
+    workspace=Controller(engine,ROOT/'workspace-session')
+    def bind(state, folder):tickets.bind_environment(state,folder,generator,workspace)
+    workspace.on_change=bind
+    if workspace.workspace.state:bind(workspace.workspace.state,workspace.workspace.path.parent)
     def arrival_loop():
         while not stop_arrivals.wait(1):
-            with engine.lock:
+            with workspace.lock, engine.lock:
                 try:tickets.desk.tick()
                 except Exception:pass
     threading.Thread(target=arrival_loop,daemon=True).start();token=secrets.token_urlsafe(32)
-    workspace=Controller(engine,ROOT/'workspace-session')
     workspace_routes=WorkspaceRoutes(workspace,token)
     def workspace_loop():
         while not stop_arrivals.is_set():
@@ -360,8 +421,12 @@ def run():
                     self.send_response(200);self.send_header('Content-Type','text/html; charset=utf-8' if p.suffix=='.html' else 'application/octet-stream');self.send_header('Content-Length',str(len(body)));self.end_headers();self.wfile.write(body);return
                 except Exception:return self.send(404,{'error':'Fichier introuvable'})
             if self.path=='/state':
-                with engine.lock:return self.send(200,dict(tickets.public(),connected=bridge.is_connected))
+                with workspace.lock, engine.lock:return self.send(200,dict(tickets.public(),connected=bridge.is_connected))
             self.send(404,{'error':'Page inconnue'})
+        def check_environment(self,data):
+            site=tickets.state.get('site') or {}
+            if site.get('environment_id') and data.get('environment_id')!=site['environment_id']:
+                raise ValueError('L’environnement a changé. Actualise la page avant cette intervention.')
         def do_POST(self):
             if not self.allowed() or not secrets.compare_digest(self.headers.get('X-Diagnostic-Token',''),token):return self.send(403,{'error':'Acces refuse'})
             try:
@@ -369,8 +434,13 @@ def run():
                 if not 0<=n<=8192:raise ValueError('Requete trop grande')
                 data=json.loads(self.rfile.read(n) or b'{}')
                 if workspace_routes.post(self,data):return
+                if self.path in ('/new','/action','/inventory','/open','/ready','/attach','/service-ticket','/session-config','/session-control','/service-scan','/site-service','/console-test'):
+                    with workspace.lock:
+                        if tickets.state.get('site',{} ) and tickets.state['site'].get('environment_id') and data.get('environment_id')!=tickets.state['site']['environment_id']:
+                            raise ValueError('L’environnement a changé. Actualise la page avant cette intervention.')
                 if self.path in ('/session-config','/session-control','/service-ticket'):
-                    with engine.lock:
+                    with workspace.lock, engine.lock:
+                        self.check_environment(data)
                         if self.path=='/session-config':result=tickets.desk.configure(data)
                         elif self.path=='/session-control':result=tickets.desk.control(data.get('active') is True)
                         else:result=tickets.desk.create(data.get('scenario'))
@@ -378,7 +448,13 @@ def run():
                 if self.path=='/generate':return self.send(200,generator.start(data))
                 if self.path=='/lab-timer':return self.send(200,generator.timer(data))
                 if self.path=='/open-lab':return self.send(200,generator.open(data['id'],data['name']))
-                with engine.lock:
+                if self.path=='/action':
+                    with workspace.lock:
+                        self.check_environment(data)
+                        if tickets.get(data['id'])['kind']=='workspace':
+                            return self.send(200,tickets.action(data['id'],data['action'],data))
+                with workspace.lock, engine.lock:
+                    if self.path!='/register':self.check_environment(data)
                     if self.path=='/register':tickets.register();result=tickets.public()
                     elif self.path=='/service-scan':result=site_services.scan(tickets)
                     elif self.path=='/site-service':result=site_services.create(tickets,data['service'],data['device'])

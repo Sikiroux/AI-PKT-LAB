@@ -29,14 +29,14 @@ CATALOGUE += [(fid,title,complaint,'moderee') for fid,title,complaint in [
  ('local_wrong_dns','Un poste ne retrouve plus l’intranet','PC-ALICE ouvre l’intranet par IP mais pas par son nom ; PC-BOB fonctionne.'),
  ('add_employee','Installer le poste d’un nouvel employé','Un nouvel employé arrive : installer PC-NEW suivant la feuille, sans modifier les postes existants.')]]
 SITE_CATALOGUE=[dict(id='site:http',title='Incident HTTP du site — API requise'),dict(id='site:dns',title='Incident DNS du site — API requise'),dict(id='site:dhcp',title='Incident DHCP du site — API requise'),dict(id='pc',title='Installer un nouveau poste'),dict(id='wifi',title='Connecter un nouveau portable'),dict(id='incident',title='Dépanner un poste filaire du site')]
-def site_choices(snapshot,opened):
+def site_choices(snapshot,opened,switch_name='SW1',ap_name='AP1'):
  names={d['name']:d for d in snapshot['devices']}
  kinds={t['kind'] for t in opened if t['kind']!='service'}
  choices=[]
- switch=names.get('SW1',{})
+ switch=names.get(switch_name,{})
  free=any(p.get('name','').startswith('FastEthernet0/') and not p.get('linked') for p in switch.get('ports',[]))
  if 'pc' not in kinds and free:choices.append(('pc',None))
- if 'wifi' not in kinds and 'AP1' in names:choices.append(('wifi',None))
+ if 'wifi' not in kinds and ap_name in names:choices.append(('wifi',None))
  # An incident must not interfere with an unfinished intervention on this site.
  if not kinds:
   for d in snapshot['devices']:
@@ -55,6 +55,7 @@ class ServiceDesk:
   minimum=int(d.get('minimum',5));maximum=int(d.get('maximum',10));cap=int(d.get('max_open',3));duration=int(d.get('ticket_minutes',30));mode=d.get('interval','fixed')
   if not(1<=minimum<=maximum<=120 and 1<=cap<=10 and 0<=duration<=1440 and mode in ('fixed','random')):raise ValueError('Intervalles de 1 à 120 min, plafond de 1 à 10 tickets, durée de 0 à 1440 min.')
   source=d.get('source',self.settings['source']);traces=d.get('trace_mode',self.settings['trace_mode'])
+  if (self.t.state.get('site') or {}).get('environment_id') and source!='site':raise ValueError('Les tickets de cette entreprise utilisent son réseau actif. Pour un réseau indépendant, utilise Formation.')
   if source not in ('independent','site') or traces not in ('hidden','technician'):raise ValueError('Source de tickets ou mode de traces invalide.')
   fault=d.get('fault_mode',self.settings['fault_mode'])
   if fault not in ('random','port_down','ip_wrong','mask_wrong','vlan_wrong'):raise ValueError('Famille de panne invalide.')
@@ -98,7 +99,7 @@ class ServiceDesk:
  def create_site(self,scenario,opened):
   if scenario not in (None,'','pc','wifi','incident','site:http','site:dns','site:dhcp'):raise ValueError('Choisis une intervention du catalogue du site.')
   snapshot=self.t.engine.snapshot();self.t.guard(snapshot)
-  choices=site_choices(snapshot,opened)
+  choices=site_choices(snapshot,opened,self.t.profile('switch'),self.t.profile('ap'))
   names={d['name']:d for d in snapshot['devices']}
   if self.settings['live_services'] and not any(t['kind']!='service' for t in opened):
    for c in self.t.state['site'].get('service_capabilities',[]):
