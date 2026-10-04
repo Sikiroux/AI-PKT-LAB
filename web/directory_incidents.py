@@ -27,6 +27,14 @@ def prepare(state, now):
         for gid in s['directory_resource']['allowed_group_ids'][action]:
             if uid not in d['groups'][gid]['member_user_ids']:
                 d['groups'][gid]['member_user_ids'].append(uid)
+    if 'file_service' in s:
+        share=s['file_service']['shares'][s['documents_share_id']]
+        for layer in ('share_acl','folder_acl'):
+            for a,right in [('list','read'),('read','read'),('write','write'),('delete','write')]:
+                grant=share[layer][a]
+                grant['user_ids']=[x for x in grant['user_ids'] if x!=uid]
+                grant['group_ids']=list(dict.fromkeys(grant['group_ids']+s['directory_resource']['allowed_group_ids'][right]))
+        s['file_service']['revision']+=1
     if family == 'account_disabled': user['enabled'] = False
     elif family == 'account_locked':
         user['locked_until'] = now + d['policy']['lockout_seconds']
@@ -37,6 +45,11 @@ def prepare(state, now):
         for gid in s['directory_resource']['allowed_group_ids'][action]:
             d['groups'][gid]['member_user_ids'] = [x for x in d['groups'][gid]['member_user_ids'] if x != uid]
         s['directory_resource']['allowed_user_ids'][action] = [x for x in s['directory_resource']['allowed_user_ids'][action] if x != uid]
+        if 'file_service' in s:
+            share=s['file_service']['shares'][s['documents_share_id']]
+            for layer in ('share_acl','folder_acl'):
+                for a in (('list','read') if action=='read' else ('write','delete')):
+                    share[layer][a]['user_ids']=[x for x in share[layer][a]['user_ids'] if x!=uid]
     d['revision'] += 1
     d['audit'].append(dict(at=now, operation='training_incident', code='INJECTED'))
     sim_ad.validate_directory(d)

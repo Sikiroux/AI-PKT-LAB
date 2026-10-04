@@ -6,6 +6,7 @@ import time
 from pathlib import Path
 import directory_adapter as ad
 import directory_incidents
+import files_adapter
 
 VERSION = 1
 TTL = 45
@@ -38,6 +39,8 @@ def evaluate(state, action, at=None):
     if action not in ('remote', 'read', 'write'):
         raise ValueError('Action inconnue.')
     at = time.time() if at is None else at
+    if 'file_service' in state and action != 'remote':
+        return files_adapter.access(state, action, at)
     if 'directory' in state and action != 'remote':
         return ad.access(state, action, at)
     observation = state.get('observation') or {}
@@ -91,6 +94,8 @@ class Workspace:
                                  'bound_file', 'remote_session', 'validated')} | {
             'environment_id': s.get('environment_id', 'legacy'),
             'directory_incident': directory_incidents.public_incident(s),
+            'files': (files_adapter.names(s) if files_adapter.access(s,'list',time.time())['allowed'] else []) if 'file_service' in s else s['files'],
+            'documents_share_id': s.get('documents_share_id'),
             'checks': {a: evaluate(s, a) for a in ('remote', 'read', 'write')},
             'directory_login': ({'username': s['directory']['users'][s['directory_user_id']]['username'], 'authenticated': bool(ad.context(s)['authentication'])} if 'directory' in s else None),
             'observation': s['observation'], 'events': s['events'][-30:]}
@@ -117,7 +122,12 @@ class Workspace:
             if not evaluate(s, action)['allowed']:
                 raise ValueError('Accès au partage refusé ou connectivité inconnue.')
             if action == 'write' and 'Test.txt' not in s['files']:
-                s['files'].append('Test.txt')
+                if 'file_service' not in s:s['files'].append('Test.txt')
+            if 'file_service' in s:
+                import sim_files
+                outcome=sim_files.perform_file_action(s['file_service'],files_adapter.request(s,action),files_adapter.context(s,time.time()),time.time())
+                if not outcome['result']['allowed']:raise ValueError(outcome['result']['code'])
+                s['file_service']=outcome['service'];s['files']=files_adapter.names(s)
         elif action == 'grant_read':
             if 'directory' in s: raise ValueError('Utilise la console Annuaire pour modifier les groupes.')
             # Action dans la console d'administration simulée, indépendante de RDP.

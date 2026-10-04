@@ -69,6 +69,10 @@ class WorkspaceRoutes:
             if data.get('environment_id') != (c.workspace.state or {}).get('environment_id','legacy'):
                 raise ValueError('Environnement actif requis.')
             result = c.directory(action.removeprefix('directory/'), data)
+        elif action.startswith('files/'):
+            if data.get('environment_id') != (c.workspace.state or {}).get('environment_id','legacy'):
+                raise ValueError('Environnement actif requis.')
+            result = c.files(action.removeprefix('files/'),data)
         elif action == 'action': result = c.action(data['action'])
         elif action == 'ping':
             if data.get('source', 'client') not in ('client', 'technician'):

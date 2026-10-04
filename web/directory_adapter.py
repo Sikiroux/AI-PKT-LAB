@@ -45,6 +45,9 @@ def context(state, source='client', now=None):
 
 
 def access(state, action, now):
+    if 'file_service' in state:
+        import files_adapter
+        return files_adapter.access(state, action, now)
     return sim_ad.evaluate_access(state['directory'],state['directory_user_id'],state['directory_resource'],action,context(state,now=now),now)
 
 

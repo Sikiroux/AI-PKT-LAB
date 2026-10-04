@@ -17,6 +17,8 @@ from environment_store import EnvironmentStore
 import directory_adapter as ad
 import sim_ad
 import directory_incidents
+import files_adapter
+import sim_files
 
 ROOT = Path(__file__).resolve().parent
 
@@ -39,6 +41,10 @@ class Controller:
             if workspace.path.exists() and not backup.exists():
                 backup.write_bytes(workspace.path.read_bytes())
             if ad.ensure(state): workspace.save()
+        if state and 'directory' in state and 'file_service' not in state:
+            backup = workspace.path.with_suffix('.before-files.json')
+            if workspace.path.exists() and not backup.exists():backup.write_bytes(workspace.path.read_bytes())
+            if files_adapter.ensure(state):workspace.save()
 
     def new(self, seed):
         with self.lock:
@@ -47,6 +53,7 @@ class Controller:
             state = build(seed, path.parent / 'network')
             state['environment_id'] = ident
             ad.ensure(state)
+            files_adapter.ensure(state)
             candidate = Workspace(path)
             candidate.state = state
             candidate.save()
@@ -73,7 +80,8 @@ class Controller:
                 network = ad.context(state, source=source)['network']
                 if network['status'] != 'passed' or not network['observed_at'] <= time.time() <= network['valid_until']:
                     raise ValueError('Rétablis et vérifie le réseau du client et du technicien vers le serveur avant le nouvel incident.')
-            if not state.get('share_service') or not state.get('directory_service', True):
+            service_running = state['file_service']['service_status']=='running' if 'file_service' in state else state.get('share_service')
+            if not service_running or not state.get('directory_service', True):
                 raise ValueError('Rétablis les services avant le nouvel exercice d’annuaire.')
             self.workspace.state = directory_incidents.prepare(state, time.time())
             self.workspace.save()
@@ -164,6 +172,7 @@ class Controller:
                 state['environment_id'] = ident
                 state['reset_id'] = secrets.token_hex(8)
                 ad.ensure(state)
+                files_adapter.ensure(state)
                 self.workspace.state = state
                 self.workspace.save()
                 if self.on_change:self.on_change(self.workspace.state,self.workspace.path.parent)
@@ -188,6 +197,7 @@ class Controller:
                     return {'directory':sim_ad.public_directory(s['directory']), 'requester_id':s['directory_user_id'], 'resource':s['directory_resource']}
                 outcome = sim_ad.apply_operation(s['directory'], data.get('operation'), data.get('payload',{}), ad.actor(s), now)
                 s['directory'] = outcome['directory']
+                files_adapter.sync_catalog(s)
                 ad.invalidate(s)
                 self.workspace.event('Annuaire : '+str(data.get('operation')))
                 return {'result':outcome['result']}
@@ -207,6 +217,34 @@ class Controller:
                 s['directory_auth'] = dict(user_id=s['directory_user_id'],status='authenticated',environment_id=s.get('environment_id','legacy'),source_device_id='client',expires_at=now+1800)
             self.workspace.event('Connexion utilisateur : '+outcome['result']['code'])
             return {'result':outcome['result']}
+
+    def files(self, action, data):
+        with self.lock:
+            s=self.workspace.state
+            if not s or 'file_service' not in s:raise ValueError('Partages non disponibles.')
+            now=time.time()
+            if action in ('admin','operation'):
+                net=ad.context(s,source='technician',now=now)['network']
+                if net['status']!='passed' or not net['observed_at']<=now<=net['valid_until']:
+                    raise ValueError('Vérifie la liaison du technicien au serveur.')
+                actor=dict(id='technician',environment_id=s.get('environment_id','legacy'),permissions=[sim_files.CAPABILITY_FILES])
+                if action=='admin':
+                    return dict(service=sim_files.public_file_service(s['file_service'],actor),
+                        directory=sim_ad.public_directory(s['directory']),documents_share_id=s['documents_share_id'])
+                outcome=sim_files.apply_operation(s['file_service'],data.get('operation'),data.get('payload',{}),actor,now)
+                s['file_service']=outcome['service'];s['validated']=False
+                self.workspace.event('Partages : '+str(data.get('operation')))
+                return {'result':outcome['result']}
+            if action!='action':raise ValueError('Action de fichiers inconnue.')
+            if not s['remote_session'] or not evaluate(s,'remote')['allowed']:
+                s['remote_session']=False;self.workspace.save();raise ValueError('Reconnecte le poste distant.')
+            req=data.get('request',{})
+            outcome=sim_files.perform_file_action(s['file_service'],req,files_adapter.context(s,now),now)
+            if outcome['result']['allowed']:
+                s['file_service']=outcome['service'];s['files']=files_adapter.names(s)
+                if req.get('action') in ('write','delete'):s['validated']=False
+                self.workspace.save()
+            return dict(result=files_adapter.presentation(outcome['result']),revision=s['file_service']['revision'])
 
 
 def run():
