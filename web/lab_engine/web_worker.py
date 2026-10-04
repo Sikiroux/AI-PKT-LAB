@@ -35,12 +35,13 @@ def generate(req):
   if reproduce_mutation:
    tree=ET.parse(folder/'baseline.xml');reproduce_mutation(tree.getroot(),meta['topology']);ET.indent(tree,space=' ');tree.write(folder/'reproduction.xml',encoding='utf-8',short_empty_elements=False)
   reference_extension=workshops.CATALOGUE[scenario].get('reference_extension')
-  if reference_extension in ('web_server','guest_firewall','ban_one_device'):
+  if reference_extension in ('web_server','guest_firewall','ban_one_device','employee'):
    # Build the completed site independently: the learner starts without the requested change.
    reference_folder=folder/'reference_build'
    workshops.make_topology(meta['topology']['name'],seed,reference_folder,req.get('address_family'),
                            extra_web_server=reference_extension=='web_server',
-                           reference_policy=reference_extension if reference_extension!='web_server' else None,
+                           reference_policy=reference_extension if reference_extension in ('guest_firewall','ban_one_device') else None,
+                           extra_employee=reference_extension=='employee',
                            employee_count=req.get('employee_count',2),has_it=req.get('has_it',True),target_employee=req.get('target_employee',1),employee_layout=req.get('employee_layout','single'))
    shutil.copy2(reference_folder/'baseline.xml',folder/'reference.xml')
    shutil.rmtree(reference_folder)

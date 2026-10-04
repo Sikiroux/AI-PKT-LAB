@@ -1,9 +1,11 @@
 """Choix contraint des incidents ; versionner les règles pour rejouer un tirage."""
 import random
-VERSION = 5
+VERSION = 6
 SITES = ('ALB', 'MPL', 'ROD', 'TLS', 'LYO', 'BOR')
 REQUESTERS = ('Camille', 'Nora', 'Samir', 'Léa', 'Hugo', 'Mina')
 FAMILIES = [
+ ('workstation','Un poste ne peut plus utiliser les services',('local_wrong_ip','local_wrong_mask','local_wrong_gateway','local_wrong_dns')),
+ ('new_employee','Installer le poste d’un nouvel employé',('add_employee',)),
  ('names', 'Les services ne sont plus accessibles par leur nom', ('dns_service_off',)),
  ('intranet_name', 'Le nom de l’intranet ne mène plus à la bonne page', ('dns_record_delete', 'dns_record_wrong')),
  ('web', 'La page intranet ne s’ouvre plus', ('http_service_off',)),
@@ -38,6 +40,6 @@ def choose(seed, requested=None, history=(), opened=()):
              site_code=rng.choice(SITES)+str(rng.randint(1,99)).zfill(2),
              requester=rng.choice(REQUESTERS),employee_count=rng.randint(2,6),has_it=rng.choice((True,False)))
 
- plan['target_employee']=rng.randint(1,plan['employee_count']) if family=='lease' else 1
+ plan['target_employee']=rng.randint(1,plan['employee_count']) if family in ('lease','workstation') else 1
  plan['employee_layout']=rng.choice(('single','split'))
  return plan

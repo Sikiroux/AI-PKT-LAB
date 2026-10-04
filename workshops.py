@@ -126,7 +126,7 @@ def server_defaults(e):
         put(e,'DNS_SERVER/ENABLED',0)
 
 
-def make_topology(name, seed, folder, address_family=None, extra_web_server=False, reference_policy=None, employee_count=2, has_it=True, target_employee=1, employee_layout="single"):
+def make_topology(name, seed, folder, address_family=None, extra_web_server=False, reference_policy=None, employee_count=2, has_it=True, target_employee=1, employee_layout="single", extra_employee=False):
     """Crée le socle et retourne son arbre XML et ses valeurs attendues."""
     rng = random.Random(seed)
     if type(has_it) is not bool:
@@ -201,6 +201,9 @@ def make_topology(name, seed, folder, address_family=None, extra_web_server=Fals
             n=f'PC-CPT-{i:02d}'
             add_host(n,host('employees',21+i),host('employees',1),(100+(i-3)%2*200,720+(i-3)//2*180),dns_ip=infra)
             link('SW-EMP2' if employee_layout=='split' and i%2==0 else 'SW-EMP',f'FastEthernet0/{i+1}',n,'FastEthernet0')
+        if extra_employee:
+            add_host('PC-NEW',host('employees',60),host('employees',1),(500,900),dns_ip=infra)
+            link('SW-EMP','FastEthernet0/10','PC-NEW','FastEthernet0')
         for i,(n,num,x) in enumerate([('SRV-INFRA',10,420),('SRV-WEB',20,600),('SRV-FTP',30,780),('SRV-MAIL',40,600)],1):
             add_host(n,host('servers',num),host('servers',1),(x,700 if n=='SRV-MAIL' else 520),'Server-PT',dns_ip=infra)
             link('SW-SRV',f'FastEthernet0/{i}',n,'FastEthernet0')
@@ -249,7 +252,7 @@ def make_topology(name, seed, folder, address_family=None, extra_web_server=Fals
         shown_networks={'employees':str(nets['employees'])}
     else:
         shown_networks={k:str(v) for k,v in nets.items()}
-    topo={'name':name,'devices':devices,'links':links,'seed':seed,'employee_count':employee_count if name=='enterprise_services' else None,'has_it':has_it,'target_employee':target_employee,'employee_layout':employee_layout,'dhcp_target':('PC-ALICE' if target_employee==1 else 'PC-BOB' if target_employee==2 else f'PC-CPT-{target_employee:02d}'),
+    topo={'name':name,'devices':devices,'links':links,'seed':seed,'employee_count':employee_count if name=='enterprise_services' else None,'has_it':has_it,'target_employee':target_employee,'employee_layout':employee_layout,'new_employee_ip':host('employees',60),'new_employee_gateway':host('employees',1),'dhcp_target':('PC-ALICE' if target_employee==1 else 'PC-BOB' if target_employee==2 else f'PC-CPT-{target_employee:02d}'),
           'networks':shown_networks,'validation':'manual','status':'A tester dans Packet Tracer 9'}
     if name=='enterprise_services':
         records={'intranet.entreprise.test':host('servers',20),'ftp.entreprise.test':host('servers',30),'mail.entreprise.test':host('servers',40)}
@@ -399,6 +402,8 @@ def describe(text,t):
     replacements={n:d.get('ip','') for n,d in t['devices'].items()}
     replacements.update(t['networks'])
     replacements.update({k+'_net':str(ipaddress.IPv4Network(v).network_address) for k,v in t['networks'].items()})
+    replacements['new_employee_ip']=t.get('new_employee_ip','')
+    replacements['new_employee_gateway']=t.get('new_employee_gateway','')
     replacements['serial']=t.get('serial') or 'visible dans Config > numéro de série du MX1'
     for key,v in replacements.items():text=text.replace('{'+key+'}',v)
     return text
@@ -587,6 +592,35 @@ register('mail_pop3_incident','Diagnostiquer la réception de mails','configurat
  ['Avant injection, les échanges réussissent.','Pendant l’incident, SMTP reste actif mais Receive échoue.','Après réparation, les nouveaux messages envoyés pendant l’incident sont récupérables.'],2)
 
 
+
+def local_setting(field):
+    def mutate(root,t):
+        e=engines(root)[t.get('dhcp_target','PC-ALICE')];p=port(e)
+        network=ipaddress.ip_network(t['networks']['employees'])
+        if field=='ip':put(p,'IP',str(ipaddress.ip_network(t['networks']['guests'])[60]))
+        elif field=='mask':put(p,'SUBNET','255.255.255.252')
+        elif field=='gateway':
+            wrong=str(network[254]);put(p,'PORT_GATEWAY',wrong);put(e,'GATEWAY',wrong)
+        elif field=='dns':put(p,'PORT_DNS',str(network[254]))
+    return mutate
+
+for fid,title,field,symptom in [
+ ('local_wrong_ip','Un poste ne communique plus','ip','PC-ALICE ne peut plus communiquer avec les services ; PC-BOB fonctionne.'),
+ ('local_wrong_mask','Un poste ne joint plus les services distants','mask','PC-ALICE ne joint plus sa passerelle ni les serveurs ; PC-BOB fonctionne.'),
+ ('local_wrong_gateway','Un poste ne joint plus les serveurs','gateway','PC-ALICE communique avec les autres employés mais pas avec les serveurs ; PC-BOB fonctionne.'),
+ ('local_wrong_dns','Un poste ne retrouve plus l’intranet','dns','PC-ALICE ouvre l’intranet par IP mais pas par son nom ; PC-BOB fonctionne.')]:
+    register(fid,title,'fault',E,local_setting(field),symptom,
+      ['Compare le poste concerné avec un poste fonctionnel.','Distingue accès local, passerelle, services par IP et résolution de noms.'],
+      'Sur PC-ALICE > Desktop > IP Configuration, rétablis la configuration statique de la table de référence : IP {PC-ALICE}, /24, passerelle {new_employee_gateway}, DNS {SRV-INFRA}. Ne modifie pas les autres postes.',
+      ['PC-ALICE joint sa passerelle puis SRV-WEB.','PC-ALICE ouvre http://intranet.entreprise.test.','PC-BOB reste fonctionnel.'],2)
+
+register('add_employee','Installer le poste d’un nouvel employé','evolution',E,lambda root,t:None,
+ 'Un nouvel employé arrive. Ajoute un PC-PT nommé PC-NEW, câble son FastEthernet0 à SW-EMP FastEthernet0/10 et configure-le en statique : IP {new_employee_ip}, masque 255.255.255.0, passerelle {new_employee_gateway}, DNS {SRV-INFRA}. Conserve les équipements actuels.',
+ ['Le port Fa0/10 du switch employés est réservé à cette installation.','Teste le lien, la passerelle, les serveurs puis leur nom.'],
+ 'Ajouter PC-NEW et son câble sur le port réservé. Renseigner les quatre paramètres demandés. Sauvegarder le fichier Packet Tracer.',
+ ['PC-NEW existe et utilise {new_employee_ip}/24.','PC-NEW joint sa passerelle et SRV-WEB puis ouvre http://intranet.entreprise.test.','Les postes existants restent fonctionnels.'],2)
+CATALOGUE['add_employee']['reference_extension']='employee'
+
 def render(topo,spec):
     esc=html.escape
     rows=[]
@@ -620,7 +654,7 @@ def generate(scenario_id,seed=None,output_dir='.',embed=True,address_family=None
     seed=seed if seed is not None else random.SystemRandom().randrange(10**9)
     folder=Path(output_dir).resolve();folder.mkdir(parents=True,exist_ok=True)
     tree,topo=make_topology(spec['topology'],seed,folder,address_family,employee_count=employee_count,has_it=has_it,target_employee=target_employee,employee_layout=employee_layout)
-    topo['vary_dhcp_target']=scenario_id.startswith('dhcp_') or scenario_id=='configure_dhcp_relay'
+    topo['vary_dhcp_target']=scenario_id.startswith(('dhcp_','local_')) or scenario_id=='configure_dhcp_relay'
     baseline=folder/'baseline.xml'
     spec['mutate'](tree.getroot(),topo)
     start=folder/'initial.xml';ET.indent(tree,space=' ');tree.write(start,encoding='utf-8',short_empty_elements=False)

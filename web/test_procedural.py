@@ -67,7 +67,8 @@ class PublicPlan(unittest.TestCase):
    self.assertEqual(sum('-PC-CPT-' in name for name in devices),plan['employee_count'])
    self.assertEqual(len(root.findall('.//PHYSICALWORKSPACE//NODE[TYPE="6"]')),len(devices))
    self.assertEqual(any(n.findtext('NAME')=='Bureau IT' for n in root.findall('.//PHYSICALWORKSPACE//NODE')),plan['has_it'])
-   address=devices[site+'-PC-CPT-02'].findtext('.//PORT/IP')
+   control='02' if plan['target_employee']==1 else '01'
+   address=devices[site+'-PC-CPT-'+control].findtext('.//PORT/IP')
    self.assertIn(ipaddress.ip_address(address),private_networks(plan['seed'],plan['address_family'])['employees'])
    worksheet=(Path(folder)/'consignes.html').read_text(encoding='utf-8')
    self.assertIn(site+'-PC-CPT-01',worksheet)
@@ -183,3 +184,43 @@ class TargetFiles(unittest.TestCase):
    self.assertNotIn('TLS42-PC-CPT-01 démarre en DHCP sans bail',html)
    activity=(Path(folder)/'activity.xml').read_text()
    self.assertIn('TLS42-PC-CPT-06',activity)
+
+class LocalInterventions(unittest.TestCase):
+ def test_only_selected_pc_changes_and_text_matches(self):
+  for fid in ('local_wrong_ip','local_wrong_mask','local_wrong_gateway','local_wrong_dns'):
+   with tempfile.TemporaryDirectory() as folder:
+    tree,topo=workshops.make_topology('enterprise_services',12,folder,employee_count=6,target_employee=5,has_it=False,employee_layout='split')
+    topo['vary_dhcp_target']=True
+    before={n:ET.tostring(e) for n,e in workshops.engines(tree.getroot()).items()}
+    workshops.CATALOGUE[fid]['mutate'](tree.getroot(),topo)
+    after={n:ET.tostring(e) for n,e in workshops.engines(tree.getroot()).items()}
+    self.assertEqual([n for n in before if before[n]!=after[n]],['PC-CPT-05'])
+    self.assertIn('PC-CPT-05',workshops.describe(workshops.CATALOGUE[fid]['statement'],topo))
+ def test_employee_request_starts_without_pc_and_has_complete_reference(self):
+  with tempfile.TemporaryDirectory() as folder:
+   with patch.object(web_worker.ptexplorer,'ptfile_encode',side_effect=lambda source,target:Path(target).write_bytes(b'pkt')):
+    web_worker.generate(dict(folder=folder,scenario='add_employee',seed=12,level=5,count=1,site_code='ALB12',employee_count=6,has_it=False,employee_layout='split'))
+   start=ET.parse(Path(folder)/'initial.xml').getroot()
+   reference=ET.parse(Path(folder)/'reference.xml').getroot()
+   def names(root):return {d.findtext('ENGINE/NAME') for d in root.findall('NETWORK/DEVICES/DEVICE')}
+   self.assertNotIn('ALB12-PC-NEW',names(start))
+   self.assertEqual(names(reference)-names(start),{'ALB12-PC-NEW'})
+   engines=workshops.engines(reference)
+   pc=engines['ALB12-PC-NEW']
+   self.assertTrue(workshops.port(pc).findtext('IP').endswith('.60'))
+   self.assertTrue((Path(folder)/'correction.pkt').exists())
+ def test_new_employee_is_generated_as_workshop_and_retry_keeps_mode(self):
+  case=PublicPlan();case.setUp()
+  try:
+   calls=[];original=case.g.start
+   def capture(data):calls.append(data);return original(data)
+   case.g.start=capture
+   case.d.create('new_employee')
+   ticket=case.t.state['tickets'][0]
+   self.assertEqual(calls[0]['mode'],'atelier')
+   self.assertIn(ticket['procedural']['site_code']+'-PC-NEW',ticket['description'])
+   case.g.items[0]['status']='failed'
+   case.t.action(ticket['id'],'retry_service',{})
+   self.assertEqual(calls[1]['mode'],'atelier')
+   self.assertEqual(calls[0]['seed'],calls[1]['seed'])
+  finally:case.tearDown()

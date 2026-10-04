@@ -22,6 +22,12 @@ CATALOGUE += [
  ('dhcp_relay_missing','Un poste ne reçoit plus de bail DHCP','PC-ALICE ne reçoit pas de bail DHCP ; PC-BOB en statique reste fonctionnel.','elevee'),
  ('dhcp_relay_wrong','Un poste ne reçoit plus de bail DHCP','PC-ALICE ne reçoit pas de bail DHCP ; PC-BOB en statique reste fonctionnel.','elevee'),
 ]
+CATALOGUE += [(fid,title,complaint,'moderee') for fid,title,complaint in [
+ ('local_wrong_ip','Un poste ne communique plus','PC-ALICE ne joint plus les services ; PC-BOB fonctionne.'),
+ ('local_wrong_mask','Un poste ne joint plus les services distants','PC-ALICE ne joint plus les services ; PC-BOB fonctionne.'),
+ ('local_wrong_gateway','Un poste ne joint plus les serveurs','PC-ALICE communique avec les employés, mais pas avec les serveurs ; PC-BOB fonctionne.'),
+ ('local_wrong_dns','Un poste ne retrouve plus l’intranet','PC-ALICE ouvre l’intranet par IP mais pas par son nom ; PC-BOB fonctionne.'),
+ ('add_employee','Installer le poste d’un nouvel employé','Un nouvel employé arrive : installer PC-NEW suivant la feuille, sans modifier les postes existants.')]]
 SITE_CATALOGUE=[dict(id='site:http',title='Incident HTTP du site — API requise'),dict(id='site:dns',title='Incident DNS du site — API requise'),dict(id='site:dhcp',title='Incident DHCP du site — API requise'),dict(id='pc',title='Installer un nouveau poste'),dict(id='wifi',title='Connecter un nouveau portable'),dict(id='incident',title='Dépanner un poste filaire du site')]
 def site_choices(snapshot,opened):
  names={d['name']:d for d in snapshot['devices']}
@@ -79,12 +85,15 @@ class ServiceDesk:
   # La plainte doit correspondre à la portée réelle de chaque mutation.
   target=plan['target_employee'];target_name='PC-ALICE' if target==1 else 'PC-BOB' if target==2 else f'PC-CPT-{target:02d}'
   if plan['family']=='lease':complaint=target_name+' ne reçoit pas de bail DHCP ; '+('PC-BOB' if target==1 else 'PC-ALICE')+' en statique reste fonctionnel.'
+  if plan['family']=='workstation':
+   import re
+   complaint=re.sub(r'PC-ALICE|PC-BOB',lambda m:target_name if m.group()=='PC-ALICE' else ('PC-BOB' if target==1 else 'PC-ALICE'),complaint)
   site=plan['site_code'];networks=private_networks(seed,plan['address_family'])
-  names=organization.mapping(('R1','PC-ALICE','PC-BOB','SRV-INFRA','SRV-WEB',target_name),site)
+  names=organization.mapping(('R1','PC-ALICE','PC-BOB','SRV-INFRA','SRV-WEB','PC-NEW',target_name),site)
   complaint=organization.replace(complaint,names)
-  job=self.g.start(dict(mode='depannage',scenario=fid,level=5,count=1,seed=seed,ticket_title=title,address_family=plan['address_family'],site_code=site,business_names=True,employee_count=plan['employee_count'],has_it=plan['has_it'],target_employee=target,employee_layout=plan['employee_layout']))
+  job=self.g.start(dict(mode='atelier' if plan['family']=='new_employee' else 'depannage',scenario=fid,level=5,count=1,seed=seed,ticket_title=title,address_family=plan['address_family'],site_code=site,business_names=True,employee_count=plan['employee_count'],has_it=plan['has_it'],target_employee=target,employee_layout=plan['employee_layout']))
   ident='INC-'+str(1001+len(self.t.state['tickets']))
-  t=dict(id=ident,kind='service',service_scenario=fid,procedural=plan,job_id=job['id'],title=title,description=f"Agence {site} — {plan['requester']} signale : "+complaint+f" Réseau employés : {networks['employees']} ; {plan['employee_count']} postes utilisateurs {'avec un poste IT dédié' if plan['has_it'] else 'sans poste IT dédié ; intervention par un prestataire externe'}. Diagnostique et rétablis le service dans le réseau dédié à ce ticket. Conserve les autres services. Consulte la feuille du ticket pour les appareils, adresses et tests attendus.",severity=severity,status='nouveau',created=time.strftime('%Y-%m-%d %H:%M:%S'),checks=[],complete=False,notes='',manual_ssid=False,validation='manual',timer=timers.configure(self.settings['ticket_minutes'],'training'))
+  t=dict(id=ident,kind='service',service_scenario=fid,procedural=plan,job_id=job['id'],title=title,description=f"Agence {site} — {plan['requester']} signale : "+complaint+f" Réseau employés : {networks['employees']} ; {plan['employee_count']} postes utilisateurs {'avec un poste IT dédié' if plan['has_it'] else 'sans poste IT dédié ; intervention par un prestataire externe'}. Réalise l’intervention demandée dans le réseau dédié à ce ticket. Conserve les autres services. Consulte la feuille du ticket pour les appareils, adresses et tests attendus.",severity=severity,status='nouveau',created=time.strftime('%Y-%m-%d %H:%M:%S'),checks=[],complete=False,notes='',manual_ssid=False,validation='manual',timer=timers.configure(self.settings['ticket_minutes'],'training'))
   self.t.state['tickets'].append(t);self.t.event(ident+' : incident reçu, réseau dédié en préparation.');return self.t.public()
  def create_site(self,scenario,opened):
   if scenario not in (None,'','pc','wifi','incident','site:http','site:dns','site:dhcp'):raise ValueError('Choisis une intervention du catalogue du site.')
