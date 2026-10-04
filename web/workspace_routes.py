@@ -61,6 +61,10 @@ class WorkspaceRoutes:
             if data.get('environment_id') != (c.workspace.state or {}).get('environment_id', 'legacy'):
                 raise ValueError('Environnement actif requis.')
             result = c.next_directory_incident()
+        elif action == 'file-incident':
+            if data.get('environment_id') != (c.workspace.state or {}).get('environment_id','legacy'):
+                raise ValueError('Environnement actif requis.')
+            result = c.next_file_incident()
         elif action == 'select': result = c.select(data.get('id'))
         elif action == 'refresh':
             c.observe(blocking=True)

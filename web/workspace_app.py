@@ -19,6 +19,7 @@ import sim_ad
 import directory_incidents
 import files_adapter
 import sim_files
+import file_incidents
 
 ROOT = Path(__file__).resolve().parent
 
@@ -87,6 +88,21 @@ class Controller:
             self.workspace.save()
             if self.on_change:
                 self.on_change(self.workspace.state, self.workspace.path.parent)
+            return self.workspace.public()
+
+    def next_file_incident(self):
+        with self.lock:
+            s=self.workspace.state
+            if not s:raise ValueError('Crée ou reprends un environnement.')
+            now=time.time()
+            for source in ('technician','client'):
+                n=ad.context(s,source=source,now=now)['network']
+                if n['status']!='passed' or not n['observed_at']<=now<=n['valid_until']:
+                    raise ValueError('Rétablis et vérifie le réseau du client et du technicien vers le serveur.')
+            if not s.get('directory_service',True):raise ValueError('Rétablis le service d’annuaire.')
+            self.workspace.state=file_incidents.prepare(s,now)
+            self.workspace.save()
+            if self.on_change:self.on_change(self.workspace.state,self.workspace.path.parent)
             return self.workspace.public()
 
     def select(self, ident):
