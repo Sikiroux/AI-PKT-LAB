@@ -82,11 +82,18 @@ class GenerationTests(unittest.TestCase):
         self.assertEqual(server_copy, SERVER)
         self.assertEqual(principals_copy, PRINCIPALS)
 
-    def test_requires_server_id_equal_environment_id(self):
-        bad_server = dict(SERVER, id='other-id')
-        with self.assertRaises(sf.FileServiceError) as cm:
-            make_service(server=bad_server)
-        self.assertEqual(cm.exception.code, sf.INVALID_REQUEST)
+    def test_server_id_and_environment_id_are_distinct_identities(self):
+        """server.id (appareil) et environment_id (session) ne sont pas la
+        même identité : rien n'exige qu'ils soient égaux, et un service où ils
+        diffèrent reste valide et pleinement fonctionnel (cf. REVIEW-SIM-FILES
+        point 3 : server identifie l'appareil physique, environment_id la
+        session)."""
+        server = {'id': 'server-01', 'name': 'SRV-FILES', 'ip': '10.9.9.9', 'dns_name': 'files.lab'}
+        service = make_service(environment_id='env-01', server=server,
+                               principals={'user_ids': ['alice'], 'group_ids': []})
+        sf.validate_file_service(service)
+        self.assertEqual(service['environment_id'], 'env-01')
+        self.assertEqual(service['server']['id'], 'server-01')
 
     def test_requires_at_least_one_user(self):
         with self.assertRaises(sf.FileServiceError) as cm:
@@ -163,11 +170,13 @@ class ValidationTests(unittest.TestCase):
         with self.assertRaises(sf.FileServiceError):
             sf.validate_file_service(service)
 
-    def test_rejects_cross_environment_server(self):
+    def test_server_id_distinct_from_environment_id_is_valid_schema(self):
+        """server.id (appareil) et environment_id (session) sont deux
+        identités distinctes ; validate_file_service ne doit pas exiger leur
+        égalité (voir REVIEW-SIM-FILES point 3)."""
         service = make_service()
-        service['server']['id'] = 'another-env'
-        with self.assertRaises(sf.FileServiceError):
-            sf.validate_file_service(service)
+        service['server']['id'] = 'a-different-device-id'
+        sf.validate_file_service(service)  # ne lève pas
 
     def test_administrative_overage_is_a_valid_state(self):
         service = make_service()
@@ -195,6 +204,108 @@ class AccessEvaluationTests(unittest.TestCase):
         result = sf.evaluate_access(self.service, {'action': 'list', 'share_id': self.share_id}, ctx, NOW)
         self.assertFalse(result['allowed'])
         self.assertEqual(result['code'], sf.INVALID_CONTEXT)
+
+    def test_distinct_server_id_and_environment_id_both_checked_separately(self):
+        """REVIEW-SIM-FILES point 3 : server.id (appareil) et environment_id
+        (session) sont deux identités distinctes, chacune vérifiée pour
+        elle-même — jamais l'une à la place de l'autre."""
+        server = {'id': 'server-01', 'name': 'SRV-FILES', 'ip': '10.9.9.9', 'dns_name': 'files.lab'}
+        service = make_service(environment_id='env-01', server=server,
+                               principals={'user_ids': ['alice'], 'group_ids': []})
+        share_id = next(iter(service['shares']))
+        good_ctx = {
+            'environment_id': 'env-01', 'source_device_id': 'pc1', 'target_device_id': 'server-01',
+            'network': {'status': 'up', 'observed_at': NOW - 5, 'valid_until': NOW + 30,
+                       'source_device_id': 'pc1', 'target_device_id': 'server-01', 'evidence': 'tcp445'},
+            'address_mode': 'ip',
+            'identity': {'user_id': 'alice', 'group_ids': [], 'account_allowed': True, 'authentication_valid': True},
+        }
+        result = sf.evaluate_access(service, {'action': 'list', 'share_id': share_id}, good_ctx, NOW)
+        self.assertTrue(result['allowed'])
+
+        wrong_env = dict(good_ctx, environment_id='env-99')
+        self.assertFalse(sf.evaluate_access(service, {'action': 'list', 'share_id': share_id}, wrong_env, NOW)['allowed'])
+
+        wrong_target = dict(good_ctx, target_device_id='env-01')  # confond server.id et environment_id
+        self.assertFalse(sf.evaluate_access(service, {'action': 'list', 'share_id': share_id}, wrong_target, NOW)['allowed'])
+
+    def test_file_from_another_share_refused_for_read_write_delete(self):
+        """REVIEW-SIM-FILES point 1 : un file_id valide mais appartenant à un
+        autre partage que celui demandé doit produire FILE_NOT_FOUND pour les
+        trois actions concernées, sans fuite de contenu ni mutation."""
+        service = make_service(seed='two-shares-cross-access',
+                               principals={'user_ids': ['alice'], 'group_ids': []})
+        share_ids = list(service['shares'])
+        if len(share_ids) < 2:
+            self.skipTest('seed did not produce 2 shares')
+        share_a, share_b = share_ids[0], share_ids[1]
+        # Donne à alice les 4 droits sur share_a (déjà le cas pour le 1er partage
+        # généré) ET sur share_b, pour prouver que le refus vient bien du
+        # rattachement fichier/partage, pas d'un droit manquant.
+        for layer in ('share_acl', 'folder_acl'):
+            for action in sf.ACL_ACTIONS:
+                service['shares'][share_b][layer][action]['user_ids'] = ['alice']
+        sf.validate_file_service(service)
+        file_in_b = next(f['id'] for f in service['files'].values() if f['share_id'] == share_b)
+        ctx = passing_context(user='alice')
+
+        for action, extra in (('read', {}), ('write', {'content': 'x', 'expected_revision': service['revision']}),
+                             ('delete', {'expected_revision': service['revision']})):
+            request = {'action': action, 'share_id': share_a, 'file_id': file_in_b}
+            request.update(extra)
+            result = sf.evaluate_access(service, request, ctx, NOW)
+            self.assertFalse(result['allowed'], msg=action)
+            self.assertEqual(result['code'], sf.FILE_NOT_FOUND, msg=action)
+
+        out = sf.perform_file_action(service, {'action': 'read', 'share_id': share_a, 'file_id': file_in_b},
+                                     ctx, NOW)
+        self.assertIsNone(out['result']['data'])
+        self.assertEqual(out['service'], service)
+
+    def test_unknown_user_id_in_identity_refused_even_via_known_group(self):
+        """REVIEW-SIM-FILES point 2 : un user_id absent du principal_catalog ne
+        doit jamais obtenir d'accès, même via un group_id connu et autorisé."""
+        service = make_service(principals={'user_ids': ['alice'], 'group_ids': ['grp-staff']})
+        share_id = next(iter(service['shares']))
+        out = sf.apply_operation(service, 'set_acl',
+                                 {'share_id': share_id, 'layer': 'share_acl', 'action': 'list',
+                                  'user_ids': [], 'group_ids': ['grp-staff']}, FULL_ACTOR, NOW)
+        out = sf.apply_operation(out['service'], 'set_acl',
+                                 {'share_id': share_id, 'layer': 'folder_acl', 'action': 'list',
+                                  'user_ids': [], 'group_ids': ['grp-staff']}, FULL_ACTOR, NOW)
+        service2 = out['service']
+        ctx = passing_context(user='mallory-unknown', groups=['grp-staff'])
+        result = sf.evaluate_access(service2, {'action': 'list', 'share_id': share_id}, ctx, NOW)
+        self.assertFalse(result['allowed'])
+        self.assertEqual(result['code'], sf.INVALID_CONTEXT)
+
+    def test_unknown_group_id_in_identity_refused(self):
+        service = make_service()
+        ctx = passing_context(user=self.user, groups=['grp-unknown'])
+        result = sf.evaluate_access(self.service, {'action': 'list', 'share_id': self.share_id}, ctx, NOW)
+        self.assertFalse(result['allowed'])
+        self.assertEqual(result['code'], sf.INVALID_CONTEXT)
+
+    def test_name_resolution_status_unknown_is_not_failed(self):
+        """REVIEW-SIM-FILES point 4 : un statut explicitement 'unknown', une
+        preuve absente, périmée ou invalide doivent rester 'unknown'
+        (OBSERVATION_UNKNOWN), distinct d'un échec frais réellement observé
+        (NAME_UNRESOLVED)."""
+        for name_resolution, expected_status, expected_code in (
+            ({'status': 'unknown', 'resolved_ip': None, 'observed_at': NOW - 5, 'valid_until': NOW + 30},
+             'unknown', sf.OBSERVATION_UNKNOWN),
+            (None, 'unknown', sf.OBSERVATION_UNKNOWN),
+            ({'status': 'resolved', 'resolved_ip': SERVER['ip'], 'observed_at': 1, 'valid_until': 2},
+             'unknown', sf.OBSERVATION_UNKNOWN),  # périmé
+            ({'status': 'failed', 'resolved_ip': None, 'observed_at': NOW - 5, 'valid_until': NOW + 30},
+             'failed', sf.NAME_UNRESOLVED),
+        ):
+            ctx = passing_context(user=self.user, address_mode='name', name_resolution=name_resolution)
+            if name_resolution is None:
+                ctx.pop('name_resolution', None)
+            result = sf.evaluate_access(self.service, {'action': 'list', 'share_id': self.share_id}, ctx, NOW)
+            self.assertEqual(result['status'], expected_status, msg=name_resolution)
+            self.assertEqual(result['code'], expected_code, msg=name_resolution)
 
     def test_stale_network_observation_is_unknown_not_failure(self):
         ctx = passing_context(user=self.user, at=NOW)

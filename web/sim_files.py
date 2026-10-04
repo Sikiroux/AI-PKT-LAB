@@ -171,8 +171,9 @@ def validate_file_service(service):
     for key in ('id', 'name', 'ip', 'dns_name'):
         if not isinstance(server.get(key), str) or not server[key]:
             raise FileServiceError(INVALID_SCHEMA, f'server.{key} invalide')
-    if server['id'] != service['environment_id']:
-        raise FileServiceError(INVALID_SCHEMA, 'server.id doit être égal à environment_id (convention v1)')
+    # server.id (identité de l'appareil) et environment_id (identité de session)
+    # sont deux identifiants distincts : rien n'exige qu'ils soient égaux. Voir
+    # §3 de la doc pour les deux contrôles séparés appliqués côté contexte.
 
     if service['service_status'] not in ('running', 'stopped'):
         raise FileServiceError(INVALID_SCHEMA, 'service_status invalide')
@@ -287,8 +288,6 @@ def generate_file_service(seed, environment_id, server, principals, now):
     for key in ('id', 'name', 'ip', 'dns_name'):
         if not isinstance(server.get(key), str) or not server[key]:
             raise FileServiceError(INVALID_REQUEST, f'server.{key} invalide')
-    if server['id'] != environment_id:
-        raise FileServiceError(INVALID_REQUEST, 'server.id doit être égal à environment_id (convention v1)')
     user_ids = list((principals or {}).get('user_ids') or [])
     group_ids = list((principals or {}).get('group_ids') or [])
     if not user_ids:
@@ -449,22 +448,40 @@ def _context_scope_ok(service, context):
         return False
     if not _is_strict_bool(identity.get('account_allowed')) or not _is_strict_bool(identity.get('authentication_valid')):
         return False
+    # Le moteur ne prouve aucune appartenance, mais il exige un user_id et des
+    # group_ids CONNUS du catalogue : une identité qui en référence un absent
+    # ne peut pas obtenir un accès via un octroi de groupe qu'elle n'a pas
+    # réellement (contrat section 5 du brief).
+    catalog = service['principal_catalog']
+    if identity['user_id'] not in catalog['user_ids']:
+        return False
+    if not set(identity['group_ids']).issubset(set(catalog['group_ids'])):
+        return False
     return True
 
 
 def _name_resolution_status(context, server):
+    """'unknown' pour une preuve absente/périmée/future/invalide ou un statut
+    explicitement 'unknown' : on ne sait rien, ce n'est pas une panne prouvée.
+    'failed' uniquement pour un échec frais explicitement observé, ou une
+    résolution fraîche vers une adresse différente de server.ip."""
     if context.get('address_mode') != 'name':
         return None  # étape non applicable, omise de l'arbre
     resolution = context.get('name_resolution')
     if not isinstance(resolution, dict):
-        return 'failed'
-    if resolution.get('status') != 'resolved':
-        return 'failed'
+        return 'unknown'
+    status = resolution.get('status')
+    if status not in ('resolved', 'failed', 'unknown'):
+        return 'unknown'
     observed_at, valid_until = resolution.get('observed_at'), resolution.get('valid_until')
     if not _is_finite_number(observed_at) or not _is_finite_number(valid_until) or valid_until < observed_at:
-        return 'failed'
+        return 'unknown'
     now = context['_now']  # injecté par l'appelant pour cette vérification
     if not (observed_at <= now <= valid_until):
+        return 'unknown'
+    if status == 'unknown':
+        return 'unknown'
+    if status == 'failed':
         return 'failed'
     if resolution.get('resolved_ip') != server['ip']:
         return 'failed'
@@ -518,7 +535,7 @@ def evaluate_access(service, request, context, now):
     name_status = _name_resolution_status(ctx, server) if scope_ok else None
     if name_status is not None:
         steps.append(('name_resolution', name_status))
-        codes['name_resolution'] = NAME_UNRESOLVED
+        codes['name_resolution'] = NAME_UNRESOLVED if name_status == 'failed' else OBSERVATION_UNKNOWN
 
     net_status = _network_status(context, server, now) if isinstance(context, dict) else 'unknown'
     net_effective = 'passed' if net_status == 'up' else ('failed' if net_status == 'down' else 'unknown')
@@ -556,8 +573,15 @@ def evaluate_access(service, request, context, now):
     steps.append(('filesystem_permission', 'passed' if (share and _granted(share['folder_acl'])) else 'failed'))
     codes['filesystem_permission'] = FILESYSTEM_ACCESS_DENIED
 
-    target_file = service['files'].get(request.get('file_id')) if request.get('file_id') else None
-    creating = action == 'write' and not request.get('file_id')
+    requested_file_id = request.get('file_id')
+    raw_target_file = service['files'].get(requested_file_id) if requested_file_id else None
+    # Un file_id valide mais appartenant à un AUTRE partage que request['share_id']
+    # ne doit jamais être traité comme trouvé ici : sans ce filtre, les ACL
+    # vérifiées plus haut sont celles du partage demandé alors que le fichier
+    # réellement lu/modifié/supprimé serait celui d'un partage différent.
+    target_file = (raw_target_file if raw_target_file is not None
+                  and raw_target_file['share_id'] == request['share_id'] else None)
+    creating = action == 'write' and not requested_file_id
 
     if action in ('read', 'delete'):
         steps.append(('file_lookup', 'passed' if target_file is not None else 'failed'))

@@ -14,9 +14,10 @@ comportement observable (voir §3).
 
 ## 1. Ce qui est livré
 
-- `web/sim_files.py` — le moteur (± 820 lignes avec docstrings).
-- `web/test_sim_files.py` — 68 tests `unittest`, couvrant les 26 critères
-  d'acceptation de la section 9 du brief (voir tableau §6 ci-dessous).
+- `web/sim_files.py` — le moteur (± 830 lignes avec docstrings).
+- `web/test_sim_files.py` — 73 tests `unittest`, couvrant les 26 critères
+  d'acceptation de la section 9 du brief (voir tableau §6 ci-dessous) plus 6
+  tests de régression issus d'une relecture externe (voir §13).
 - Ce document.
 
 Aucun autre fichier n'a été modifié. Le bureau, les routes HTTP, le
@@ -80,7 +81,7 @@ Points de contrat explicites (repris du brief, tous validés par
 
 | Point | Décision |
 |---|---|
-| `server.id` vs `environment_id` | Exigés strictement égaux, partout (génération, validation, contexte). Cohérent avec l'usage réel de `web/directory_adapter.py` pour `sim_ad`, qui identifie toujours le serveur par l'ID d'environnement. |
+| `server.id` vs `environment_id` | **Révisé après relecture (voir §13) : ce sont deux identités distinctes**, jamais contraintes à être égales. `server.id` identifie l'appareil physique (la cible réseau), `environment_id` identifie la session/l'environnement pédagogique. Chacun est vérifié pour lui-même, séparément : `context.environment_id == service.environment_id` d'une part, `context.target_device_id == service.server.id` d'autre part, avec la même paire `(source_device_id, target_device_id)` exigée dans la preuve réseau. Aucune des deux vérifications ne se substitue à l'autre. |
 | Requête mal formée vs contexte incomplet | `request` mal formé → `FileServiceError` (exception) : l'adaptateur construit toujours une requête bien formée, une erreur ici est un bug d'intégration. `context` incomplet/périmé → résultat souple `INVALID_CONTEXT`/`OBSERVATION_UNKNOWN` : un contexte réel peut légitimement être incomplet (latence, projection non encore rafraîchie), donc jamais d'exception, toujours fail-closed. |
 | `expected_revision` : étage pédagogique ou garde séparée ? | **Séparée.** La section 6 du brief énumère 10 étages, et la concurrence optimiste n'en fait pas partie : c'est une question de coordination serveur, pas de droit utilisateur. Vérifiée uniquement dans `perform_file_action`, après que `evaluate_access` a confirmé `allowed=True`. Un fichier en lecture seule bloque donc *avant* qu'on atteigne la vérification de revision (voir test `test_read_only_blocks_write_and_delete_not_read`, et le comportement observé : une requête avec une `expected_revision` fausse sur un fichier *aussi* en lecture seule renvoie `FILE_READ_ONLY`, pas `REVISION_CONFLICT` — la chaîne pédagogique passe en premier). |
 | Omission du nom de domaine comme seule exception à « toujours montrer l'étage » | `name_resolution` est omis de l'arbre (pas montré en `blocked`) uniquement quand `address_mode` ne peut pas être déterminé (échec de `scope`, qui garantit la présence/forme de `address_mode`). Dans tous les autres cas (y compris `address_mode == 'ip'`), l'absence du nœud est le signal attendu que la résolution de nom n'est simplement pas pertinente pour cette requête — pas un étage bloqué. Tous les autres étages (réseau, pare-feu, service, partage, compte, authentification, droits, fichier, lecture seule, capacité, quota) sont **toujours** présents dans l'arbre dès lors qu'ils s'appliquent à l'action demandée, y compris en `blocked`. |
@@ -89,7 +90,9 @@ Points de contrat explicites (repris du brief, tous validés par
 | Dépassement administratif | Un changement de capacité/quota peut rendre un état existant en dépassement (ex. capacité réduite sous l'occupation actuelle). `validate_file_service` l'accepte explicitement comme état valide — ce n'est testé/bloqué qu'au moment d'une **nouvelle** écriture qui *augmenterait* encore l'occupation. Lecture, suppression et réduction restent toujours possibles. |
 | `hidden` | Masque uniquement la *découverte* dans une future UI d'administration/navigation (non implémentée ici). N'affecte jamais `evaluate_access` : un accès direct par `share_id` à un partage `hidden=True` suit exactement la même chaîne que s'il ne l'était pas. |
 | `directory_resource` (ancien, v0.19) | Jamais lu ni écrit par ce module. Le brief est explicite : ne pas l'utiliser comme troisième restriction concurrente aux nouvelles ACL ; la migration/rattachement est le travail de l'intégrateur (section 10). |
-| Identité/groupes/compte | Jamais recalculés ici. `context['identity']` est reçu déjà évalué (`account_allowed`, `authentication_valid` proviennent de `sim_ad.evaluate_user`/session côté adaptateur). Ce module ne prouve aucune appartenance : il fait confiance à la projection fournie, et refuse fail-closed si elle est absente ou mal typée. |
+| Identité/groupes/compte | Jamais recalculés ici. `context['identity']` est reçu déjà évalué (`account_allowed`, `authentication_valid` proviennent de `sim_ad.evaluate_user`/session côté adaptateur). Ce module ne prouve aucune appartenance : il fait confiance à la projection fournie, et refuse fail-closed si elle est absente ou mal typée. **Mais** il exige que `identity.user_id` et chaque `identity.group_ids` référencent des principaux *connus* de `service.principal_catalog` (voir §13 point 2) — sans cela, un `user_id` inventé combiné à un `group_id` réellement autorisé obtiendrait un accès qu'aucune identité réelle ne possède. |
+| Résolution de nom `unknown` vs `failed` | `name_resolution.status` peut valoir `resolved`, `failed` ou **`unknown`** (le brief le prévoit explicitement dans la forme du contexte). Seul un échec **frais et explicitement observé** (`status == 'failed'`, ou `resolved` vers une IP différente de `server.ip`, preuve fraîche) produit `failed`/`NAME_UNRESOLVED`. Toute absence de preuve, statut `unknown`, horodatage périmé/futur/invalide ou valeur non reconnue produit `unknown`/`OBSERVATION_UNKNOWN` — on ne transforme jamais une absence d'information en panne prouvée (voir §13 point 4). |
+| Fichier référencé par un partage différent | Un `file_id` syntaxiquement valide mais appartenant à un **autre** partage que `request['share_id']` est traité comme absent (`FILE_NOT_FOUND`) pour `read`/`write`/`delete` : les ACL vérifiées sont toujours celles du partage demandé, jamais celles implicites du partage réel du fichier (voir §13 point 1). |
 
 ## 4. Erreurs de contrat vs résultats d'évaluation
 
@@ -289,18 +292,21 @@ Non traité ici, volontairement :
 
 ```
 $ python -m unittest discover -s web -p "test_sim_files.py"
-Ran 68 tests in 0.03s
+Ran 73 tests in 0.05s
 OK
 
 $ python -m unittest discover -s web -p "test_*.py"
-Ran 248 tests in ~77s
+Ran 253 tests in ~80s
 OK
 
 $ python tests/test_all.py
-(voir rapport de session — exécuté avant commit)
+19/19 tests OK
 ```
 
-Aucun test préexistant n'a été modifié pour faire passer ce module.
+Aucun test préexistant n'a été modifié pour faire passer ce module. Seul un
+test qui codait la contrainte erronée `server.id == environment_id` a été
+réécrit pour affirmer l'inverse (voir §13) ; sa cible a changé parce que la
+contrainte elle-même était le bug, pas parce que le test a été affaibli.
 
 ## 12. Référence rapide des fonctions publiques
 
@@ -319,3 +325,75 @@ Opérations reconnues par `apply_operation` : `set_service_status`,
 exige explicitement ses propres champs de payload (voir `_op_*` dans
 `sim_files.py`) — aucune n'accepte jamais d'écrire `revision`, `audit` ou
 `principal_catalog`.
+
+## 13. Corrections apportées après relecture externe
+
+Une relecture indépendante (`REVIEW-SIM-FILES.md`, exécutée contre le commit
+`8d7738f` sur v0.19 locale, aucune fusion distante) a identifié 4 défauts
+réels dans la version initialement livrée. Les quatre sont corrigés dans ce
+commit, avec un test de régression dédié par point (en plus des mises à
+jour de fixtures nécessaires) :
+
+1. **Fichier d'un autre partage accepté (bloquant).** `evaluate_access`
+   recherchait `target_file` globalement par `file_id`, sans vérifier que
+   son `share_id` correspondait au `share_id` de la requête. Un acteur
+   disposant des 4 droits sur un partage A pouvait ainsi lire/modifier/
+   supprimer un fichier du partage B simplement en fournissant son
+   `file_id`, puisque les ACL vérifiées restaient celles du partage A.
+   **Correction** : le fichier n'est retenu que si `file.share_id ==
+   request.share_id` ; sinon il est traité comme `FILE_NOT_FOUND`, pour les
+   trois actions concernées, sans aucune mutation ni fuite de contenu. Test :
+   `AccessEvaluationTests.test_file_from_another_share_refused_for_read_write_delete`.
+
+2. **Identité avec `user_id` ou `group_id` inconnu du catalogue acceptée
+   (bloquant contractuel).** `_context_scope_ok` validait la forme de
+   `identity` (types, présence) mais jamais que `user_id`/`group_ids`
+   référençaient des principaux réellement déclarés dans
+   `service.principal_catalog`. Un `user_id` inventé combiné à un
+   `group_id` connu et autorisé obtenait donc l'accès de ce groupe.
+   **Correction** : `_context_scope_ok` vérifie désormais que `user_id` est
+   dans `principal_catalog.user_ids` et que `group_ids` est un sous-ensemble
+   de `principal_catalog.group_ids` ; sinon `INVALID_CONTEXT`, sans lecture
+   ni mutation. Tests :
+   `test_unknown_user_id_in_identity_refused_even_via_known_group`,
+   `test_unknown_group_id_in_identity_refused`.
+
+3. **`server.id == environment_id` imposé à tort.** La première version
+   exigeait l'égalité stricte entre l'identité de l'appareil serveur et
+   l'identité de session/environnement — une contrainte inventée, pas
+   demandée par le brief, qui aurait empêché le modèle d'intégration réel où
+   ces deux identités sont distinctes (`environment_id` pour la session,
+   `server.id` pour l'appareil réseau ciblé). **Correction** : la contrainte
+   est retirée de `generate_file_service` et `validate_file_service`. Les
+   deux contrôles restent appliqués séparément dans `_context_scope_ok`
+   (`context.environment_id == service.environment_id` et
+   `context.target_device_id == service.server.id`), avec la même paire
+   `(source_device_id, target_device_id)` exigée dans la preuve réseau
+   (`_network_status`, inchangé). Tests :
+   `GenerationTests.test_server_id_and_environment_id_are_distinct_identities`,
+   `ValidationTests.test_server_id_distinct_from_environment_id_is_valid_schema`,
+   `AccessEvaluationTests.test_distinct_server_id_and_environment_id_both_checked_separately`.
+   Le test qui codait l'ancienne contrainte erronée a été réécrit pour
+   affirmer l'inverse (son intitulé explicite pourquoi) ; aucun autre test
+   préexistant n'a été modifié.
+
+4. **DNS inconnu confondu avec DNS en échec.** `_name_resolution_status`
+   renvoyait `failed` dès que `name_resolution.status != 'resolved'`,
+   traitant de façon identique une absence de preuve, un statut `unknown`,
+   un horodatage périmé/invalide et un échec réellement observé — alors que
+   le contrat (section 5 du brief) prévoit explicitement `status:
+   resolved|failed|unknown` et que le modèle distingue partout ailleurs
+   « absence d'information » (`unknown`) et « panne prouvée » (`failed`).
+   **Correction** : `unknown` est renvoyé pour toute preuve absente, pour un
+   statut `unknown` explicite, et pour un horodatage périmé/futur/invalide ;
+   `failed` est réservé à un échec frais explicitement observé ou à une
+   résolution fraîche vers une adresse différente de `server.ip`. Le code
+   associé suit la même distinction que pour `network`
+   (`OBSERVATION_UNKNOWN` vs `NAME_UNRESOLVED`). Test :
+   `test_name_resolution_status_unknown_is_not_failed`.
+
+Chaque correction a été reproduite manuellement (scénario exact de la
+relecture) avant d'être fixée, puis re-vérifiée après coup. Les 68 tests
+initiaux restent tous verts (un seul réécrit pour le point 3, voir
+ci-dessus) ; 5 nouveaux tests de régression ont été ajoutés pour les points
+1/2/4 en plus des 3 tests du point 3, portant le total à 73.
