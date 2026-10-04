@@ -61,6 +61,10 @@ class WorkspaceRoutes:
         elif action == 'refresh':
             c.observe(blocking=True)
             with c.lock: result = c.workspace.public()
+        elif action.startswith('directory/'):
+            if data.get('environment_id') != (c.workspace.state or {}).get('environment_id','legacy'):
+                raise ValueError('Environnement actif requis.')
+            result = c.directory(action.removeprefix('directory/'), data)
         elif action == 'action': result = c.action(data['action'])
         elif action == 'ping':
             if data.get('source', 'client') not in ('client', 'technician'):

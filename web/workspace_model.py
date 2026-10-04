@@ -4,6 +4,7 @@ import json
 import random
 import time
 from pathlib import Path
+import directory_adapter as ad
 
 VERSION = 1
 TTL = 45
@@ -36,6 +37,8 @@ def evaluate(state, action, at=None):
     if action not in ('remote', 'read', 'write'):
         raise ValueError('Action inconnue.')
     at = time.time() if at is None else at
+    if 'directory' in state and action != 'remote':
+        return ad.access(state, action, at)
     observation = state.get('observation') or {}
     observation = observation.get('probes', {}).get('remote' if action == 'remote' else 'share', observation)
     fresh = (observation.get('status') in ('passed', 'failed') and
@@ -43,7 +46,7 @@ def evaluate(state, action, at=None):
     net = observation['status'] if fresh else 'unknown'
     checks = [('service', 'Service de prise en main' if action == 'remote' else 'Service de partage',
                state['remote_service'] if action == 'remote' else state['share_service']),
-              ('account', 'Compte actif', state['account_enabled'])]
+              ('account', 'Compte actif', (state['directory']['users'][state['directory_user_id']]['enabled'] if 'directory' in state else state['account_enabled']))]
     if action != 'remote':
         checks.append(('permission', 'Autorisation de lecture' if action == 'read' else 'Autorisation d’écriture',
                        state['read_allowed'] if action == 'read' else state['write_allowed']))
@@ -69,6 +72,7 @@ class Workspace:
             # Une ancienne observation ne prouve rien sur la nouvelle instance PT.
             self.state['observation'] = None
             self.state['remote_session'] = False
+            self.state['directory_auth'] = None
             self.state['validated'] = False
 
     def save(self):
@@ -86,6 +90,7 @@ class Workspace:
                                  'bound_file', 'remote_session', 'validated')} | {
             'environment_id': s.get('environment_id', 'legacy'),
             'checks': {a: evaluate(s, a) for a in ('remote', 'read', 'write')},
+            'directory_login': ({'username': s['directory']['users'][s['directory_user_id']]['username'], 'authenticated': bool(ad.context(s)['authentication'])} if 'directory' in s else None),
             'observation': s['observation'], 'events': s['events'][-30:]}
 
     def event(self, text):
@@ -98,6 +103,7 @@ class Workspace:
             raise ValueError('Génère un environnement.')
         if action == 'disconnect':
             s['remote_session'] = False
+            if 'directory' in s: ad.invalidate(s)
         elif action == 'connect':
             if not evaluate(s, 'remote')['allowed']:
                 raise ValueError('Connexion impossible ou réseau non vérifié. Consulte les prérequis.')
@@ -111,9 +117,11 @@ class Workspace:
             if action == 'write' and 'Test.txt' not in s['files']:
                 s['files'].append('Test.txt')
         elif action == 'grant_read':
+            if 'directory' in s: raise ValueError('Utilise la console Annuaire pour modifier les groupes.')
             # Action dans la console d'administration simulée, indépendante de RDP.
             s['read_allowed'] = True
         elif action == 'grant_write':
+            if 'directory' in s: raise ValueError('Utilise la console Annuaire pour modifier les groupes.')
             s['write_allowed'] = True
         elif action == 'validate':
             if not evaluate(s, 'read')['allowed']:

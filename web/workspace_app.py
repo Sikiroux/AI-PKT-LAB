@@ -14,6 +14,8 @@ from vendor.live_bridge import PTCommandBridge
 from workspace_model import Workspace, evaluate
 from workspace_network import build
 from environment_store import EnvironmentStore
+import directory_adapter as ad
+import sim_ad
 
 ROOT = Path(__file__).resolve().parent
 
@@ -27,6 +29,15 @@ class Controller:
         self.workspace = Workspace(self.environments.path(active) if active else self.folder / 'session.json')
         self.lock = threading.RLock()
         self.on_change = None
+        self._migrate_directory(self.workspace)
+
+    def _migrate_directory(self, workspace):
+        state = workspace.state
+        if state and 'directory' not in state and all(k in state.get('devices',{}) for k in ('client','server','technician')):
+            backup = workspace.path.with_suffix('.before-directory.json')
+            if workspace.path.exists() and not backup.exists():
+                backup.write_bytes(workspace.path.read_bytes())
+            if ad.ensure(state): workspace.save()
 
     def new(self, seed):
         with self.lock:
@@ -34,6 +45,7 @@ class Controller:
             ident, path = self.environments.allocate()
             state = build(seed, path.parent / 'network')
             state['environment_id'] = ident
+            ad.ensure(state)
             candidate = Workspace(path)
             candidate.state = state
             candidate.save()
@@ -48,6 +60,7 @@ class Controller:
             self.workspace.state['remote_session'] = False
             self.workspace.state['observation'] = None
             self.workspace.state['validated'] = False
+            if 'directory' in self.workspace.state: ad.invalidate(self.workspace.state)
             self.workspace.save()
 
     def select(self, ident):
@@ -57,6 +70,7 @@ class Controller:
                 raise ValueError('Sauvegarde vide.')
             self._close_current()
             candidate.state['environment_id'] = ident
+            self._migrate_directory(candidate)
             candidate.save()
             self.environments.activate(ident)
             self.workspace = candidate
@@ -87,7 +101,7 @@ class Controller:
             with self.engine.lock:
                 found = self.identities(self.engine.snapshot())
                 probes = {}
-                for key, source, target_role in (('remote', 'technician', 'client'), ('share', 'client', 'server')):
+                for key, source, target_role in (('remote', 'technician', 'client'), ('share', 'client', 'server'), ('directory', 'technician', 'server')):
                     target = s['devices'][target_role]['ip']
                     ping = self.engine.ping(found[source]['name'], target)
                     probes[key] = dict(at=time.time(), source='Packet Tracer',
@@ -105,6 +119,7 @@ class Controller:
             if self.workspace.state:
                 if not evaluate(self.workspace.state, 'remote')['allowed']:
                     self.workspace.state['remote_session'] = False
+                    if 'directory' in self.workspace.state: ad.invalidate(self.workspace.state)
                 if not evaluate(self.workspace.state, 'read')['allowed']:
                     self.workspace.state['validated'] = False
                 self.workspace.save()
@@ -130,11 +145,50 @@ class Controller:
                 state = build(seed, self.workspace.path.parent / 'network')
                 state['environment_id'] = ident
                 state['reset_id'] = secrets.token_hex(8)
+                ad.ensure(state)
                 self.workspace.state = state
                 self.workspace.save()
                 if self.on_change:self.on_change(self.workspace.state,self.workspace.path.parent)
                 return self.workspace.public()
+            if action in ('grant_read','grant_write') and 'directory' in (self.workspace.state or {}):
+                s = self.workspace.state
+                right = 'read' if action == 'grant_read' else 'write'
+                return self.directory('operation', {'operation':'add_group_member','payload':{'group_id':s['directory_resource']['allowed_group_ids'][right][0], 'user_id':s['directory_user_id']}})
             return self.workspace.action(action)
+
+    def directory(self, action, data):
+        with self.lock:
+            s = self.workspace.state
+            if not s or 'directory' not in s: raise ValueError('Annuaire non disponible pour cet environnement.')
+            now = time.time()
+            if action in ('state','operation'):
+                ctx = ad.context(s, 'technician', now)
+                n = ctx['network']
+                if n['status'] != 'passed' or not n['observed_at'] <= now <= n['valid_until'] or ctx['directory_service'] != 'running':
+                    raise ValueError('Annuaire inaccessible depuis le technicien. Vérifie le réseau maintenant.')
+                if action == 'state':
+                    return {'directory':sim_ad.public_directory(s['directory']), 'requester_id':s['directory_user_id'], 'resource':s['directory_resource']}
+                outcome = sim_ad.apply_operation(s['directory'], data.get('operation'), data.get('payload',{}), ad.actor(s), now)
+                s['directory'] = outcome['directory']
+                ad.invalidate(s)
+                self.workspace.event('Annuaire : '+str(data.get('operation')))
+                return {'result':outcome['result']}
+            if action not in ('login','change-password','logout'):raise ValueError('Action annuaire inconnue.')
+            if action == 'logout':
+                ad.invalidate(s);self.workspace.save();return {'result':{'code':'LOGGED_OUT','allowed':False}}
+            if not s['remote_session'] or not evaluate(s,'remote')['allowed']:
+                ad.invalidate(s);self.workspace.save();raise ValueError('Ouvre une session distante connectée avant l’authentification utilisateur.')
+            # Ce bureau représente le demandeur du ticket ; le navigateur ne choisit pas son identité.
+            username = s['directory']['users'][s['directory_user_id']]['username']
+            if action == 'login':
+                outcome = sim_ad.authenticate(s['directory'], username, data.get('password',''), ad.context(s,now=now), now)
+            else:
+                outcome = sim_ad.change_password(s['directory'], username, data.get('old_password',''), data.get('new_password',''), ad.context(s,now=now), now)
+            s['directory'] = outcome['directory'];ad.invalidate(s)
+            if outcome['result']['allowed']:
+                s['directory_auth'] = dict(user_id=s['directory_user_id'],status='authenticated',environment_id=s.get('environment_id','legacy'),source_device_id='client',expires_at=now+1800)
+            self.workspace.event('Connexion utilisateur : '+outcome['result']['code'])
+            return {'result':outcome['result']}
 
 
 def run():
