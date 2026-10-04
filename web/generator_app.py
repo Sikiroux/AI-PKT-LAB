@@ -6,7 +6,7 @@ ROOT=Path(__file__).resolve().parent
 class Generator:
  def __init__(self):
   self.root=ROOT/'labs';self.root.mkdir(exist_ok=True);self.lock=threading.RLock()
-  self.catalogue=json.loads(subprocess.check_output([sys.executable,str(ROOT/'lab_engine/web_worker.py'),'catalogue'],text=True,encoding='utf-8'))
+  self.catalogue=json.loads(subprocess.check_output([sys.executable,'-X','utf8',str(ROOT/'lab_engine/web_worker.py'),'catalogue'],text=True,encoding='utf-8'))
  def jobs(self):
   with self.lock:
    out=[]
@@ -52,7 +52,7 @@ class Generator:
   path=self.root/job['id']/'job.json';tmp=path.with_suffix('.tmp');tmp.write_text(json.dumps(job,ensure_ascii=False),encoding='utf-8');os.replace(tmp,path)
  def work(self,job,req):
   try:
-   result=subprocess.run([sys.executable,str(ROOT/'lab_engine/web_worker.py'),'generate'],input=json.dumps(req),capture_output=True,text=True,encoding='utf-8',timeout=600)
+   result=subprocess.run([sys.executable,'-X','utf8',str(ROOT/'lab_engine/web_worker.py'),'generate'],input=json.dumps(req),capture_output=True,text=True,encoding='utf-8',timeout=600)
    if result.returncode:raise RuntimeError(result.stderr[-1500:] or 'Génération impossible')
    job.update(json.loads(result.stdout));job['status']='done'
   except Exception as e:job.update(status='failed',error=str(e))

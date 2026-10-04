@@ -84,6 +84,7 @@ class Workspace:
         # Les causes et droits internes ne sont pas dévoilés dans le ticket.
         return {k: s[k] for k in ('seed', 'version', 'company', 'requester', 'ticket', 'devices', 'files',
                                  'bound_file', 'remote_session', 'validated')} | {
+            'environment_id': s.get('environment_id', 'legacy'),
             'checks': {a: evaluate(s, a) for a in ('remote', 'read', 'write')},
             'observation': s['observation'], 'events': s['events'][-30:]}
 

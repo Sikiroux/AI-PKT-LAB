@@ -13,6 +13,7 @@ from diagnostic import Engine
 from vendor.live_bridge import PTCommandBridge
 from workspace_model import Workspace, evaluate
 from workspace_network import build
+from environment_store import EnvironmentStore
 
 ROOT = Path(__file__).resolve().parent
 
@@ -21,15 +22,42 @@ class Controller:
     def __init__(self, engine, folder):
         self.engine = engine
         self.folder = Path(folder)
-        self.workspace = Workspace(self.folder / 'session.json')
+        self.environments = EnvironmentStore(self.folder)
+        active = self.environments.data['active']
+        self.workspace = Workspace(self.environments.path(active) if active else self.folder / 'session.json')
         self.lock = threading.RLock()
 
     def new(self, seed):
         with self.lock:
-            if self.workspace.state:
-                raise ValueError('Un environnement existe déjà. Réinitialise-le explicitement.')
-            self.workspace.state = build(seed, self.folder / 'network')
+            # Construire avant de changer : un échec ne remplace pas la session active.
+            ident, path = self.environments.allocate()
+            state = build(seed, path.parent / 'network')
+            state['environment_id'] = ident
+            candidate = Workspace(path)
+            candidate.state = state
+            candidate.save()
+            self._close_current()
+            self.environments.register(ident, path)
+            self.workspace = candidate
+            return self.workspace.public()
+
+    def _close_current(self):
+        if self.workspace.state:
+            self.workspace.state['remote_session'] = False
+            self.workspace.state['observation'] = None
+            self.workspace.state['validated'] = False
             self.workspace.save()
+
+    def select(self, ident):
+        with self.lock:
+            candidate = Workspace(self.environments.path(ident))
+            if not candidate.state:
+                raise ValueError('Sauvegarde vide.')
+            self._close_current()
+            candidate.state['environment_id'] = ident
+            candidate.save()
+            self.environments.activate(ident)
+            self.workspace = candidate
             return self.workspace.public()
 
     def identities(self, snapshot):
@@ -90,10 +118,15 @@ class Controller:
     def action(self, action):
         with self.lock:
             if action == 'reset':
-                seed = self.workspace.state['seed'] if self.workspace.state else None
-                self.workspace.state = None
-                self.workspace.path.unlink(missing_ok=True)
-                return self.new(seed) if seed else None
+                if not self.workspace.state:
+                    raise ValueError('Choisis un environnement.')
+                seed = self.workspace.state['seed']
+                ident = self.environments.data['active']
+                state = build(seed, self.workspace.path.parent / 'network')
+                state['environment_id'] = ident
+                self.workspace.state = state
+                self.workspace.save()
+                return self.workspace.public()
             return self.workspace.action(action)
 
 

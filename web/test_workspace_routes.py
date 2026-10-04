@@ -40,6 +40,13 @@ class RouteTests(unittest.TestCase):
         self.routes.post(self.handler,{})
         self.controller.observe.assert_called_once_with(blocking=True)
 
+    def test_old_remote_tab_cannot_mutate_new_environment(self):
+        self.controller.workspace.state['environment_id'] = 'current'
+        self.handler.path = '/workspace/action'
+        with self.assertRaises(ValueError):
+            self.routes.post(self.handler, {'action': 'grant_read', 'environment_id': 'old'})
+        self.assertFalse(self.controller.workspace.state['read_allowed'])
+
     def test_assets_present(self):
         root=Path(__file__).parent
         self.assertTrue((root/'vendor/osjs/main.js').stat().st_size>100000)

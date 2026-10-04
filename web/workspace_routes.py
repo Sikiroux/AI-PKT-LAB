@@ -16,6 +16,9 @@ class WorkspaceRoutes:
             html = (ROOT / name).read_text(encoding='utf-8')
             html = html.replace('__TOKEN__', self.token).replace('__API_BASE__', '/workspace')
             handler.send(200, html, 'text/html')
+        elif path == '/workspace/environments':
+            with self.controller.lock:
+                handler.send(200, self.controller.environments.public())
         elif path == '/workspace/state':
             with self.controller.lock:
                 handler.send(200, self.controller.workspace.public())
@@ -39,9 +42,21 @@ class WorkspaceRoutes:
     def post(self, handler, data):
         if not handler.path.startswith('/workspace/'):
             return False
+        with self.controller.lock:
+            return self._post_locked(handler, data)
+
+    def _post_locked(self, handler, data):
+        if not handler.path.startswith('/workspace/'):
+            return False
         c = self.controller
+        if 'environment_id' in data:
+            with c.lock:
+                active = (c.workspace.state or {}).get('environment_id', 'legacy')
+                if data['environment_id'] != active:
+                    raise ValueError('Cet accès distant appartient à un autre environnement. Reconnecte-toi.')
         action = handler.path.removeprefix('/workspace/')
         if action == 'new': result = c.new(data.get('seed', ''))
+        elif action == 'select': result = c.select(data.get('id'))
         elif action == 'refresh':
             c.observe(blocking=True)
             with c.lock: result = c.workspace.public()
