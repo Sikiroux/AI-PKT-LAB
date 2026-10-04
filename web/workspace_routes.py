@@ -57,6 +57,10 @@ class WorkspaceRoutes:
                     raise ValueError('Cet accès distant appartient à un autre environnement. Reconnecte-toi.')
         action = handler.path.removeprefix('/workspace/')
         if action == 'new': result = c.new(data.get('seed', ''))
+        elif action == 'directory-incident':
+            if data.get('environment_id') != (c.workspace.state or {}).get('environment_id', 'legacy'):
+                raise ValueError('Environnement actif requis.')
+            result = c.next_directory_incident()
         elif action == 'select': result = c.select(data.get('id'))
         elif action == 'refresh':
             c.observe(blocking=True)

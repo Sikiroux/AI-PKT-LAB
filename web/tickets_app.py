@@ -56,6 +56,11 @@ class Tickets:
             self.state['tickets'].append(dict(id='INC-1000', kind='workspace', name=client['name'], title='Documents partagés inaccessibles',
                 description=state['ticket']+' Poste concerné : '+client['name']+'. Rétablis le réseau puis l’accès en lecture depuis le bureau distant.',
                 status='nouveau', severity='moderee', created=now(), checks=[], complete=False, notes=''))
+        incident = state.get('directory_incident')
+        if incident and not any(t['id'] == incident['id'] for t in self.state['tickets']):
+            self.state['tickets'].append(dict(id=incident['id'], kind='workspace', name=client['name'],
+                title=incident['title'], description=incident['description'], workspace_goal=incident['goal'],
+                status='nouveau', severity='moderee', created=now(), checks=[], complete=False, notes=''))
         self.desk = ServiceDesk(self, generator)
         self.desk.settings.update(source='site',active=False,next_at=None)
         self.save()
@@ -306,11 +311,20 @@ class Tickets:
         elif action in ('take','wait'):
             t['status']='en_cours' if action=='take' else 'en_attente'
         elif action in ('verify','close'):
+            if t['id'].startswith('INC-AD-') and t['id'] != (self.controller.workspace.state.get('directory_incident') or {}).get('id'):
+                raise ValueError('Cet incident appartient à un exercice précédent.')
             self.controller.observe(blocking=True)
             public=self.controller.workspace.public()
             result=public['checks']['read']
             t['checks']=[dict(label='Réseau et accès en lecture du partage',status='valide' if result['allowed'] else 'non satisfait',detail='Contrôle actuel du réseau Packet Tracer et des droits simulés.')]
             t['complete']=result['allowed'];t['checked']=now()
+            if t.get('workspace_goal') == 'write':
+                write = public['checks']['write']
+                t['checks'].append(dict(label='Accès en écriture du partage', status='valide' if write['allowed'] else 'non satisfait', detail='Droit distinct, authentification et réseau observés.'))
+                t['complete'] = t['complete'] and write['allowed']
+            if t['id'].startswith('INC-AD-'):
+                self.controller.workspace.state['validated'] = t['complete']
+                self.controller.workspace.save()
             if action=='close':
                 if not t['complete']:self.save();raise ValueError('Accès au partage non rétabli.')
                 if t.get('timer') and t['timer'].get('started'):timers.operate(t['timer'],'finish')

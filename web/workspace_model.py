@@ -5,6 +5,7 @@ import random
 import time
 from pathlib import Path
 import directory_adapter as ad
+import directory_incidents
 
 VERSION = 1
 TTL = 45
@@ -89,6 +90,7 @@ class Workspace:
         return {k: s[k] for k in ('seed', 'version', 'company', 'requester', 'ticket', 'devices', 'files',
                                  'bound_file', 'remote_session', 'validated')} | {
             'environment_id': s.get('environment_id', 'legacy'),
+            'directory_incident': directory_incidents.public_incident(s),
             'checks': {a: evaluate(s, a) for a in ('remote', 'read', 'write')},
             'directory_login': ({'username': s['directory']['users'][s['directory_user_id']]['username'], 'authenticated': bool(ad.context(s)['authentication'])} if 'directory' in s else None),
             'observation': s['observation'], 'events': s['events'][-30:]}
@@ -126,6 +128,8 @@ class Workspace:
         elif action == 'validate':
             if not evaluate(s, 'read')['allowed']:
                 raise ValueError('Lecture du partage non rétablie ; ticket non validé.')
+            if s.get('directory_incident', {}).get('goal') == 'write' and not evaluate(s, 'write')['allowed']:
+                raise ValueError('Écriture du partage non rétablie ; ticket non validé.')
             s['validated'] = True
         else:
             raise ValueError('Action inconnue.')

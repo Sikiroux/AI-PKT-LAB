@@ -16,6 +16,7 @@ from workspace_network import build
 from environment_store import EnvironmentStore
 import directory_adapter as ad
 import sim_ad
+import directory_incidents
 
 ROOT = Path(__file__).resolve().parent
 
@@ -62,6 +63,23 @@ class Controller:
             self.workspace.state['validated'] = False
             if 'directory' in self.workspace.state: ad.invalidate(self.workspace.state)
             self.workspace.save()
+
+    def next_directory_incident(self):
+        with self.lock:
+            state = self.workspace.state
+            if not state:
+                raise ValueError('Crée ou reprends un environnement.')
+            for source in ('technician', 'client'):
+                network = ad.context(state, source=source)['network']
+                if network['status'] != 'passed' or not network['observed_at'] <= time.time() <= network['valid_until']:
+                    raise ValueError('Rétablis et vérifie le réseau du client et du technicien vers le serveur avant le nouvel incident.')
+            if not state.get('share_service') or not state.get('directory_service', True):
+                raise ValueError('Rétablis les services avant le nouvel exercice d’annuaire.')
+            self.workspace.state = directory_incidents.prepare(state, time.time())
+            self.workspace.save()
+            if self.on_change:
+                self.on_change(self.workspace.state, self.workspace.path.parent)
+            return self.workspace.public()
 
     def select(self, ident):
         with self.lock:
