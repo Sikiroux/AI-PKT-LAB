@@ -11,6 +11,7 @@ from workspace_app import Controller
 import file_incidents
 import dns_incidents
 import mixed_incidents
+import desktop_incidents
 from workspace_routes import WorkspaceRoutes
 import timers
 import re
@@ -40,7 +41,7 @@ class Tickets:
                 t['injection']['state']='uncertain';t['status']='a_controler';interrupted=True
         if interrupted:self.save()
     def append_workspace_incident(self,state):
-        incident=state.get('mixed_incident') or state.get('dns_incident') or state.get('file_incident') or state.get('directory_incident')
+        incident=state.get('desktop_incident') or state.get('mixed_incident') or state.get('dns_incident') or state.get('file_incident') or state.get('directory_incident')
         if not incident:return
         existing=next((t for t in self.state['tickets'] if t['id']==incident['id']),None)
         if existing:
@@ -323,8 +324,8 @@ class Tickets:
         elif action in ('take','wait'):
             t['status']='en_cours' if action=='take' else 'en_attente'
         elif action in ('verify','close'):
-            active=self.controller.workspace.state.get('mixed_incident') or self.controller.workspace.state.get('dns_incident') or self.controller.workspace.state.get('file_incident') or self.controller.workspace.state.get('directory_incident') or {}
-            if t['id'].startswith(('INC-AD-','INC-FIC-','INC-DNS-','INC-MIX-')) and t['id'] != active.get('id'):
+            active=self.controller.workspace.state.get('desktop_incident') or self.controller.workspace.state.get('mixed_incident') or self.controller.workspace.state.get('dns_incident') or self.controller.workspace.state.get('file_incident') or self.controller.workspace.state.get('directory_incident') or {}
+            if t['id'].startswith(('INC-AD-','INC-FIC-','INC-DNS-','INC-MIX-','INC-APP-')) and t['id'] != active.get('id'):
                 raise ValueError('Cet incident appartient à un exercice précédent.')
             self.controller.observe(blocking=True)
             public=self.controller.workspace.public()
@@ -341,14 +342,17 @@ class Tickets:
             if t['id'].startswith('INC-DNS-'):
                 t['checks']=dns_incidents.checks(self.controller.workspace.state,time.time())
                 t['complete']=all(c['status']=='valide' for c in t['checks'])
+            if t['id'].startswith('INC-APP-'):
+                t['checks']=desktop_incidents.checks(self.controller.workspace.state,time.time())
+                t['complete']=all(c['status']=='valide' for c in t['checks'])
             if t['id'].startswith('INC-MIX-'):
                 t['checks']=mixed_incidents.checks(self.controller.workspace.state,time.time())
                 t['complete']=all(c['status']=='valide' for c in t['checks'])
-            if t['id'].startswith(('INC-AD-','INC-FIC-','INC-DNS-','INC-MIX-')):
+            if t['id'].startswith(('INC-AD-','INC-FIC-','INC-DNS-','INC-MIX-','INC-APP-')):
                 self.controller.workspace.state['validated'] = t['complete']
                 self.controller.workspace.save()
             if action=='close':
-                if not t['complete']:self.save();raise ValueError('Accès au partage non rétabli.')
+                if not t['complete']:self.save();raise ValueError('Résultat demandé non rétabli.')
                 if t.get('timer') and t['timer'].get('started'):timers.operate(t['timer'],'finish')
                 t.update(status='clos',closed=now())
         else:raise ValueError('Action non prise en charge pour ce ticket.')

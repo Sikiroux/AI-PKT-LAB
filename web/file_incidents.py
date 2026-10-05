@@ -18,9 +18,9 @@ def rights(state, uid):
 
 def prepare(state, now):
     if 'file_service' not in state:raise ValueError('Partages intégrés requis.')
-    if (state.get('directory_incident') or state.get('file_incident') or state.get('dns_incident') or state.get('mixed_incident')) and not state.get('validated'):
+    if (state.get('directory_incident') or state.get('file_incident') or state.get('dns_incident') or state.get('mixed_incident') or state.get('desktop_incident')) and not state.get('validated'):
         raise ValueError('Résous et vérifie l’incident actuel avant le suivant.')
-    s=copy.deepcopy(state);s.pop('directory_incident',None);s.pop('dns_incident',None);s.pop('mixed_incident',None)
+    s=copy.deepcopy(state);s.pop('directory_incident',None);s.pop('dns_incident',None);s.pop('mixed_incident',None);s.pop('desktop_incident',None)
     index=s.get('file_incident_count',0)
     rng=random.Random(hashlib.sha256((str(s['seed'])+':file-incidents:'+str(index//len(FAMILIES))).encode()).hexdigest())
     order=list(FAMILIES);rng.shuffle(order);family=order[index%len(order)]

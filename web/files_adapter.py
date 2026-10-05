@@ -51,6 +51,9 @@ def context(state, now):
         import dns_adapter
         result['address_mode']='name'
         result['name_resolution']=dns_adapter.resolution(state,now)[0]
+    if state.get('desktop_services'):
+        import desktop_incidents
+        if not desktop_incidents.drive_ok(state):result.update(address_mode='name',name_resolution=dict(status='failed',resolved_ip=None,observed_at=now,valid_until=now+ad.TTL))
     return result
 
 def presentation(outcome):
@@ -80,6 +83,9 @@ def request(state, action):
     return req
 
 def access(state, action, now):
+    if state.get('desktop_services') and 'documents' not in state['desktop_services']['endpoint']['applications']:
+        import desktop_services
+        return desktop_services.chain([('application','Application Documents installée',False,'APPLICATION_MISSING')])
     return presentation(sim_files.evaluate_access(state['file_service'],request(state,action),context(state,now),now))
 
 def names(state):

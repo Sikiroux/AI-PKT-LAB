@@ -200,3 +200,7 @@ Les profils procéduraux version 6 ajoutent quatre incidents locaux : IP, masque
 ## Service desk v0.24
 
 Tickets procéduraux de une à trois couches sur l’entreprise active, portable du technicien, VPN pédagogique et dialogues à choix sans LLM. Le générateur de labs indépendants reste disponible. Voir [le guide v0.24](docs/V024-INTERVENTIONS-MIXTES.md) pour le parcours, les limites et les vérifications Packet Tracer.
+
+## Service desk v0.25
+
+Bureau client avec fichiers locaux, applications installables et lecteur Z:, impression et FTP simulés, 18 causes procédurales supplémentaires et arrivées par famille. Les nouveaux environnements incluent un Printer-PT. Lance **LANCER-WEB.bat** pour le portail. Voir [le guide v0.25](docs/V025-APPLICATIONS-DU-POSTE.md) : fonctionnement, anciennes sauvegardes, limites et vérifications à faire dans Packet Tracer 9.

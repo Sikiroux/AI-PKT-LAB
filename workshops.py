@@ -31,7 +31,7 @@ class WorkshopLab(builder.PktLab):
     def _pick_template(self, requested_type, template_map):
         # Les anciens modèles DNS ne contiennent pas FTP/messagerie. Préférer
         # le Server-PT complet fourni par le catalogue pour ces ateliers.
-        if requested_type.split(':')[-1] in ('Server-PT','AccessPoint-PT','Meraki-MX65W','Meraki-Server'):
+        if requested_type.split(':')[-1] in ('Server-PT','AccessPoint-PT','Meraki-MX65W','Meraki-Server','Printer-PT'):
             source = Path(__file__).parent / 'templates/packettracer/catalogue_source.xml'
             root = ET.parse(source).getroot()
             return next(d for d in root.findall('.//DEVICE')
@@ -126,9 +126,10 @@ def server_defaults(e):
         put(e,'DNS_SERVER/ENABLED',0)
 
 
-def make_topology(name, seed, folder, address_family=None, extra_web_server=False, reference_policy=None, employee_count=2, has_it=True, target_employee=1, employee_layout="single", extra_employee=False):
+def make_topology(name, seed, folder, address_family=None, extra_web_server=False, reference_policy=None, employee_count=2, has_it=True, target_employee=1, employee_layout="single", extra_employee=False, network_printer=False):
     """Crée le socle et retourne son arbre XML et ses valeurs attendues."""
     rng = random.Random(seed)
+    if type(network_printer) is not bool or network_printer and name!='enterprise_services':raise ValueError('Imprimante : uniquement sur le socle entreprise.')
     if type(has_it) is not bool:
         raise ValueError('Présence du poste IT : booléen requis.')
     if not has_it and name != 'enterprise_services':
@@ -197,6 +198,9 @@ def make_topology(name, seed, folder, address_family=None, extra_web_server=Fals
             add_host(n,host(key,num),host(key,1),(x,540),dns_ip=infra)
             client_switch='SW-EMP2' if employee_layout=='split' and n=='PC-BOB' else {'employees':'SW-EMP','guests':'SW-GUEST'}[key]
             link(client_switch,f'FastEthernet0/{sp}',n,'FastEthernet0')
+        if network_printer:
+            add_host('PRN-OFFICE',host('employees',40),host('employees',1),(650,540),'Printer-PT',dns_ip=infra)
+            link('SW-EMP','FastEthernet0/9','PRN-OFFICE','FastEthernet0')
         for i in range(3,employee_count+1):
             n=f'PC-CPT-{i:02d}'
             add_host(n,host('employees',21+i),host('employees',1),(100+(i-3)%2*200,720+(i-3)//2*180),dns_ip=infra)

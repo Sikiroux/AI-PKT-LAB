@@ -58,6 +58,9 @@ class WorkspaceRoutes:
                 if data['environment_id'] != active:
                     raise ValueError('Cet accès distant appartient à un autre environnement. Reconnecte-toi.')
         if action == 'new': result = c.new(data.get('seed', ''))
+        elif action=='desktop-incident' or action.startswith('desktop/'):
+            if data.get('environment_id') != (c.workspace.state or {}).get('environment_id','legacy'):raise ValueError('Environnement actif requis.')
+            result=c.next_desktop_incident(data.get('target','random'),data.get('minutes',30)) if action=='desktop-incident' else c.desktop(action.removeprefix('desktop/'),data)
         elif action == 'directory-incident':
             if data.get('environment_id') != (c.workspace.state or {}).get('environment_id', 'legacy'):
                 raise ValueError('Environnement actif requis.')

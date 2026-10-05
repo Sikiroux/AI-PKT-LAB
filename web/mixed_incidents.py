@@ -27,10 +27,10 @@ def choose(seed,index,level,target='random'):
     return [(layer,rng.choice(CATALOGUE[layer])) for layer in layers[:level]]
 
 def prepare(state,now,level=1,target='random'):
-    if any(state.get(k) for k in ('mixed_incident','dns_incident','file_incident','directory_incident')) and not state.get('validated'):raise ValueError('Termine et vérifie l’incident courant.')
+    if any(state.get(k) for k in ('mixed_incident','dns_incident','file_incident','directory_incident','desktop_incident')) and not state.get('validated'):raise ValueError('Termine et vérifie l’incident courant.')
     causes=choose(state['seed'],state.get('mixed_incident_count',0),level,target)
     s=copy.deepcopy(state);da.ensure(s)
-    for k in ('mixed_incident','dns_incident','file_incident','directory_incident'):s.pop(k,None)
+    for k in ('mixed_incident','dns_incident','file_incident','directory_incident','desktop_incident'):s.pop(k,None)
     d=s['directory'];uid=s['directory_user_id'];u=d['users'][uid]
     u.update(enabled=True,locked_until=None,failed_attempts=0,must_change_password=False,password_expires_at=now+d['policy']['password_max_age_seconds'])
     s.update(directory_service=True,remote_service=True)

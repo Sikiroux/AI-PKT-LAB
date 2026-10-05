@@ -17,9 +17,10 @@ def build(seed, folder):
     state = generate(seed)
     folder = Path(folder)
     tree, topo = workshops.make_topology('enterprise_services', state['network_seed'], folder,
-                                        state['address_family'], has_it=True)
+                                        state['address_family'], has_it=True, network_printer=True)
     root = tree.getroot()
     names = organization.mapping(topo['devices'], state['site'])
+    names['PRN-OFFICE'] = state['site']+'-PRN-USR-01'
     organization.rename_tree(root, names)
     # Les modèles clonés partagent parfois le numéro de série d'origine.
     # Attribuer une identité distincte et reproductible à chaque appareil.
@@ -44,7 +45,7 @@ def build(seed, folder):
     admin.remove(old);admin.insert(0,portable)
     organization.rename_tree(root,{names['PC-ADMIN']:tech_name})
     names['PC-ADMIN']=tech_name
-    selected = {'client': 'PC-ALICE', 'technician': 'PC-ADMIN', 'server': 'SRV-FTP'}
+    selected = {'client': 'PC-ALICE', 'technician': 'PC-ADMIN', 'server': 'SRV-FTP','printer':'PRN-OFFICE'}
     for role, old in selected.items():
         engine = next(d.find('ENGINE') for d in root.findall('NETWORK/DEVICES/DEVICE')
                       if d.findtext('ENGINE/NAME') == names[old])

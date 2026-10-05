@@ -27,6 +27,9 @@ import mixed_incidents
 import technician_model
 import workspace_links
 import client_dialogue
+import desktop_services
+import desktop_incidents
+import desktop_controller
 
 ROOT = Path(__file__).resolve().parent
 
@@ -60,6 +63,7 @@ class Controller:
             if dns_adapter.ensure(state):workspace.save()
 
         if technician_model.ensure(state):workspace.save()
+        if state and desktop_services.ensure(state):workspace.save()
 
     def new(self, seed):
         with self.lock:
@@ -71,6 +75,7 @@ class Controller:
             files_adapter.ensure(state)
             dns_adapter.ensure(state)
             technician_model.ensure(state)
+            desktop_services.ensure(state)
             candidate = Workspace(path)
             candidate.state = state
             candidate.save()
@@ -159,7 +164,7 @@ class Controller:
             with self.engine.lock:
                 snapshot=self.engine.snapshot();found = self.identities(snapshot)
                 client=found['client'];ports=[p for p in client.get('ports',[]) if p.get('name')=='FastEthernet0']
-                s['network_observation']=dict(at=time.time(),devices=workspace_links.signature(snapshot,s),client_link=ports[0].get('linked') if ports else None)
+                s['network_observation']=dict(at=time.time(),devices=workspace_links.signature(snapshot,s),client_link=ports[0].get('linked') if ports else None,interfaces={role:[dict(p) for p in device.get('ports',[]) if p.get('name')=='FastEthernet0'] for role,device in found.items()})
                 probes = {}
                 for key, source, target_role in (('remote', 'technician', 'client'), ('share', 'client', 'server'), ('directory', 'technician', 'server')):
                     target = s['devices'][target_role]['ip']
@@ -167,6 +172,10 @@ class Controller:
                     probes[key] = dict(at=time.time(), source='Packet Tracer',
                         status={'valide': 'passed', 'non satisfait': 'failed'}.get(ping['status'], 'unknown'),
                         detail=ping.get('detail', ''), source_device=found[source]['name'], target=target)
+                if 'desktop_services' in s:
+                    printer=s['desktop_services']['printing']['printer'];target=s['devices'][printer['device_role']]['ip']
+                    ping=self.engine.ping(found['client']['name'],target)
+                    probes['printing']=dict(at=time.time(),source='Packet Tracer',status={'valide':'passed','non satisfait':'failed'}.get(ping['status'],'unknown'),detail=ping.get('detail',''),source_device=found['client']['name'],target=target)
                 outside=s.get('technician_locations',{}).get('outside')
                 if outside and (s.get('technician_session') or {}).get('location')=='outside':
                     ping=self.engine.ping(found['technician']['name'],outside['gateway'])
@@ -175,6 +184,7 @@ class Controller:
             statuses = [p['status'] for p in probes.values()]
             status = 'passed' if all(x == 'passed' for x in statuses) else 'unknown' if 'unknown' in statuses else 'failed'
             s['observation'] = dict(at=time.time(), status=status, source='Packet Tracer', probes=probes)
+            desktop_services.process_jobs(s,time.time())
             for role, d in found.items():
                 s['devices'][role]['name'] = d['name']
             s['bound_file'] = s['network_file']
@@ -186,7 +196,7 @@ class Controller:
                 if not evaluate(self.workspace.state, 'remote')['allowed']:
                     self.workspace.state['remote_session'] = False
                     if 'directory' in self.workspace.state: ad.invalidate(self.workspace.state)
-                if not evaluate(self.workspace.state, 'read')['allowed']:
+                if (not all(row['status']=='valide' for row in desktop_incidents.checks(self.workspace.state,time.time())) if self.workspace.state.get('desktop_incident') else not evaluate(self.workspace.state, 'read')['allowed']):
                     self.workspace.state['validated'] = False
                 self.workspace.save()
             self.lock.release()
@@ -218,6 +228,7 @@ class Controller:
                 files_adapter.ensure(state)
                 dns_adapter.ensure(state)
                 technician_model.ensure(state)
+                desktop_services.ensure(state)
                 self.workspace.state = state
                 self.workspace.save()
                 if self.on_change:self.on_change(self.workspace.state,self.workspace.path.parent)
@@ -283,6 +294,7 @@ class Controller:
             if action!='action':raise ValueError('Action de fichiers inconnue.')
             if not s['remote_session'] or not evaluate(s,'remote')['allowed']:
                 s['remote_session']=False;self.workspace.save();raise ValueError('Reconnecte le poste distant.')
+            if s.get('desktop_services') and 'documents' not in s['desktop_services']['endpoint']['applications']:return dict(result={'allowed':False,'code':'APPLICATION_MISSING'},revision=s['file_service']['revision'])
             req=data.get('request',{})
             outcome=sim_files.perform_file_action(s['file_service'],req,files_adapter.context(s,now),now)
             if outcome['result']['allowed']:
@@ -323,6 +335,18 @@ class Controller:
             self.workspace.state=dns_incidents.prepare(s,now);self.workspace.save()
             if self.on_change:self.on_change(self.workspace.state,self.workspace.path.parent)
             return self.workspace.public()
+
+    def next_desktop_incident(self,target='random',minutes=30):
+        with self.lock:
+            s=self.workspace.state
+            if not s or 'file_service' not in s:raise ValueError('Crée ou reprends une entreprise complète.')
+            now=time.time();net=ad.context(s,'technician',now)['network']
+            if net['status']!='passed' or not net['observed_at']<=now<=net['valid_until']:raise ValueError('Vérifie le réseau du technicien avant la préparation.')
+            self.workspace.state=desktop_incidents.prepare(s,now,target,minutes);self.workspace.save()
+            if self.on_change:self.on_change(self.workspace.state,self.workspace.path.parent)
+            return self.workspace.public()
+
+    def desktop(self,path,data):return desktop_controller.handle(self,path,data)
 
     def next_mixed_incident(self, level=1, target='random', minutes=30):
         with self.lock:
@@ -410,10 +434,10 @@ class Controller:
     def dialogue(self, data):
         with self.lock:
             if not self.workspace.state:raise ValueError('Aucun environnement.')
-            row=client_dialogue.ask(self.workspace.state,data.get('ticket_id'),data.get('question'))
+            row=(desktop_incidents.dialogue(self.workspace.state,data.get('ticket_id'),data.get('question')) if self.workspace.state.get('desktop_incident') else client_dialogue.ask(self.workspace.state,data.get('ticket_id'),data.get('question')))
             self.workspace.save()
             if self.on_change:self.on_change(self.workspace.state,self.workspace.path.parent)
-            return dict(answer=row,incident=mixed_incidents.public(self.workspace.state))
+            return dict(answer=row,incident=desktop_incidents.public(self.workspace.state) or mixed_incidents.public(self.workspace.state))
 
 
 def run():

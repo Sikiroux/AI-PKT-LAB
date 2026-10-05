@@ -28,7 +28,7 @@ CATALOGUE += [(fid,title,complaint,'moderee') for fid,title,complaint in [
  ('local_wrong_gateway','Un poste ne joint plus les serveurs','PC-ALICE communique avec les employés, mais pas avec les serveurs ; PC-BOB fonctionne.'),
  ('local_wrong_dns','Un poste ne retrouve plus l’intranet','PC-ALICE ouvre l’intranet par IP mais pas par son nom ; PC-BOB fonctionne.'),
  ('add_employee','Installer le poste d’un nouvel employé','Un nouvel employé arrive : installer PC-NEW suivant la feuille, sans modifier les postes existants.')]]
-SITE_CATALOGUE=[dict(id='workspace:mixed',title='Plainte client — dépannage multi-services'),dict(id='site:http',title='Incident HTTP du site — API requise'),dict(id='site:dns',title='Incident DNS du site — API requise'),dict(id='site:dhcp',title='Incident DHCP du site — API requise'),dict(id='pc',title='Installer un nouveau poste'),dict(id='wifi',title='Connecter un nouveau portable'),dict(id='incident',title='Dépanner un poste filaire du site')]
+SITE_CATALOGUE=[dict(id='workspace:apps',title='Applications du poste — impression / FTP / installation'),dict(id='workspace:mixed',title='Plainte client — dépannage multi-services'),dict(id='site:http',title='Incident HTTP du site — API requise'),dict(id='site:dns',title='Incident DNS du site — API requise'),dict(id='site:dhcp',title='Incident DHCP du site — API requise'),dict(id='pc',title='Installer un nouveau poste'),dict(id='wifi',title='Connecter un nouveau portable'),dict(id='incident',title='Dépanner un poste filaire du site')]
 def site_choices(snapshot,opened,switch_name='SW1',ap_name='AP1'):
  names={d['name']:d for d in snapshot['devices']}
  kinds={t['kind'] for t in opened if t['kind']!='service'}
@@ -48,6 +48,7 @@ class ServiceDesk:
   self.t=tickets;self.g=generator
   self.settings=self.t.state.setdefault('session',dict(active=False,interval='fixed',minimum=5,maximum=10,max_open=3,ticket_minutes=30,next_at=None,message='Session arrêtée.'))
   self.settings.setdefault('live_services',False);self.settings.setdefault('fault_mode','random');self.settings.setdefault('source','independent');self.settings.setdefault('trace_mode','hidden')
+  self.settings.setdefault('arrival_engine','mixed');self.settings.setdefault('app_target','random')
   if self.settings['active']:
    self.settings.update(active=False,next_at=None,message='Session mise en pause au redémarrage. Reprends-la explicitement.');self.t.save()
  def public(self):return dict(settings=self.settings,catalogue=[dict(id=x[0],title=x[1]) for x in procedural.FAMILIES],site_catalogue=SITE_CATALOGUE)
@@ -64,7 +65,9 @@ class ServiceDesk:
   if type(live) is not bool:raise ValueError('Option de services invalide.')
   level=d.get('mixed_level',self.settings.get('mixed_level',1));target=d.get('mixed_target',self.settings.get('mixed_target','random'))
   if type(level) is not int or level not in (1,2,3) or target not in ('random','ad','files','dns','network'):raise ValueError('Difficulté ou famille mixte inconnue.')
-  self.settings.update(mixed_level=level,mixed_target=target)
+  engine=d.get('arrival_engine',self.settings.get('arrival_engine','mixed'));app_target=d.get('app_target',self.settings.get('app_target','random'))
+  if engine not in ('mixed','apps') or app_target not in ('random','endpoint','printing','ftp'):raise ValueError('Catalogue d’applications inconnu.')
+  self.settings.update(arrival_engine=engine,app_target=app_target,mixed_level=level,mixed_target=target)
   self.settings.update(live_services=live,fault_mode=fault,source=source,trace_mode=traces,interval=mode,minimum=minimum,maximum=maximum,max_open=cap,ticket_minutes=duration)
   if self.settings['active']:self.schedule()
   self.t.save();return self.public()
@@ -100,6 +103,8 @@ class ServiceDesk:
   t=dict(id=ident,kind='service',service_scenario=fid,procedural=plan,job_id=job['id'],title=title,description=f"Agence {site} — {plan['requester']} signale : "+complaint+f" Réseau employés : {networks['employees']} ; {plan['employee_count']} postes utilisateurs {'avec un poste IT dédié' if plan['has_it'] else 'sans poste IT dédié ; intervention par un prestataire externe'}. Réalise l’intervention demandée dans le réseau dédié à ce ticket. Conserve les autres services. Consulte la feuille du ticket pour les appareils, adresses et tests attendus.",severity=severity,status='nouveau',created=time.strftime('%Y-%m-%d %H:%M:%S'),checks=[],complete=False,notes='',manual_ssid=False,validation='manual',timer=timers.configure(self.settings['ticket_minutes'],'training'))
   self.t.state['tickets'].append(t);self.t.event(ident+' : incident reçu, réseau dédié en préparation.');return self.t.public()
  def create_site(self,scenario,opened):
+  if (self.t.state.get('site') or {}).get('environment_id') and (scenario=='workspace:apps' or scenario in (None,'') and self.settings.get('arrival_engine')=='apps'):
+   self.t.controller.next_desktop_incident(self.settings.get('app_target','random'),self.settings['ticket_minutes']);return self.t.public()
   if (self.t.state.get('site') or {}).get('environment_id') and scenario in (None,'','workspace:mixed'):
    self.t.controller.next_mixed_incident(self.settings.get('mixed_level',1),self.settings.get('mixed_target','random'),self.settings['ticket_minutes'])
    return self.t.public()

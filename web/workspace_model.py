@@ -11,6 +11,8 @@ import file_incidents
 import dns_incidents
 import mixed_incidents
 import technician_model
+import desktop_services
+import desktop_incidents
 
 VERSION = 1
 TTL = 45
@@ -88,6 +90,7 @@ class Workspace:
             self.state['remote_session'] = False
             self.state['directory_auth'] = None
             self.state['network_observation'] = None
+            if 'desktop_services' in self.state:self.state['desktop_services']['ftp']['sessions']={}
             self.state['validated'] = False
             if 'technician_session' in self.state:self.state['technician_session']['vpn'].update(connected=False,expires_at=0)
 
@@ -109,6 +112,8 @@ class Workspace:
             'file_incident': file_incidents.public_incident(s),
             'dns_incident': dns_incidents.public_incident(s),
             'mixed_incident':mixed_incidents.public(s),
+            'desktop_incident':desktop_incidents.public(s),
+            'desktop_services':desktop_services.public(s),
             'technician':technician_model.public(s),
             'network_file':s.get('network_file'),
             'organization_has_it':s.get('organization_has_it'),
@@ -155,6 +160,9 @@ class Workspace:
             if 'directory' in s: raise ValueError('Utilise la console Annuaire pour modifier les groupes.')
             s['write_allowed'] = True
         elif action == 'validate':
+            if s.get('desktop_incident'):
+                if not all(c['status']=='valide' for c in desktop_incidents.checks(s,time.time())):raise ValueError('Résultat de l’application non rétabli.')
+                s['validated']=True;self.event('Intervention application vérifiée.');return self.public()
             if s.get('mixed_incident') and not all(c['status']=='valide' for c in mixed_incidents.checks(s,time.time())):raise ValueError('Intervention mixte non rétablie ou contrôle incomplet.')
             if s.get('dns_incident') and not all(c['status']=='valide' for c in dns_incidents.checks(s,time.time())):raise ValueError('DNS, accès fichier ou état préservé non rétabli.')
             if s.get('file_incident') and not all(c['status']=='valide' for c in file_incidents.checks(s,time.time())):

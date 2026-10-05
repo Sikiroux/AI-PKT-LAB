@@ -9,9 +9,9 @@ import sim_dns
 FAMILIES=('wrong_resolver','missing_record','wrong_address','service_stopped','transport_blocked','negative_cache','stale_cache')
 
 def prepare(state,now):
-    if any(state.get(k) for k in ('directory_incident','file_incident','dns_incident','mixed_incident')) and not state.get('validated'):raise ValueError('Résous et vérifie l’incident actuel.')
+    if any(state.get(k) for k in ('directory_incident','file_incident','dns_incident','mixed_incident','desktop_incident')) and not state.get('validated'):raise ValueError('Résous et vérifie l’incident actuel.')
     s=copy.deepcopy(state);da.ensure(s)
-    for k in ('directory_incident','file_incident','mixed_incident'):s.pop(k,None)
+    for k in ('directory_incident','file_incident','mixed_incident','desktop_incident'):s.pop(k,None)
     fs=s['file_service'];share=fs['shares'][s['documents_share_id']];uid=s['directory_user_id']
     u=s['directory']['users'][uid];u.update(enabled=True,locked_until=None,failed_attempts=0,must_change_password=False,password_expires_at=now+s['directory']['policy']['password_max_age_seconds'])
     s['directory_service']=True;fs['service_status']='running';fs['firewall_tcp445_allowed']=True;share['enabled']=True
