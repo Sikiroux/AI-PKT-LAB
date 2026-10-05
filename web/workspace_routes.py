@@ -65,6 +65,12 @@ class WorkspaceRoutes:
             if data.get('environment_id') != (c.workspace.state or {}).get('environment_id','legacy'):
                 raise ValueError('Environnement actif requis.')
             result = c.next_file_incident()
+        elif action == 'dns-incident':
+            if data.get('environment_id') != (c.workspace.state or {}).get('environment_id','legacy'):raise ValueError('Environnement actif requis.')
+            result=c.next_dns_incident()
+        elif action.startswith('dns/'):
+            if data.get('environment_id') != (c.workspace.state or {}).get('environment_id','legacy'):raise ValueError('Environnement actif requis.')
+            result=c.dns(action.removeprefix('dns/'),data)
         elif action == 'select': result = c.select(data.get('id'))
         elif action == 'refresh':
             c.observe(blocking=True)

@@ -41,17 +41,22 @@ def context(state, now):
     ctx = ad.context(state, now=now); net = ctx['network']
     uid = state['directory_user_id']; d = state['directory']
     account = sim_ad.evaluate_user(d, uid, ctx, now)
-    return dict(environment_id=state.get('environment_id','legacy'),source_device_id='client',target_device_id='server',
+    result = dict(environment_id=state.get('environment_id','legacy'),source_device_id='client',target_device_id='server',
         address_mode='ip',network=dict(status={'passed':'up','failed':'down'}.get(net['status'],'unknown'),
             observed_at=net['observed_at'],valid_until=net['valid_until'],source_device_id='client',target_device_id='server',evidence='icmp_proxy'),
         identity=dict(user_id=uid,group_ids=[gid for gid,g in d['groups'].items() if uid in g['member_user_ids']],
             account_allowed=account['allowed'] and account['code']==sim_ad.OK,
             authentication_valid=ctx['authentication'].get('user_id')==uid and ctx['authentication'].get('status')=='authenticated'))
+    if state.get('dns_incident'):
+        import dns_adapter
+        result['address_mode']='name'
+        result['name_resolution']=dns_adapter.resolution(state,now)[0]
+    return result
 
 def presentation(outcome):
     result = copy.deepcopy(outcome)
     def node(value):
-        value['label'] = {'scope':'Environnement et poste', 'network':'Connectivité ICMP observée (approximation)',
+        value['label'] = {'name_resolution':'Résolution du nom du serveur', 'scope':'Environnement et poste', 'network':'Connectivité ICMP observée (approximation)',
             'share_permission':'Droit sur le partage', 'filesystem_permission':'Droit sur les fichiers',
             'authentication':'Utilisateur connecté', 'capacity':'Capacité du disque', 'quota':'Quota du partage',
             'account':'Compte utilisable', 'firewall':'Pare-feu du service', 'service':'Service de fichiers',

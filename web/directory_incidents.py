@@ -10,11 +10,11 @@ FAMILIES = ('account_disabled', 'account_locked', 'password_expired', 'read_grou
 def prepare(state, now):
     if 'directory' not in state:
         raise ValueError('Un annuaire intégré est requis.')
-    previous = state.get('directory_incident') or state.get('file_incident')
+    previous = state.get('directory_incident') or state.get('file_incident') or state.get('dns_incident')
     if previous and not state.get('validated'):
         raise ValueError('Résous et vérifie l’incident actuel avant le suivant.')
     s = copy.deepcopy(state)
-    s.pop('file_incident',None)
+    s.pop('file_incident',None);s.pop('dns_incident',None)
     index = s.get('directory_incident_count', 0)
     # Un cycle mélange les familles, sans répétition avant épuisement.
     r = random.Random(hashlib.sha256((str(s['seed']) + ':ad-incidents:' + str(index // len(FAMILIES))).encode()).hexdigest())

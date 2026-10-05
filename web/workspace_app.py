@@ -20,6 +20,9 @@ import directory_incidents
 import files_adapter
 import sim_files
 import file_incidents
+import dns_adapter
+import sim_dns
+import dns_incidents
 
 ROOT = Path(__file__).resolve().parent
 
@@ -47,6 +50,11 @@ class Controller:
             if workspace.path.exists() and not backup.exists():backup.write_bytes(workspace.path.read_bytes())
             if files_adapter.ensure(state):workspace.save()
 
+        if state and 'directory' in state and 'dns_service' not in state:
+            backup=workspace.path.with_suffix('.before-dns.json')
+            if workspace.path.exists() and not backup.exists():backup.write_bytes(workspace.path.read_bytes())
+            if dns_adapter.ensure(state):workspace.save()
+
     def new(self, seed):
         with self.lock:
             # Construire avant de changer : un échec ne remplace pas la session active.
@@ -55,6 +63,7 @@ class Controller:
             state['environment_id'] = ident
             ad.ensure(state)
             files_adapter.ensure(state)
+            dns_adapter.ensure(state)
             candidate = Workspace(path)
             candidate.state = state
             candidate.save()
@@ -189,6 +198,7 @@ class Controller:
                 state['reset_id'] = secrets.token_hex(8)
                 ad.ensure(state)
                 files_adapter.ensure(state)
+                dns_adapter.ensure(state)
                 self.workspace.state = state
                 self.workspace.save()
                 if self.on_change:self.on_change(self.workspace.state,self.workspace.path.parent)
@@ -261,6 +271,39 @@ class Controller:
                 if req.get('action') in ('write','delete'):s['validated']=False
                 self.workspace.save()
             return dict(result=files_adapter.presentation(outcome['result']),revision=s['file_service']['revision'])
+
+    def dns(self, action, data):
+        with self.lock:
+            s=self.workspace.state
+            if not s or not dns_adapter.ensure(s) and 'dns_service' not in s:raise ValueError('DNS non disponible.')
+            now=time.time();source=data.get('source','client')
+            if source not in ('client','technician'):raise ValueError('Poste source inconnu.')
+            if action in ('admin','operation'):
+                net=ad.context(s,source='technician',now=now)['network']
+                if net['status']!='passed' or not net['observed_at']<=now<=net['valid_until']:raise ValueError('Vérifie la liaison du technicien au serveur.')
+                actor=dns_adapter.actor(s,admin=True)
+                if action=='admin':return dict(service=sim_dns.public_dns(s['dns_service'],actor),documents_dns_name=s['documents_dns_name'])
+                outcome=sim_dns.apply_operation(s['dns_service'],data.get('operation'),data.get('payload',{}),actor,now)
+                s['validated']=False
+            elif action in ('resolve','flush'):
+                if source=='client' and (not s['remote_session'] or not evaluate(s,'remote')['allowed']):raise ValueError('Reconnecte le poste distant.')
+                if action=='resolve':outcome=sim_dns.resolve(s['dns_service'],source,data.get('query',{}),dns_adapter.context(s,source,now),now)
+                else:outcome=sim_dns.flush_cache(s['dns_service'],dns_adapter.actor(s,source),source,now)
+            else:raise ValueError('Action DNS inconnue.')
+            s['dns_service']=outcome['service'];self.workspace.save()
+            return dict(result=outcome['result'])
+
+    def next_dns_incident(self):
+        with self.lock:
+            s=self.workspace.state
+            if not s:raise ValueError('Crée un environnement.')
+            now=time.time()
+            for source in ('client','technician'):
+                n=ad.context(s,source=source,now=now)['network']
+                if n['status']!='passed' or not n['observed_at']<=now<=n['valid_until']:raise ValueError('Vérifie le réseau client et technicien vers le serveur.')
+            self.workspace.state=dns_incidents.prepare(s,now);self.workspace.save()
+            if self.on_change:self.on_change(self.workspace.state,self.workspace.path.parent)
+            return self.workspace.public()
 
 
 def run():

@@ -9,6 +9,7 @@ from console_tools import CLEAN_JS, cleaned
 from generator_app import Generator
 from workspace_app import Controller
 import file_incidents
+import dns_incidents
 from workspace_routes import WorkspaceRoutes
 import timers
 import re
@@ -57,7 +58,7 @@ class Tickets:
             self.state['tickets'].append(dict(id='INC-1000', kind='workspace', name=client['name'], title='Documents partagés inaccessibles',
                 description=state['ticket']+' Poste concerné : '+client['name']+'. Rétablis le réseau puis l’accès en lecture depuis le bureau distant.',
                 status='nouveau', severity='moderee', created=now(), checks=[], complete=False, notes=''))
-        incident = state.get('file_incident') or state.get('directory_incident')
+        incident = state.get('dns_incident') or state.get('file_incident') or state.get('directory_incident')
         if incident and not any(t['id'] == incident['id'] for t in self.state['tickets']):
             self.state['tickets'].append(dict(id=incident['id'], kind='workspace', name=client['name'],
                 title=incident['title'], description=incident['description'], workspace_goal=incident['goal'],
@@ -312,8 +313,8 @@ class Tickets:
         elif action in ('take','wait'):
             t['status']='en_cours' if action=='take' else 'en_attente'
         elif action in ('verify','close'):
-            active=self.controller.workspace.state.get('file_incident') or self.controller.workspace.state.get('directory_incident') or {}
-            if t['id'].startswith(('INC-AD-','INC-FIC-')) and t['id'] != active.get('id'):
+            active=self.controller.workspace.state.get('dns_incident') or self.controller.workspace.state.get('file_incident') or self.controller.workspace.state.get('directory_incident') or {}
+            if t['id'].startswith(('INC-AD-','INC-FIC-','INC-DNS-')) and t['id'] != active.get('id'):
                 raise ValueError('Cet incident appartient à un exercice précédent.')
             self.controller.observe(blocking=True)
             public=self.controller.workspace.public()
@@ -327,7 +328,10 @@ class Tickets:
             if t['id'].startswith('INC-FIC-'):
                 t['checks']=file_incidents.checks(self.controller.workspace.state,time.time())
                 t['complete']=all(c['status']=='valide' for c in t['checks'])
-            if t['id'].startswith(('INC-AD-','INC-FIC-')):
+            if t['id'].startswith('INC-DNS-'):
+                t['checks']=dns_incidents.checks(self.controller.workspace.state,time.time())
+                t['complete']=all(c['status']=='valide' for c in t['checks'])
+            if t['id'].startswith(('INC-AD-','INC-FIC-','INC-DNS-')):
                 self.controller.workspace.state['validated'] = t['complete']
                 self.controller.workspace.save()
             if action=='close':

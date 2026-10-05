@@ -8,6 +8,7 @@ import directory_adapter as ad
 import directory_incidents
 import files_adapter
 import file_incidents
+import dns_incidents
 
 VERSION = 1
 TTL = 45
@@ -98,6 +99,8 @@ class Workspace:
             'environment_id': s.get('environment_id', 'legacy'),
             'directory_incident': directory_incidents.public_incident(s),
             'file_incident': file_incidents.public_incident(s),
+            'dns_incident': dns_incidents.public_incident(s),
+            'documents_dns_name': s.get('documents_dns_name'),
             'files': (files_adapter.names(s) if files_adapter.access(s,'list',time.time())['allowed'] else []) if 'file_service' in s else s['files'],
             'documents_share_id': s.get('documents_share_id'),
             'checks': {a: evaluate(s, a) for a in ('remote', 'read', 'write')},
@@ -140,6 +143,7 @@ class Workspace:
             if 'directory' in s: raise ValueError('Utilise la console Annuaire pour modifier les groupes.')
             s['write_allowed'] = True
         elif action == 'validate':
+            if s.get('dns_incident') and not all(c['status']=='valide' for c in dns_incidents.checks(s,time.time())):raise ValueError('DNS, accès fichier ou état préservé non rétabli.')
             if s.get('file_incident') and not all(c['status']=='valide' for c in file_incidents.checks(s,time.time())):
                 raise ValueError('Document ciblé ou autres accès non rétablis.')
             if not evaluate(s, 'read')['allowed']:
