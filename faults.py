@@ -867,7 +867,7 @@ def available(topo_name, level, theme=None, hidden=None):
 
 
 def inject(topo, level=1, theme=None, fault_id=None, fault_ids=None, hidden=None, count=None,
-           seed=None, output_path=None, lang='fr'):
+           seed=None, output_path=None, lang='fr', pkt_output_path=None):
     """
     Applique une ou plusieurs pannes au lab décrit par topo (issu de builder.build).
       fault_id/fault_ids : impose une panne précise, ou une liste de pannes précises
@@ -876,6 +876,7 @@ def inject(topo, level=1, theme=None, fault_id=None, fault_ids=None, hidden=None
       hidden   : filtre les pannes tirées au hasard (cf. available()). Ne s'applique
                  pas aux pannes imposées via fault_id/fault_ids.
       count    : nombre de pannes (par défaut selon le niveau).
+      pkt_output_path : export facultatif du même réseau en panne au format .pkt.
       lang     : langue ('fr'/'en') du bloc Instructions embarqué dans le .pka.
     Deux pannes ne touchent jamais le même appareil.
     Écrit le .pka piégé + un fichier solution .json. Retourne la liste des rapports.
@@ -932,6 +933,13 @@ def inject(topo, level=1, theme=None, fault_id=None, fault_ids=None, hidden=None
         initial_state='generated', answer_xml_path=topo['xml_path'], title=title)
     with contextlib.redirect_stdout(io.StringIO()):
         _pte.ptfile_encode(activity_xml, output_path)
+        if pkt_output_path is not None:
+            # Export the actual learner snapshot, including activity metadata.
+            initial = ET.parse(activity_xml).getroot().find('PACKETTRACER5')
+            if initial is None:
+                raise ValueError('Activité sans réseau initial à exporter.')
+            ET.ElementTree(initial).write(xml_path, encoding='utf-8', short_empty_elements=False)
+            _pte.ptfile_encode(xml_path, pkt_output_path)
     os.remove(xml_path)
     os.remove(activity_xml)
 

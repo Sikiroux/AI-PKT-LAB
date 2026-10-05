@@ -21,7 +21,7 @@ def generate(req):
  if scenario.startswith('classic:'):
   fid=scenario.split(':',1)[1];spec=faults.CATALOGUE[fid];topology=random.Random(seed).choice(spec['topos'])
   _,topo=builder.build(topology,seed=seed,output_dir=str(folder))
-  faults.inject(topo,level=level,fault_ids=[fid],count=count,seed=seed,output_path=str(folder/'lab.pka'),lang='fr')
+  faults.inject(topo,level=level,fault_ids=[fid],count=count,seed=seed,output_path=str(folder/'lab.pka'),lang='fr',pkt_output_path=str(folder/'lab.pkt'))
   (folder/'consignes.html').write_text((folder/'lab.html').read_text(encoding='utf-8'),encoding='utf-8')
   # Socle sain séparé pour consultation de la correction.
   shutil.copy2(topo['pkt_path'],folder/'correction.pkt')

@@ -204,3 +204,11 @@ Tickets procéduraux de une à trois couches sur l’entreprise active, portable
 ## Service desk v0.25
 
 Bureau client avec fichiers locaux, applications installables et lecteur Z:, impression et FTP simulés, 18 causes procédurales supplémentaires et arrivées par famille. Les nouveaux environnements incluent un Printer-PT. Lance **LANCER-WEB.bat** pour le portail. Voir [le guide v0.25](docs/V025-APPLICATIONS-DU-POSTE.md) : fonctionnement, anciennes sauvegardes, limites et vérifications à faire dans Packet Tracer 9.
+
+## Interface v0.26
+
+Navigation et présentation adaptées du design Figma NetOps Lab, contexte de l’entreprise visible, accueil avec prochain ticket réel et bureaux agrandissables/réductibles. Voir [le guide des six rubriques](docs/V026-INTERFACE-FIGMA.md). À tester sur Windows et Packet Tracer 9.
+
+## Interface v0.27
+
+Création et reprise depuis **Accueil et sessions**, ouverture du réseau depuis le bandeau, interventions dans **Tickets**, bureaux dans **Postes**. Le générateur conserve les exercices PKT/PKA indépendants et les tickets de dépannage historiques. Voir [le parcours v0.27](docs/V027-PARCOURS-ENTREPRISE-FORMATION.md). Nouveaux exports et parcours Windows : à tester dans Packet Tracer.

@@ -511,7 +511,7 @@ def run():
             except Exception as e:self.send(400,{'error':str(e)})
         def log_message(self,*args):pass
     server=ThreadingHTTPServer(('127.0.0.1',8765),Handler)
-    print('NetOps Lab : http://127.0.0.1:8765\nOuvrir le reseau-test.pkt puis Extensions > MCP BUILDER.\nGarder cette console ouverte. Ctrl+C pour arreter.')
+    print('NetOps Lab : http://127.0.0.1:8765\nCreer ou reprendre une entreprise depuis Accueil et sessions, puis Ouvrir le reseau. Dans Packet Tracer : Extensions > MCP BUILDER.\nGarder cette console ouverte. Ctrl+C pour arreter.')
     webbrowser.open('http://127.0.0.1:8765')
     try:server.serve_forever()
     except KeyboardInterrupt:pass
