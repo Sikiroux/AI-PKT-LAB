@@ -50,12 +50,13 @@ class WorkspaceRoutes:
         if not handler.path.startswith('/workspace/'):
             return False
         c = self.controller
-        if 'environment_id' in data:
+        action = handler.path.removeprefix('/workspace/')
+        # Creating/selecting an environment deliberately changes the active context.
+        if 'environment_id' in data and action not in ('new', 'select') and c.workspace.state:
             with c.lock:
                 active = (c.workspace.state or {}).get('environment_id', 'legacy')
                 if data['environment_id'] != active:
                     raise ValueError('Cet accès distant appartient à un autre environnement. Reconnecte-toi.')
-        action = handler.path.removeprefix('/workspace/')
         if action == 'new': result = c.new(data.get('seed', ''))
         elif action == 'directory-incident':
             if data.get('environment_id') != (c.workspace.state or {}).get('environment_id', 'legacy'):

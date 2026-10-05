@@ -4,7 +4,7 @@ Cette version conserve le générateur Packet Tracer indépendant et ajoute des 
 
 ## Parcours
 
-1. Décompresser le ZIP, lancer `lancer.bat`, ouvrir l’interface locale.
+1. Décompresser le ZIP, lancer `LANCER-WEB.bat`, ouvrir l’interface locale.
 2. Accueil → reprendre une entreprise ou Postes et environnement → créer une seed.
 3. Ouvrir **son** entreprise.pkt. Réparer la première liaison client, vérifier maintenant, ouvrir le bureau distant, authentifier le demandeur et rétablir la lecture du partage. Clôturer ce premier ticket.
 4. Dans Postes et environnement, choisir difficulté (1, 2 ou 3 couches), orientation et délai, puis Recevoir un ticket procédural. Les causes sont privées ; la plainte présente le poste, le document et le résultat attendu.

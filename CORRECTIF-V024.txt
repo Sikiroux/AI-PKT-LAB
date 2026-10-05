@@ -1,0 +1,4 @@
+Correctif v0.24 : création et sélection des environnements.
+Lancez LANCER-WEB.bat à la racine pour ouvrir le navigateur.
+Les anciens onglets restent bloqués pour les actions sur un autre environnement.
+Conservez votre ancien dossier et ses sauvegardes avant toute migration.

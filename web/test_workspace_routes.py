@@ -47,6 +47,25 @@ class RouteTests(unittest.TestCase):
             self.routes.post(self.handler, {'action': 'grant_read', 'environment_id': 'old'})
         self.assertFalse(self.controller.workspace.state['read_allowed'])
 
+    def test_create_first_environment_accepts_null_context(self):
+        self.controller.workspace.state = None
+        self.controller.new = Mock(return_value={'created': True})
+        self.handler.path = '/workspace/new'
+        self.routes.post(self.handler, {'seed': 'first', 'environment_id': None})
+        self.controller.new.assert_called_once_with('first')
+        self.assertEqual(self.handler.send.call_args.args, (200, {'created': True}))
+
+    def test_create_and_select_deliberately_change_context(self):
+        self.controller.workspace.state['environment_id'] = 'current'
+        self.controller.new = Mock(return_value={})
+        self.controller.select = Mock(return_value={})
+        self.handler.path = '/workspace/new'
+        self.routes.post(self.handler, {'seed': 'next', 'environment_id': 'old'})
+        self.controller.new.assert_called_once_with('next')
+        self.handler.path = '/workspace/select'
+        self.routes.post(self.handler, {'id': 'saved', 'environment_id': 'old'})
+        self.controller.select.assert_called_once_with('saved')
+
     def test_assets_present(self):
         root=Path(__file__).parent
         self.assertTrue((root/'vendor/osjs/main.js').stat().st_size>100000)
