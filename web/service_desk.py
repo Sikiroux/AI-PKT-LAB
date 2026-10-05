@@ -28,7 +28,7 @@ CATALOGUE += [(fid,title,complaint,'moderee') for fid,title,complaint in [
  ('local_wrong_gateway','Un poste ne joint plus les serveurs','PC-ALICE communique avec les employés, mais pas avec les serveurs ; PC-BOB fonctionne.'),
  ('local_wrong_dns','Un poste ne retrouve plus l’intranet','PC-ALICE ouvre l’intranet par IP mais pas par son nom ; PC-BOB fonctionne.'),
  ('add_employee','Installer le poste d’un nouvel employé','Un nouvel employé arrive : installer PC-NEW suivant la feuille, sans modifier les postes existants.')]]
-SITE_CATALOGUE=[dict(id='site:http',title='Incident HTTP du site — API requise'),dict(id='site:dns',title='Incident DNS du site — API requise'),dict(id='site:dhcp',title='Incident DHCP du site — API requise'),dict(id='pc',title='Installer un nouveau poste'),dict(id='wifi',title='Connecter un nouveau portable'),dict(id='incident',title='Dépanner un poste filaire du site')]
+SITE_CATALOGUE=[dict(id='workspace:mixed',title='Plainte client — dépannage multi-services'),dict(id='site:http',title='Incident HTTP du site — API requise'),dict(id='site:dns',title='Incident DNS du site — API requise'),dict(id='site:dhcp',title='Incident DHCP du site — API requise'),dict(id='pc',title='Installer un nouveau poste'),dict(id='wifi',title='Connecter un nouveau portable'),dict(id='incident',title='Dépanner un poste filaire du site')]
 def site_choices(snapshot,opened,switch_name='SW1',ap_name='AP1'):
  names={d['name']:d for d in snapshot['devices']}
  kinds={t['kind'] for t in opened if t['kind']!='service'}
@@ -62,6 +62,9 @@ class ServiceDesk:
   if fault=='vlan_wrong' and traces!='technician':raise ValueError('Les incidents VLAN exigent explicitement les traces visibles.')
   live=d.get('live_services',self.settings['live_services'])
   if type(live) is not bool:raise ValueError('Option de services invalide.')
+  level=d.get('mixed_level',self.settings.get('mixed_level',1));target=d.get('mixed_target',self.settings.get('mixed_target','random'))
+  if type(level) is not int or level not in (1,2,3) or target not in ('random','ad','files','dns','network'):raise ValueError('Difficulté ou famille mixte inconnue.')
+  self.settings.update(mixed_level=level,mixed_target=target)
   self.settings.update(live_services=live,fault_mode=fault,source=source,trace_mode=traces,interval=mode,minimum=minimum,maximum=maximum,max_open=cap,ticket_minutes=duration)
   if self.settings['active']:self.schedule()
   self.t.save();return self.public()
@@ -97,6 +100,12 @@ class ServiceDesk:
   t=dict(id=ident,kind='service',service_scenario=fid,procedural=plan,job_id=job['id'],title=title,description=f"Agence {site} — {plan['requester']} signale : "+complaint+f" Réseau employés : {networks['employees']} ; {plan['employee_count']} postes utilisateurs {'avec un poste IT dédié' if plan['has_it'] else 'sans poste IT dédié ; intervention par un prestataire externe'}. Réalise l’intervention demandée dans le réseau dédié à ce ticket. Conserve les autres services. Consulte la feuille du ticket pour les appareils, adresses et tests attendus.",severity=severity,status='nouveau',created=time.strftime('%Y-%m-%d %H:%M:%S'),checks=[],complete=False,notes='',manual_ssid=False,validation='manual',timer=timers.configure(self.settings['ticket_minutes'],'training'))
   self.t.state['tickets'].append(t);self.t.event(ident+' : incident reçu, réseau dédié en préparation.');return self.t.public()
  def create_site(self,scenario,opened):
+  if (self.t.state.get('site') or {}).get('environment_id') and scenario in (None,'','workspace:mixed'):
+   self.t.controller.next_mixed_incident(self.settings.get('mixed_level',1),self.settings.get('mixed_target','random'),self.settings['ticket_minutes'])
+   return self.t.public()
+  from contextlib import nullcontext
+  with getattr(self.t.engine,'lock',nullcontext()):return self._create_site_legacy(scenario,opened)
+ def _create_site_legacy(self,scenario,opened):
   if scenario not in (None,'','pc','wifi','incident','site:http','site:dns','site:dhcp'):raise ValueError('Choisis une intervention du catalogue du site.')
   snapshot=self.t.engine.snapshot();self.t.guard(snapshot)
   choices=site_choices(snapshot,opened,self.t.profile('switch'),self.t.profile('ap'))

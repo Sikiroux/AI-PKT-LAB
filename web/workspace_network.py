@@ -8,6 +8,7 @@ import xml.etree.ElementTree as ET
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 import workshops
 import ptexplorer
+import technician_model
 from lab_engine import organization
 from workspace_model import generate
 
@@ -27,12 +28,36 @@ def build(seed, folder):
         serial = e.find('SERIALNUMBER')
         if serial is not None:
             serial.text = 'PTT' + hashlib.sha256((state['seed'] + ':' + e.findtext('NAME')).encode()).hexdigest()[:8].upper()
+    # Portable d'intervention fourni par le prestataire, pas un poste IT résident.
+    admin=next(d for d in root.findall('NETWORK/DEVICES/DEVICE') if d.findtext('ENGINE/NAME')==names['PC-ADMIN'])
+    old=admin.find('ENGINE');catalogue=ET.parse(Path(__file__).resolve().parents[1]/'templates/packettracer/catalogue_source.xml').getroot()
+    portable=copy.deepcopy(next(d.find('ENGINE') for d in catalogue.findall('.//DEVICE') if d.find('ENGINE/TYPE') is not None and d.find('ENGINE/TYPE').get('model')=='Laptop-PT'))
+    tech_name=state['site']+'-LT-TECH-01'
+    for key in ('SERIALNUMBER','GATEWAY','DNS_SERVER'):
+        value=old.findtext(key)
+        if value is not None:workshops.put(portable,key,value)
+    workshops.put(portable,'NAME',tech_name)
+    port=workshops.port(portable)
+    for key in ('IP','SUBNET','PORT_GATEWAY','PORT_DNS','PORT_DHCP_ENABLE'):
+        value=workshops.port(old).findtext(key)
+        if value is not None:workshops.put(port,key,value)
+    admin.remove(old);admin.insert(0,portable)
+    organization.rename_tree(root,{names['PC-ADMIN']:tech_name})
+    names['PC-ADMIN']=tech_name
     selected = {'client': 'PC-ALICE', 'technician': 'PC-ADMIN', 'server': 'SRV-FTP'}
     for role, old in selected.items():
         engine = next(d.find('ENGINE') for d in root.findall('NETWORK/DEVICES/DEVICE')
                       if d.findtext('ENGINE/NAME') == names[old])
         state['devices'][role] = dict(id=role, name=names[old], ip=topo['devices'][old]['ip'],
                                       serial=engine.findtext('SERIALNUMBER'))
+    state['organization_has_it']=bool(int(hashlib.sha256((state['seed']+':resident-it').encode()).hexdigest()[:2],16)%2)
+    state['technician_locations']={}
+    for key,old,host in [('office','SW-EMP','PC-ADMIN'),('server_room','SW-SRV','SRV-FTP'),('outside','SW-GUEST','PC-GUEST')]:
+        ip=topo['devices'][host]['ip'].rsplit('.',1)[0]+'.23'
+        engine=next(d.find('ENGINE') for d in root.findall('NETWORK/DEVICES/DEVICE') if d.findtext('ENGINE/NAME')==names[old])
+        state['technician_locations'][key]=dict(label=technician_model.LOCATIONS[key],device=names[old],serial=engine.findtext('SERIALNUMBER'),port='FastEthernet0/20',ip=ip,mask='255.255.255.0',gateway=ip.rsplit('.',1)[0]+'.1')
+    # Le portable démarre sur son raccordement existant ; les ports 20 sont réservés aux déplacements.
+    technician_model.ensure(state)
     state['network_file'] = str((folder / 'entreprise.pkt').resolve())
     state['expected_cable'] = dict(device=names['PC-ALICE'], port='FastEthernet0',
                                     peer=names['SW-EMP'], peer_port='FastEthernet0/1')

@@ -111,6 +111,11 @@ class ModelTests(unittest.TestCase):
             engines = reference.findall('NETWORK/DEVICES/DEVICE/ENGINE')
             serials = [e.findtext('SERIALNUMBER') for e in engines if e.findtext('SERIALNUMBER')]
             self.assertEqual(len(serials), len(set(serials)))
+            tech=next(e for e in engines if e.findtext('NAME')==s['devices']['technician']['name'])
+            self.assertEqual(tech.find('TYPE').get('model'),'Laptop-PT')
+            self.assertIn('-LT-TECH-',tech.findtext('NAME'))
+            self.assertEqual(set(s['technician_locations']),{'office','server_room','outside'})
+            self.assertEqual(s['technician_session']['location'],'office')
             for role, expected in s['devices'].items():
                 engine = next(e for e in engines if e.findtext('NAME') == expected['name'])
                 self.assertEqual(engine.findtext('SERIALNUMBER'), expected['serial'])

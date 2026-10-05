@@ -196,3 +196,7 @@ Les nouveaux profils procéduraux conservent aussi la présence facultative du p
 Les profils procéduraux version 5 varient aussi le poste concerné par les incidents DHCP (parmi les employés présents) et la répartition des employés sur un ou deux switches. Les deux switches partagent le même sous-réseau employés ; aucun VLAN supplémentaire n’est annoncé. Cible, câblage, consignes, référence et relance utilisent les mêmes paramètres. À tester dans PT 9.
 
 Les profils procéduraux version 6 ajoutent quatre incidents locaux : IP, masque, passerelle ou DNS incorrect sur un poste employé variable. Une demande d’arrivée d’employé génère aussi un atelier : ajouter le PC désigné avec son adressage, son port et ses tests d’accès. Le réseau initial ne contient pas ce PC ; correction.pkt contient une référence avec le poste ajouté. Validation manuelle, mécanismes à tester dans PT 9. Les demandes utilisent le même plan de site et les mêmes paramètres conservés que les incidents.
+
+## Service desk v0.24
+
+Tickets procéduraux de une à trois couches sur l’entreprise active, portable du technicien, VPN pédagogique et dialogues à choix sans LLM. Le générateur de labs indépendants reste disponible. Voir [le guide v0.24](docs/V024-INTERVENTIONS-MIXTES.md) pour le parcours, les limites et les vérifications Packet Tracer.

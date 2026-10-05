@@ -9,6 +9,8 @@ import directory_incidents
 import files_adapter
 import file_incidents
 import dns_incidents
+import mixed_incidents
+import technician_model
 
 VERSION = 1
 TTL = 45
@@ -41,6 +43,7 @@ def evaluate(state, action, at=None):
     if action not in ('remote', 'read', 'write'):
         raise ValueError('Action inconnue.')
     at = time.time() if at is None else at
+    if state.get('mixed_incident') and action != 'remote':return mixed_incidents.access(state,action,at)
     if state.get('file_incident') and action != 'remote':
         return file_incidents.access(state, action, at)
     if 'file_service' in state and action != 'remote':
@@ -52,6 +55,9 @@ def evaluate(state, action, at=None):
     fresh = (observation.get('status') in ('passed', 'failed') and
              0 <= at - observation.get('at', 0) <= TTL)
     net = observation['status'] if fresh else 'unknown'
+    if action=='remote':
+        policy=technician_model.policy(state,at)
+        if not policy['allowed']:net=policy['status']
     checks = [('service', 'Service de prise en main' if action == 'remote' else 'Service de partage',
                state['remote_service'] if action == 'remote' else state['share_service']),
               ('account', 'Compte actif', (state['directory']['users'][state['directory_user_id']]['enabled'] if 'directory' in state else state['account_enabled']))]
@@ -81,7 +87,9 @@ class Workspace:
             self.state['observation'] = None
             self.state['remote_session'] = False
             self.state['directory_auth'] = None
+            self.state['network_observation'] = None
             self.state['validated'] = False
+            if 'technician_session' in self.state:self.state['technician_session']['vpn'].update(connected=False,expires_at=0)
 
     def save(self):
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -100,6 +108,10 @@ class Workspace:
             'directory_incident': directory_incidents.public_incident(s),
             'file_incident': file_incidents.public_incident(s),
             'dns_incident': dns_incidents.public_incident(s),
+            'mixed_incident':mixed_incidents.public(s),
+            'technician':technician_model.public(s),
+            'network_file':s.get('network_file'),
+            'organization_has_it':s.get('organization_has_it'),
             'documents_dns_name': s.get('documents_dns_name'),
             'files': (files_adapter.names(s) if files_adapter.access(s,'list',time.time())['allowed'] else []) if 'file_service' in s else s['files'],
             'documents_share_id': s.get('documents_share_id'),
@@ -132,7 +144,7 @@ class Workspace:
                 if 'file_service' not in s:s['files'].append('Test.txt')
             if 'file_service' in s:
                 import sim_files
-                outcome=sim_files.perform_file_action(s['file_service'],(file_incidents.request(s,action) if s.get('file_incident') else files_adapter.request(s,action)),files_adapter.context(s,time.time()),time.time())
+                outcome=sim_files.perform_file_action(s['file_service'],(mixed_incidents.request(s,action) if s.get('mixed_incident') else file_incidents.request(s,action) if s.get('file_incident') else files_adapter.request(s,action)),files_adapter.context(s,time.time()),time.time())
                 if not outcome['result']['allowed']:raise ValueError(outcome['result']['code'])
                 s['file_service']=outcome['service'];s['files']=files_adapter.names(s)
         elif action == 'grant_read':
@@ -143,6 +155,7 @@ class Workspace:
             if 'directory' in s: raise ValueError('Utilise la console Annuaire pour modifier les groupes.')
             s['write_allowed'] = True
         elif action == 'validate':
+            if s.get('mixed_incident') and not all(c['status']=='valide' for c in mixed_incidents.checks(s,time.time())):raise ValueError('Intervention mixte non rétablie ou contrôle incomplet.')
             if s.get('dns_incident') and not all(c['status']=='valide' for c in dns_incidents.checks(s,time.time())):raise ValueError('DNS, accès fichier ou état préservé non rétabli.')
             if s.get('file_incident') and not all(c['status']=='valide' for c in file_incidents.checks(s,time.time())):
                 raise ValueError('Document ciblé ou autres accès non rétablis.')

@@ -47,7 +47,7 @@ def context(state, now):
         identity=dict(user_id=uid,group_ids=[gid for gid,g in d['groups'].items() if uid in g['member_user_ids']],
             account_allowed=account['allowed'] and account['code']==sim_ad.OK,
             authentication_valid=ctx['authentication'].get('user_id')==uid and ctx['authentication'].get('status')=='authenticated'))
-    if state.get('dns_incident'):
+    if state.get('dns_incident') or state.get('mixed_incident'):
         import dns_adapter
         result['address_mode']='name'
         result['name_resolution']=dns_adapter.resolution(state,now)[0]

@@ -10,6 +10,7 @@ from generator_app import Generator
 from workspace_app import Controller
 import file_incidents
 import dns_incidents
+import mixed_incidents
 from workspace_routes import WorkspaceRoutes
 import timers
 import re
@@ -38,7 +39,20 @@ class Tickets:
             if t.get('injection',{}).get('state')=='pending':
                 t['injection']['state']='uncertain';t['status']='a_controler';interrupted=True
         if interrupted:self.save()
+    def append_workspace_incident(self,state):
+        incident=state.get('mixed_incident') or state.get('dns_incident') or state.get('file_incident') or state.get('directory_incident')
+        if not incident:return
+        existing=next((t for t in self.state['tickets'] if t['id']==incident['id']),None)
+        if existing:
+            if 'dialogue' in incident:existing['dialogue']=incident['dialogue']
+            self.save();return
+        self.state['tickets'].append(dict(id=incident['id'],kind='workspace',name=state['devices']['client']['name'],title=incident['title'],description=incident['description'],workspace_goal=incident['goal'],status='nouveau',severity='elevee' if incident.get('level',1)>1 else 'moderee',created=now(),checks=[],complete=False,notes='',dialogue=incident.get('dialogue',[]),timer=timers.configure(incident.get('timer_minutes',30),'training')))
+        self.event(incident['id']+' : nouvelle intervention sur l’environnement actif.')
+
     def bind_environment(self, state, folder, generator, controller):
+        site=self.state.get('site') or {}
+        if site.get('environment_id')==state.get('environment_id') and site.get('reset_id')==state.get('reset_id') and self.path==Path(folder)/'tickets.json':
+            self.controller=controller;self.append_workspace_incident(state);return
         if self.desk:
             self.desk.settings.update(active=False, next_at=None)
             self.save()
@@ -58,11 +72,7 @@ class Tickets:
             self.state['tickets'].append(dict(id='INC-1000', kind='workspace', name=client['name'], title='Documents partagés inaccessibles',
                 description=state['ticket']+' Poste concerné : '+client['name']+'. Rétablis le réseau puis l’accès en lecture depuis le bureau distant.',
                 status='nouveau', severity='moderee', created=now(), checks=[], complete=False, notes=''))
-        incident = state.get('dns_incident') or state.get('file_incident') or state.get('directory_incident')
-        if incident and not any(t['id'] == incident['id'] for t in self.state['tickets']):
-            self.state['tickets'].append(dict(id=incident['id'], kind='workspace', name=client['name'],
-                title=incident['title'], description=incident['description'], workspace_goal=incident['goal'],
-                status='nouveau', severity='moderee', created=now(), checks=[], complete=False, notes=''))
+        self.append_workspace_incident(state)
         self.desk = ServiceDesk(self, generator)
         self.desk.settings.update(source='site',active=False,next_at=None)
         self.save()
@@ -313,8 +323,8 @@ class Tickets:
         elif action in ('take','wait'):
             t['status']='en_cours' if action=='take' else 'en_attente'
         elif action in ('verify','close'):
-            active=self.controller.workspace.state.get('dns_incident') or self.controller.workspace.state.get('file_incident') or self.controller.workspace.state.get('directory_incident') or {}
-            if t['id'].startswith(('INC-AD-','INC-FIC-','INC-DNS-')) and t['id'] != active.get('id'):
+            active=self.controller.workspace.state.get('mixed_incident') or self.controller.workspace.state.get('dns_incident') or self.controller.workspace.state.get('file_incident') or self.controller.workspace.state.get('directory_incident') or {}
+            if t['id'].startswith(('INC-AD-','INC-FIC-','INC-DNS-','INC-MIX-')) and t['id'] != active.get('id'):
                 raise ValueError('Cet incident appartient à un exercice précédent.')
             self.controller.observe(blocking=True)
             public=self.controller.workspace.public()
@@ -331,7 +341,10 @@ class Tickets:
             if t['id'].startswith('INC-DNS-'):
                 t['checks']=dns_incidents.checks(self.controller.workspace.state,time.time())
                 t['complete']=all(c['status']=='valide' for c in t['checks'])
-            if t['id'].startswith(('INC-AD-','INC-FIC-','INC-DNS-')):
+            if t['id'].startswith('INC-MIX-'):
+                t['checks']=mixed_incidents.checks(self.controller.workspace.state,time.time())
+                t['complete']=all(c['status']=='valide' for c in t['checks'])
+            if t['id'].startswith(('INC-AD-','INC-FIC-','INC-DNS-','INC-MIX-')):
                 self.controller.workspace.state['validated'] = t['complete']
                 self.controller.workspace.save()
             if action=='close':
@@ -419,7 +432,7 @@ def run():
     if workspace.workspace.state:bind(workspace.workspace.state,workspace.workspace.path.parent)
     def arrival_loop():
         while not stop_arrivals.wait(1):
-            with workspace.lock, engine.lock:
+            with workspace.lock:
                 try:tickets.desk.tick()
                 except Exception:pass
     threading.Thread(target=arrival_loop,daemon=True).start();token=secrets.token_urlsafe(32)
@@ -462,7 +475,7 @@ def run():
                         if tickets.state.get('site',{} ) and tickets.state['site'].get('environment_id') and data.get('environment_id')!=tickets.state['site']['environment_id']:
                             raise ValueError('L’environnement a changé. Actualise la page avant cette intervention.')
                 if self.path in ('/session-config','/session-control','/service-ticket'):
-                    with workspace.lock, engine.lock:
+                    with workspace.lock:
                         self.check_environment(data)
                         if self.path=='/session-config':result=tickets.desk.configure(data)
                         elif self.path=='/session-control':result=tickets.desk.control(data.get('active') is True)

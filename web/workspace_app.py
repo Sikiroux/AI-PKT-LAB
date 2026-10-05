@@ -23,6 +23,10 @@ import file_incidents
 import dns_adapter
 import sim_dns
 import dns_incidents
+import mixed_incidents
+import technician_model
+import workspace_links
+import client_dialogue
 
 ROOT = Path(__file__).resolve().parent
 
@@ -55,6 +59,8 @@ class Controller:
             if workspace.path.exists() and not backup.exists():backup.write_bytes(workspace.path.read_bytes())
             if dns_adapter.ensure(state):workspace.save()
 
+        if technician_model.ensure(state):workspace.save()
+
     def new(self, seed):
         with self.lock:
             # Construire avant de changer : un échec ne remplace pas la session active.
@@ -64,6 +70,7 @@ class Controller:
             ad.ensure(state)
             files_adapter.ensure(state)
             dns_adapter.ensure(state)
+            technician_model.ensure(state)
             candidate = Workspace(path)
             candidate.state = state
             candidate.save()
@@ -150,7 +157,9 @@ class Controller:
             if not s:
                 return
             with self.engine.lock:
-                found = self.identities(self.engine.snapshot())
+                snapshot=self.engine.snapshot();found = self.identities(snapshot)
+                client=found['client'];ports=[p for p in client.get('ports',[]) if p.get('name')=='FastEthernet0']
+                s['network_observation']=dict(at=time.time(),devices=workspace_links.signature(snapshot,s),client_link=ports[0].get('linked') if ports else None)
                 probes = {}
                 for key, source, target_role in (('remote', 'technician', 'client'), ('share', 'client', 'server'), ('directory', 'technician', 'server')):
                     target = s['devices'][target_role]['ip']
@@ -158,6 +167,11 @@ class Controller:
                     probes[key] = dict(at=time.time(), source='Packet Tracer',
                         status={'valide': 'passed', 'non satisfait': 'failed'}.get(ping['status'], 'unknown'),
                         detail=ping.get('detail', ''), source_device=found[source]['name'], target=target)
+                outside=s.get('technician_locations',{}).get('outside')
+                if outside and (s.get('technician_session') or {}).get('location')=='outside':
+                    ping=self.engine.ping(found['technician']['name'],outside['gateway'])
+                    probes['vpn_gateway']=dict(at=time.time(),source='Packet Tracer',status={'valide':'passed','non satisfait':'failed'}.get(ping['status'],'unknown'),detail=ping.get('detail',''),source_device=found['technician']['name'],target=outside['gateway'])
+            if s.get('technician_session',{}).get('location')=='outside' and probes.get('vpn_gateway',{}).get('status')!='passed':s['technician_session']['vpn'].update(connected=False,expires_at=0)
             statuses = [p['status'] for p in probes.values()]
             status = 'passed' if all(x == 'passed' for x in statuses) else 'unknown' if 'unknown' in statuses else 'failed'
             s['observation'] = dict(at=time.time(), status=status, source='Packet Tracer', probes=probes)
@@ -165,6 +179,7 @@ class Controller:
                 s['devices'][role]['name'] = d['name']
             s['bound_file'] = s['network_file']
         except Exception as e:
+            s['network_observation']=None
             s['observation'] = dict(at=time.time(), status='unknown', source='Packet Tracer', detail=str(e))
         finally:
             if self.workspace.state:
@@ -183,6 +198,9 @@ class Controller:
         with self.lock, self.engine.lock:
             if not self.workspace.state:
                 raise ValueError('Génère un environnement.')
+            if source=='technician' and self.workspace.state.get('technician_session',{}).get('location')=='outside' and not technician_model.policy(self.workspace.state)['allowed']:
+                outside=self.workspace.state.get('technician_locations',{}).get('outside',{})
+                if target!=outside.get('gateway'):raise ValueError('Connecte le VPN pour tester les ressources internes depuis l’extérieur.')
             found = self.identities(self.engine.snapshot())
             return self.engine.ping(found[source]['name'], target)
 
@@ -199,6 +217,7 @@ class Controller:
                 ad.ensure(state)
                 files_adapter.ensure(state)
                 dns_adapter.ensure(state)
+                technician_model.ensure(state)
                 self.workspace.state = state
                 self.workspace.save()
                 if self.on_change:self.on_change(self.workspace.state,self.workspace.path.parent)
@@ -304,6 +323,97 @@ class Controller:
             self.workspace.state=dns_incidents.prepare(s,now);self.workspace.save()
             if self.on_change:self.on_change(self.workspace.state,self.workspace.path.parent)
             return self.workspace.public()
+
+    def next_mixed_incident(self, level=1, target='random', minutes=30):
+        with self.lock:
+            s=self.workspace.state
+            if not s or 'file_service' not in s:raise ValueError('Crée ou reprends un environnement complet.')
+            if type(minutes) is not int or not 0<=minutes<=1440:raise ValueError('Durée : 0 à 1440 minutes.')
+            now=time.time()
+            for source in ('client','technician'):
+                n=ad.context(s,source=source,now=now)['network']
+                if n['status']!='passed' or not n['observed_at']<=now<=n['valid_until']:raise ValueError('Vérifie le réseau client et technicien avant la préparation.')
+            prepared=mixed_incidents.prepare(s,now,level,target)
+            incident=prepared['mixed_incident'];incident['timer_minutes']=minutes
+            if any(layer=='network' for layer,cause in incident['causes']):
+                with self.engine.lock:
+                    snapshot=self.engine.snapshot();found=self.identities(snapshot)
+                    port=next((p for p in found['client'].get('ports',[]) if p['name']=='FastEthernet0'),None)
+                    if not port or not port.get('linked') or not port.get('peer'):raise ValueError('Liaison client lisible et connectée requise.')
+                    incident['network_baseline']=workspace_links.signature(snapshot,prepared)
+                    incident['cable_before']=dict(port='FastEthernet0',peer=port['peer'])
+                    self.workspace.state=prepared;self.workspace.save()
+                    try:
+                        result=json.loads(self.engine.call(workspace_links.disconnect_js(found['client'],'FastEthernet0',port['peer'])))
+                        if not result.get('ok'):raise RuntimeError(result.get('error','Retrait non confirmé.'))
+                        current=self.engine.snapshot();after=self.identities(current)
+                        p=next(p for p in after['client']['ports'] if p['name']=='FastEthernet0')
+                        if p.get('linked') is not False:raise RuntimeError('État du câble non confirmé.')
+                        incident['injection_state']='applied'
+                    except Exception:
+                        incident['injection_state']='uncertain';prepared['observation']=None;prepared['network_observation']=None
+                        self.workspace.save()
+                        if self.on_change:self.on_change(prepared,self.workspace.path.parent)
+                        raise
+                prepared['observation']=None;prepared['network_observation']=None
+            self.workspace.state=prepared;self.workspace.save()
+            if self.on_change:self.on_change(prepared,self.workspace.path.parent)
+            return self.workspace.public()
+
+    def confirm_mixed_injection(self):
+        with self.lock,self.engine.lock:
+            s=self.workspace.state;i=(s or {}).get('mixed_incident')
+            if not i or 'cable_before' not in i:raise ValueError('Aucune injection réseau à contrôler.')
+            found=self.identities(self.engine.snapshot());p=next((p for p in found['client']['ports'] if p['name']==i['cable_before']['port']),None)
+            if not p or p.get('linked') not in (True,False) or p['linked'] and p.get('peer')!=i['cable_before']['peer']:raise ValueError('Liaison absente du diagnostic ou déplacée vers un autre appareil.')
+            i['injection_state']='applied';self.workspace.save();return self.workspace.public()
+
+    def technician(self, action, data):
+        with self.lock:
+            s=self.workspace.state
+            if not s:raise ValueError('Crée ou reprends un environnement.')
+            technician_model.ensure(s)
+            if action=='state':return technician_model.public(s)
+            if action in ('vpn-connect','vpn-disconnect'):
+                result=technician_model.vpn(s,'connect' if action=='vpn-connect' else 'disconnect',data.get('password',''))
+                self.workspace.event('VPN : '+result['code']);return dict(result=result,technician=technician_model.public(s))
+            if action not in ('move','confirm'):raise ValueError('Action du portable inconnue.')
+            t=s['technician_session']
+            if action=='move':
+                location=data.get('location');mode=data.get('connection','wired')
+                if location not in s.get('technician_locations',{}) or mode not in ('wired','console','none'):raise ValueError('Destination ou raccordement inconnu. Les anciens réseaux doivent être déplacés manuellement dans Packet Tracer.')
+                destination=dict(s['technician_locations'][location])
+                if mode=='console':destination['port']='Console'
+                t['pending']=dict(location=location,connection=mode,destination=destination,at=time.time())
+                technician_model.invalidate(s);self.workspace.save()
+                with self.engine.lock:
+                    found=self.identities(self.engine.snapshot())
+                    r=json.loads(self.engine.call(workspace_links.move_js(found['technician'],destination,mode)))
+                    if not r.get('ok'):raise ValueError(r.get('error','Raccordement non confirmé.'))
+            pending=t.get('pending')
+            if not pending:raise ValueError('Aucun raccordement en attente.')
+            with self.engine.lock:
+                snapshot=self.engine.snapshot();found=self.identities(snapshot);device=found['technician'];dest=pending['destination']
+                peer=next((d for d in snapshot['devices'] if d.get('serial')==dest['serial']),None)
+                if not peer:raise ValueError('Appareil cible absent.')
+                port=next((p for p in device['ports'] if p['name']==('RS232' if pending['connection']=='console' else 'FastEthernet0')),None)
+                if pending['connection']=='none':valid=not any(p.get('linked') for p in device['ports'] if p['name'] in ('RS232','FastEthernet0'))
+                else:valid=bool(port and port.get('linked') and port.get('peer')==dict(device=peer['name'],port=dest['port']))
+                if pending['connection']=='wired':valid=valid and port.get('ip')==dest['ip'] and port.get('mask')==dest['mask']
+                if not valid:raise ValueError('Configure le raccordement et l’adresse attendus dans Packet Tracer, puis confirme à nouveau.')
+            t.update(location=pending['location'],connection=pending['connection'],pending=None)
+            if t['connection']=='wired':s['devices']['technician']['ip']=dest['ip']
+            t['history'].append(dict(at=time.time(),location=t['location'],connection=t['connection']));t['history']=t['history'][-30:]
+            self.workspace.event('Portable : '+t['location']+' / '+t['connection'])
+            return technician_model.public(s)
+
+    def dialogue(self, data):
+        with self.lock:
+            if not self.workspace.state:raise ValueError('Aucun environnement.')
+            row=client_dialogue.ask(self.workspace.state,data.get('ticket_id'),data.get('question'))
+            self.workspace.save()
+            if self.on_change:self.on_change(self.workspace.state,self.workspace.path.parent)
+            return dict(answer=row,incident=mixed_incidents.public(self.workspace.state))
 
 
 def run():

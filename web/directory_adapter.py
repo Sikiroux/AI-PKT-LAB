@@ -37,6 +37,10 @@ def context(state, source='client', now=None):
     target = state['devices']['server']['ip']
     valid = probe.get('source_device') == expected and probe.get('target') == target
     network = dict(status=probe.get('status','unknown') if valid else 'unknown', observed_at=probe.get('at',0), valid_until=probe.get('at',0)+TTL, evidence='icmp_proxy')
+    if source=='technician':
+        import technician_model
+        policy=technician_model.policy(state,now)
+        if not policy['allowed']:network['status']=policy['status']
     auth = state.get('directory_auth') or {}
     if auth.get('environment_id') != state.get('environment_id','legacy') or auth.get('source_device_id') != source or now > auth.get('expires_at',0):auth={}
     return dict(environment_id=state.get('environment_id','legacy'), source_device_id=source, target_device_id='server', network=network,
