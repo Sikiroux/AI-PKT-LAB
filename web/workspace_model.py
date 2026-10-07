@@ -100,6 +100,29 @@ class Workspace:
         temp.write_text(json.dumps(self.state, ensure_ascii=False, indent=2), encoding='utf-8')
         temp.replace(self.path)
 
+    def workstations(self):
+        """Targets are identified by serial, never by an ambiguous display name."""
+        s = self.state or {}
+        devices = s.get('devices', {})
+        client = devices.get('client', {})
+        tech = devices.get('technician', {})
+        observed = {d.get('serial'): d for d in s.get('observed_workstations', []) if d.get('serial')}
+        rows = []
+        for role, d in (('client', client), ('technician', tech)):
+            if not d: continue
+            seen = observed.pop(d.get('serial'), None)
+            rows.append(dict(serial=d.get('serial'), name=d['name'], ip=d.get('ip'),
+                             user=s.get('requester') if role=='client' else 'Technicien',
+                             role=role, simulated=True, ticket_target=role=='client',
+                             remote_supported=role=='client',
+                             status=evaluate(s,'remote')['status'] if role=='client' else 'unknown'))
+        for d in observed.values():
+            addresses=[p.get('ip') for p in d.get('ports',[]) if p.get('ip') not in (None,'','0.0.0.0')]
+            rows.append(dict(serial=d['serial'], name=d['name'], ip=addresses[0] if addresses else None,
+                             user=None, role='observed', simulated=False, ticket_target=False,
+                             remote_supported=False, status='unknown'))
+        return rows
+
     def public(self):
         if not self.state:
             return None
@@ -108,6 +131,7 @@ class Workspace:
         return {k: s[k] for k in ('seed', 'version', 'company', 'requester', 'ticket', 'devices', 'files',
                                  'bound_file', 'remote_session', 'validated')} | {
             'environment_id': s.get('environment_id', 'legacy'),
+            'workstations': self.workstations(),
             'directory_incident': directory_incidents.public_incident(s),
             'file_incident': file_incidents.public_incident(s),
             'dns_incident': dns_incidents.public_incident(s),

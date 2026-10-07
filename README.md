@@ -212,3 +212,7 @@ Navigation et présentation adaptées du design Figma NetOps Lab, contexte de l�
 ## Interface v0.27
 
 Création et reprise depuis **Accueil et sessions**, ouverture du réseau depuis le bandeau, interventions dans **Tickets**, bureaux dans **Postes**. Le générateur conserve les exercices PKT/PKA indépendants et les tickets de dépannage historiques. Voir [le parcours v0.27](docs/V027-PARCOURS-ENTREPRISE-FORMATION.md). Nouveaux exports et parcours Windows : à tester dans Packet Tracer.
+
+## Interface v0.28
+
+Liste explicite des postes, cible identifiée par numéro de série, icônes de bureau et fenêtres au premier plan. Le portable utilise une lecture d’état non bloquante pendant les pings ; les preuves réseau expirées restent refusées. Voir [les changements et tests manuels](docs/V028-POSTES-ET-BUREAUX.md). Un seul bureau client simulé par entreprise à ce stade ; les autres PC détectés sont signalés sans bureau associé. Affichage Windows et délais réels : à tester.

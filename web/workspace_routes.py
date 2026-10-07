@@ -21,8 +21,7 @@ class WorkspaceRoutes:
             with self.controller.lock:
                 handler.send(200, self.controller.environments.public())
         elif path == '/workspace/state':
-            with self.controller.lock:
-                handler.send(200, self.controller.workspace.public())
+            handler.send(200, self.controller.public_snapshot())
         elif path.startswith('/osjs/'):
             name = path.removeprefix('/osjs/')
             allowed = {'main.js', 'main.css', 'LICENSE',
@@ -93,7 +92,7 @@ class WorkspaceRoutes:
             if data.get('environment_id') != (c.workspace.state or {}).get('environment_id','legacy'):
                 raise ValueError('Environnement actif requis.')
             result = c.files(action.removeprefix('files/'),data)
-        elif action == 'action': result = c.action(data['action'])
+        elif action == 'action': result = c.action(data['action'], target_serial=data.get('target_serial'))
         elif action == 'ping':
             if data.get('source', 'client') not in ('client', 'technician'):
                 raise ValueError('Poste source inconnu.')

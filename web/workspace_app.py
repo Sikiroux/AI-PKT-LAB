@@ -1,4 +1,5 @@
 """Prototype autonome utilisant le même pont que NetOps Lab. Port web 8766."""
+import copy
 import ipaddress
 import json
 import ntpath
@@ -153,6 +154,23 @@ class Controller:
             found[role] = matches[0]
         return found
 
+    def public_snapshot(self):
+        # GET must not wait behind a series of Packet Tracer pings. The cached
+        # state is evaluated again at the current time, so expired proofs fail.
+        acquired = self.lock.acquire(blocking=False)
+        try:
+            if acquired:
+                self._read_state = copy.deepcopy(self.workspace.state)
+            state = getattr(self, '_read_state', None)
+            active = self.workspace.state
+            if not state or not active or state.get('environment_id') != active.get('environment_id'):
+                return None
+            view = Workspace.__new__(Workspace)
+            view.state = copy.deepcopy(state)
+            return view.public()
+        finally:
+            if acquired: self.lock.release()
+
     def observe(self, blocking=False):
         # Ne jamais attendre le pont si une action utilisateur l'utilise déjà.
         if not self.lock.acquire(blocking=blocking):
@@ -161,8 +179,10 @@ class Controller:
             s = self.workspace.state
             if not s:
                 return
+            self._read_state = copy.deepcopy(s)
             with self.engine.lock:
                 snapshot=self.engine.snapshot();found = self.identities(snapshot)
+                s['observed_workstations'] = [copy.deepcopy(d) for d in snapshot.get('devices', []) if d.get('model') in ('PC-PT','Laptop-PT')]
                 client=found['client'];ports=[p for p in client.get('ports',[]) if p.get('name')=='FastEthernet0']
                 s['network_observation']=dict(at=time.time(),devices=workspace_links.signature(snapshot,s),client_link=ports[0].get('linked') if ports else None,interfaces={role:[dict(p) for p in device.get('ports',[]) if p.get('name')=='FastEthernet0'] for role,device in found.items()})
                 probes = {}
@@ -199,6 +219,7 @@ class Controller:
                 if (not all(row['status']=='valide' for row in desktop_incidents.checks(self.workspace.state,time.time())) if self.workspace.state.get('desktop_incident') else not evaluate(self.workspace.state, 'read')['allowed']):
                     self.workspace.state['validated'] = False
                 self.workspace.save()
+            self._read_state = copy.deepcopy(self.workspace.state)
             self.lock.release()
 
     def ping(self, target, source='client'):
@@ -214,8 +235,12 @@ class Controller:
             found = self.identities(self.engine.snapshot())
             return self.engine.ping(found[source]['name'], target)
 
-    def action(self, action):
+    def action(self, action, target_serial=None):
         with self.lock:
+            if action == 'connect' and target_serial is not None:
+                client = (self.workspace.state or {}).get('devices', {}).get('client', {})
+                if not target_serial or target_serial != client.get('serial'):
+                    raise ValueError('Ce poste ne dispose pas d’un bureau distant simulé dans cet environnement.')
             if action == 'reset':
                 if not self.workspace.state:
                     raise ValueError('Choisis un environnement.')
