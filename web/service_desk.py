@@ -66,7 +66,7 @@ class ServiceDesk:
   level=d.get('mixed_level',self.settings.get('mixed_level',1));target=d.get('mixed_target',self.settings.get('mixed_target','random'))
   if type(level) is not int or level not in (1,2,3) or target not in ('random','ad','files','dns','network'):raise ValueError('Difficulté ou famille mixte inconnue.')
   engine=d.get('arrival_engine',self.settings.get('arrival_engine','mixed'));app_target=d.get('app_target',self.settings.get('app_target','random'))
-  if engine not in ('mixed','apps') or app_target not in ('random','endpoint','printing','ftp','deployment','workstation_setup'):raise ValueError('Catalogue d’applications inconnu.')
+  if engine not in ('mixed','apps') or app_target not in ('random','endpoint','printing','ftp','deployment','workstation_setup','peripherals'):raise ValueError('Catalogue d’applications inconnu.')
   self.settings.update(arrival_engine=engine,app_target=app_target,mixed_level=level,mixed_target=target)
   self.settings.update(live_services=live,fault_mode=fault,source=source,trace_mode=traces,interval=mode,minimum=minimum,maximum=maximum,max_open=cap,ticket_minutes=duration)
   if self.settings['active']:self.schedule()

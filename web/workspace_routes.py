@@ -108,6 +108,10 @@ class WorkspaceRoutes:
             if callable(getattr(type(c.engine),'quiet_pings',None)):c.observe(blocking=True,accelerate=True)
             else:c.observe(blocking=True)
             with c.lock: result = c.workspace.public()
+        elif action.startswith('credentials/'):
+            if data.get('environment_id') != (c.workspace.state or {}).get('environment_id','legacy'):
+                raise ValueError('Environnement actif requis.')
+            result = c.credentials(action.removeprefix('credentials/'), data)
         elif action.startswith('peripherals/'):
             if data.get('environment_id') != (c.workspace.state or {}).get('environment_id','legacy'):
                 raise ValueError('Environnement actif requis.')

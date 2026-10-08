@@ -23,6 +23,7 @@ def public_context(state):
         if len(matches) == 1:
             asset = matches[0]
             computer_links[cid] = {k: asset.get(k) for k in ('id', 'name', 'serial', 'ip', 'employee_id')}
+            computer_links[cid]['local_access_supported']=asset.get('source_role') in ('client','client2','technician')
     return dict(environment_id=environment, company=state['company'],
                 account_links=account_links, computer_links=computer_links,
                 represented_staff_only=True)

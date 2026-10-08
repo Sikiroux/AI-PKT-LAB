@@ -10,9 +10,12 @@ FAMILIES={'printing':('spooler_stopped','queue_paused','offline_mode','wrong_def
 KEYS=('desktop_incident','mixed_incident','directory_incident','file_incident','dns_incident')
 
 def prepare(s,now,target='random',minutes=30):
-    if target not in ('random','deployment','workstation_setup',*FAMILIES):raise ValueError('Famille d’application inconnue.')
+    if target not in ('random','deployment','workstation_setup','peripherals',*FAMILIES):raise ValueError('Famille d’application inconnue.')
     if any(s.get(k) for k in KEYS) and not s['validated']:raise ValueError('Termine et vérifie l’intervention active.')
     if type(minutes) is not int or not 0<=minutes<=1440:raise ValueError('Durée de 0 à 1440 minutes.')
+    if target=='peripherals':
+        import peripheral_incidents
+        return peripheral_incidents.prepare(s,now,minutes)
     if target=='workstation_setup':
         import workstation_requests
         return workstation_requests.prepare(s,now,minutes)
@@ -77,6 +80,9 @@ def checks(s,now):
     if s['desktop_incident'].get('family')=='deployment':
         import deployment_incidents
         return deployment_incidents.checks(s)
+    if s['desktop_incident'].get('family')=='peripherals':
+        import peripheral_incidents
+        return peripheral_incidents.checks(s)
     i=s['desktop_incident'];d=s['desktop_services'];f=d['ftp'];e=d['endpoint'];p=d['printing'];goal=i['goal'];unknown=False
     if goal=='print':
         r=ds.evaluate_print(s,'office',now);unknown=r['status']=='unknown'
@@ -112,6 +118,10 @@ def dialogue(s, ident, question, now=None):
     if question not in QUESTIONS:
         raise ValueError('Question inconnue.')
     family = incident['family']
+    if family=='peripherals':
+        import peripheral_incidents
+        row=dict(at=now,question=QUESTIONS[question],answer=peripheral_incidents.answer(s,question),speaker=s['requester'])
+        incident['dialogue'].append(row);incident['dialogue']=incident['dialogue'][-60:];return row
     if family=='workstation_setup':
         import workstation_requests
         answer=incident['description'] if question=='scope' else 'Cette demande prépare le poste pour son utilisateur.' if question=='when' else 'La préparation est conforme.' if question=='retest' and all(r['status']=='valide' for r in workstation_requests.checks(s,now)) else 'Il faut réaliser les actions demandées sur le poste, puis vérifier leur résultat.'

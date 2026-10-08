@@ -92,6 +92,7 @@ class Workspace:
         if self.state:
             # Une ancienne observation ne prouve rien sur la nouvelle instance PT.
             self.state['observation'] = None
+            if self.state.get('local_access'):self.state['local_access']['sessions']={}
             self.state['remote_session'] = False
             self.state['directory_auth'] = None
             self.state['network_observation'] = None

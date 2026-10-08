@@ -346,7 +346,8 @@ class Tickets:
             active=self.controller.workspace.state.get('desktop_incident') or self.controller.workspace.state.get('mixed_incident') or self.controller.workspace.state.get('dns_incident') or self.controller.workspace.state.get('file_incident') or self.controller.workspace.state.get('directory_incident') or {}
             if t['id'].startswith(('INC-AD-','INC-FIC-','INC-DNS-','INC-MIX-','INC-APP-')) and t['id'] != active.get('id'):
                 raise ValueError('Cet incident appartient à un exercice précédent.')
-            if callable(getattr(type(self.controller.engine),'quiet_pings',None)):
+            if active.get('family')=='peripherals':pass  # Intervention locale : aucun contrôle réseau nécessaire.
+            elif callable(getattr(type(self.controller.engine),'quiet_pings',None)):
                 self.controller.observe(blocking=True,client_serial=t.get('target_serial') or self.controller.workspace.state.get('devices',{}).get('client',{}).get('serial'),accelerate=True)
             else:self.controller.observe(blocking=True)
             public=self.controller.workspace.public()

@@ -36,6 +36,7 @@ import company_registry
 import directory_console
 import sim_inventory
 import sim_peripherals
+import local_access
 from contextlib import contextmanager
 
 ROOT = Path(__file__).resolve().parent
@@ -317,6 +318,21 @@ class Controller:
                 return self.directory('operation', {'operation':'add_group_member','payload':{'group_id':s['directory_resource']['allowed_group_ids'][right][0], 'user_id':s['directory_user_id']}})
             return self.workspace.action(action)
 
+    def credentials(self, action, data):
+        with self.lock:
+            s=self.workspace.state
+            if not s or not s.get('devices'):raise ValueError('Crée ou reprends un environnement.')
+            serial=data.get('station_serial');rows=self.workspace.workstations()
+            matches=[p for p in rows if p['serial']==serial and (p.get('remote_supported') or p.get('role')=='technician')]
+            if len(matches)!=1:raise ValueError('Choisis un poste simulé de cet environnement.')
+            local_access.ensure(s,rows)
+            if action=='state':result=local_access.public(s,serial);self.workspace.save()
+            elif action=='operation':
+                result=local_access.operate(s,serial,data,time.time())
+                self.workspace.event('Accès local : '+str(data.get('operation')))
+            else:raise ValueError('Action d’accès local inconnue.')
+            return dict(result,station_serial=serial,station_name=matches[0]['name'])
+
     def peripherals(self, action, data):
         with self.lock:
             s=self.workspace.state
@@ -462,12 +478,13 @@ class Controller:
                     candidates=sorted(state.get('client_workspaces',{})) or [clients.primary_serial(state)]
                     rng=random.Random(hashlib.sha256((str(state.get('seed'))+':ticket-client:v1:'+str(state.get('desktop_incident_count',0)+1)).encode()).hexdigest())
                     client_serial=rng.choice(candidates)
+                if target=='peripherals':sim_peripherals.ensure(state,self.workspace.workstations())
                 with self.client_scope(client_serial):return self.next_desktop_incident(target,minutes)
 
             s=self.workspace.state
             if not s or 'file_service' not in s:raise ValueError('Crée ou reprends une entreprise complète.')
             now=time.time();net=ad.context(s,'technician',now)['network']
-            if net['status']!='passed' or not net['observed_at']<=now<=net['valid_until']:raise ValueError('Vérifie le réseau du technicien avant la préparation.')
+            if target!='peripherals' and (net['status']!='passed' or not net['observed_at']<=now<=net['valid_until']):raise ValueError('Vérifie le réseau du technicien avant la préparation.')
             self.workspace.state=desktop_incidents.prepare(s,now,target,minutes)
             i=self.workspace.state['desktop_incident'];i.update(target_serial=s['devices']['client']['serial'],target_name=s['devices']['client']['name'])
             self.workspace.save()

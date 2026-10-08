@@ -10,7 +10,9 @@ en anglais au choix — puis vérifie ta réparation. Propose aussi des missions
 > l'assistance d'une IA (Claude), testé et validé dans Packet Tracer 9.
 > Voir `docs/JOURNAL.md` pour la démarche, les découvertes et les bugs résolus.
 
-## Interface web — livraison v0.46.3
+## Interface web — livraison v0.46.4
+
+Les fiches et les ordinateurs de l’annuaire donnent accès aux **comptes locaux de formation** : révélation du credential, test de connexion locale et administration distincte d’AD. Le catalogue Applications ajoute **9 incidents d’accessoires externes**, vérifiés sans ping. Voir [v0.46.4](docs/V0464-ACCES-ET-INCIDENTS-LOCAUX.md).
 
 Les fiches proposent désormais **Équipement local** : écran, clavier et souris, connexions, remplacement et aperçu local persistants. Ces actions ne modifient pas le réseau ou la prise en main distante. Voir [v0.46.3](docs/V0463-PERIPHERIQUES.md).
 

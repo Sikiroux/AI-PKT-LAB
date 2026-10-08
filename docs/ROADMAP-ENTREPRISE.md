@@ -62,3 +62,7 @@ Différés : appareil définitivement HS, Packet Tracer complètement sans inter
 ## Complément v0.46.3
 
 Équipement local livré pour les postes simulés : accessoires identifiés, branchement, entrée vidéo, aperçu local, remplacement, stock d’accessoires et historique. Les effets restent indépendants de RDP et du réseau. À poursuivre : coffre des accès locaux, demandes procédurales liées aux accessoires, puis mail/licences et parcours d’arrivée.
+
+## Complément v0.46.4
+
+Comptes et registre d’accès locaux de formation intégrés aux fiches et liés à la vue Ordinateurs de l’annuaire. Neuf incidents procéduraux d’accessoires externes proposés explicitement dans le catalogue Applications, avec clôture locale sans ping. Prochain bloc : mail et licences, puis documents de remise et arrivée d’employé complète. Une session locale avec un bureau sur place complet et les composants intégrés du portable restent à développer.
