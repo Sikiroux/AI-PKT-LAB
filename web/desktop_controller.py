@@ -1,5 +1,6 @@
 """Adaptateur des applications : identité et preuves construites côté serveur."""
 import time
+import sim_deployment
 import desktop_services as ds
 import directory_adapter as ad
 from workspace_model import evaluate
@@ -18,6 +19,24 @@ def handle(c,path,data):
         if not s or not ds.ensure(s) and 'desktop_services' not in s:raise ValueError('Poste non disponible.')
         now=time.time();app,action=path.split('/',1);payload=data.get('payload',{})
         if not isinstance(payload,dict):raise ValueError('Paramètres invalides.')
+        if app=='deployment':
+            d=s['desktop_services'].get('deployment')
+            if action not in ('state','operation'):raise ValueError('Action de déploiement inconnue.')
+            if action=='operation':admin(s,now)
+            if d is None:
+                d=sim_deployment.generate(s['seed'],s.get('environment_id','legacy'))
+            if action=='operation':
+                operation=data.get('operation');revision=data.get('expected_revision')
+                if operation=='reset':
+                    if type(revision) is not int or revision!=d['revision']:raise ValueError('L’atelier a changé. Actualise avant de poursuivre.')
+                    fresh=sim_deployment.generate(s['seed'],s.get('environment_id','legacy'))
+                    fresh.update(revision=d['revision']+1,attempt=d['attempt']+1);d=fresh
+                else:d=sim_deployment.apply(d,operation,payload,revision)
+                s['desktop_services']['deployment']=d
+                c.workspace.event('Atelier de déploiement : '+str(operation))
+            elif 'deployment' not in s['desktop_services']:
+                s['desktop_services']['deployment']=d;c.workspace.save()
+            return dict(service=d,result=sim_deployment.evaluate(d))
         if app not in ('endpoint','printing','ftp'):raise ValueError('Application inconnue.')
         if action=='admin':admin(s,now);return dict(service=ds.public(s)[app],applications=ds.APPS,server=s['devices']['server'],printer=s['devices'].get('printer',s['devices']['server']))
         if action=='operation':
