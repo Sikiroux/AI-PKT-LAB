@@ -3,6 +3,7 @@ import threading
 import unittest
 from unittest.mock import Mock, patch
 import desktop_controller as dc
+import sim_deployment as sim
 
 class ControllerTests(unittest.TestCase):
     def setUp(self):
@@ -21,6 +22,11 @@ class ControllerTests(unittest.TestCase):
         original=copy.deepcopy(self.state['devices']);self.call('state')
         with patch.object(dc,'admin'):self.call('operation',dict(operation='start',expected_revision=0))
         self.assertEqual(self.state['devices'],original);self.assertFalse(self.state['remote_session']);self.assertEqual(self.call('state')['service']['stage'],'media');self.c.workspace.event.assert_called_once()
+    def test_reset_keeps_ticket_seed(self):
+        self.state['desktop_services']['deployment']=sim.generate('ticket-seed','env')
+        original=copy.deepcopy(self.state['desktop_services']['deployment'])
+        with patch.object(dc,'admin'):r=self.call('operation',dict(operation='reset',expected_revision=0))
+        self.assertEqual(r['service']['station'],original['station']);self.assertEqual(r['service']['requirements'],original['requirements'])
     def test_reset_monotonic(self):
         self.call('state')
         with patch.object(dc,'admin'):

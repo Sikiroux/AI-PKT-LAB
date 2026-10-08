@@ -10,9 +10,12 @@ FAMILIES={'printing':('spooler_stopped','queue_paused','offline_mode','wrong_def
 KEYS=('desktop_incident','mixed_incident','directory_incident','file_incident','dns_incident')
 
 def prepare(s,now,target='random',minutes=30):
-    if target not in ('random',*FAMILIES):raise ValueError('Famille d’application inconnue.')
+    if target not in ('random','deployment',*FAMILIES):raise ValueError('Famille d’application inconnue.')
     if any(s.get(k) for k in KEYS) and not s['validated']:raise ValueError('Termine et vérifie l’intervention active.')
     if type(minutes) is not int or not 0<=minutes<=1440:raise ValueError('Durée de 0 à 1440 minutes.')
+    if target=='deployment':
+        import deployment_incidents
+        return deployment_incidents.prepare(s,now,minutes)
     s=copy.deepcopy(s);ds.ensure(s)
     for k in KEYS:s.pop(k,None)
     index=s.get('desktop_incident_count',0)+1;rng=random.Random(hashlib.sha256((s['seed']+':apps:v1:'+str(index)).encode()).hexdigest());family=rng.choice(list(FAMILIES)) if target=='random' else target;cause=rng.choice(FAMILIES[family]);d=s['desktop_services'];e=d['endpoint'];p=d['printing'];f=d['ftp'];uid=s['directory_user_id']
@@ -61,6 +64,9 @@ def public(s):
     i=s.get('desktop_incident');return {k:copy.deepcopy(i[k]) for k in ('id','title','description','goal','created','dialogue')} if i else None
 
 def checks(s,now):
+    if s['desktop_incident'].get('family')=='deployment':
+        import deployment_incidents
+        return deployment_incidents.checks(s)
     i=s['desktop_incident'];d=s['desktop_services'];f=d['ftp'];e=d['endpoint'];p=d['printing'];goal=i['goal'];unknown=False
     if goal=='print':
         r=ds.evaluate_print(s,'office',now);unknown=r['status']=='unknown'
@@ -90,6 +96,9 @@ def dialogue(s, ident, question, now=None):
     if question not in QUESTIONS:
         raise ValueError('Question inconnue.')
     family = incident['family']
+    if family=='deployment':
+        import deployment_incidents
+        return deployment_incidents.dialogue(s,question,now)
     if question == 'scope':
         answer = incident['description']
     elif question == 'when':

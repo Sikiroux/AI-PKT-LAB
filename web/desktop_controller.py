@@ -29,10 +29,11 @@ def handle(c,path,data):
                 operation=data.get('operation');revision=data.get('expected_revision')
                 if operation=='reset':
                     if type(revision) is not int or revision!=d['revision']:raise ValueError('L’atelier a changé. Actualise avant de poursuivre.')
-                    fresh=sim_deployment.generate(s['seed'],s.get('environment_id','legacy'))
+                    fresh=sim_deployment.generate(d.get('seed',s['seed']),s.get('environment_id','legacy'))
                     fresh.update(revision=d['revision']+1,attempt=d['attempt']+1);d=fresh
                 else:d=sim_deployment.apply(d,operation,payload,revision)
                 s['desktop_services']['deployment']=d
+                if s.get('desktop_incident',{}).get('family')=='deployment':s['validated']=False
                 c.workspace.event('Atelier de déploiement : '+str(operation))
             elif 'deployment' not in s['desktop_services']:
                 s['desktop_services']['deployment']=d;c.workspace.save()

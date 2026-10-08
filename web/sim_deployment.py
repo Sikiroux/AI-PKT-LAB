@@ -14,7 +14,7 @@ def generate(seed, environment_id):
     rng = random.Random(int.from_bytes(hashlib.sha256((str(seed)+':deployment:v1').encode()).digest(), 'big'))
     capacity = rng.choice([128, 256, 512])*1024
     image = rng.choice(['pro-base', 'pro-office'])
-    return dict(version=1, environment_id=environment_id, revision=0, attempt=1, stage='idle',
+    return dict(version=1, seed=str(seed), environment_id=environment_id, revision=0, attempt=1, stage='idle',
                 station='PC-ATELIER-'+hashlib.sha256(str(seed).encode()).hexdigest()[:4].upper(),
                 requirements=dict(image_id=image, locale=rng.choice(LOCALES), keyboard=rng.choice(KEYBOARDS), account='formation'),
                 images=copy.deepcopy(IMAGES), image_id=None, media_mounted=False, backup=None,
