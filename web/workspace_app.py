@@ -35,6 +35,7 @@ import client_workspaces as clients
 import company_registry
 import directory_console
 import sim_inventory
+import sim_peripherals
 from contextlib import contextmanager
 
 ROOT = Path(__file__).resolve().parent
@@ -315,6 +316,24 @@ class Controller:
                 right = 'read' if action == 'grant_read' else 'write'
                 return self.directory('operation', {'operation':'add_group_member','payload':{'group_id':s['directory_resource']['allowed_group_ids'][right][0], 'user_id':s['directory_user_id']}})
             return self.workspace.action(action)
+
+    def peripherals(self, action, data):
+        with self.lock:
+            s=self.workspace.state
+            if not s or not s.get('devices'):raise ValueError('Crée ou reprends un environnement.')
+            rows=self.workspace.workstations()
+            serial=data.get('station_serial')
+            matches=[p for p in rows if p['serial']==serial and (p.get('remote_supported') or p.get('role')=='technician')]
+            if len(matches)!=1:raise ValueError('Choisis un poste simulé de cet environnement.')
+            sim_peripherals.ensure(s,rows)
+            if action=='state':
+                self.workspace.save()
+                result=sim_peripherals.public(s,serial)
+            elif action=='operation':
+                result=sim_peripherals.operate(s,serial,data,time.time())
+                self.workspace.event('Périphérique local : '+str(data.get('operation')))
+            else:raise ValueError('Action de périphérique inconnue.')
+            return dict(result,station_serial=serial,station_name=matches[0]['name'])
 
     def inventory(self, action, data):
         with self.lock:

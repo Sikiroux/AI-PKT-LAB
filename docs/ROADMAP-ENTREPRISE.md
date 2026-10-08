@@ -58,3 +58,7 @@ Les demandes de service et changements planifiés complètent les incidents. La 
 Corriger en priorité les blocages, erreurs de preuve, pertes de sauvegarde et fenêtres inutilisables. Chaque correction significative a une reproduction et un test ciblé. Sauvegarder avant migration. Exécuter les suites requises avant commit ; distinguer tests automatisés et validation réelle dans PT.
 
 Différés : appareil définitivement HS, Packet Tracer complètement sans interface, appels IA, terminal IOS web complet. Le contrôle discret utilise Packet Tracer ouvert et son IPC : ce n’est pas un moteur PT headless indépendant.
+
+## Complément v0.46.3
+
+Équipement local livré pour les postes simulés : accessoires identifiés, branchement, entrée vidéo, aperçu local, remplacement, stock d’accessoires et historique. Les effets restent indépendants de RDP et du réseau. À poursuivre : coffre des accès locaux, demandes procédurales liées aux accessoires, puis mail/licences et parcours d’arrivée.

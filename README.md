@@ -10,7 +10,9 @@ en anglais au choix — puis vérifie ta réparation. Propose aussi des missions
 > l'assistance d'une IA (Claude), testé et validé dans Packet Tracer 9.
 > Voir `docs/JOURNAL.md` pour la démarche, les découvertes et les bugs résolus.
 
-## Interface web — livraison v0.46.2
+## Interface web — livraison v0.46.3
+
+Les fiches proposent désormais **Équipement local** : écran, clavier et souris, connexions, remplacement et aperçu local persistants. Ces actions ne modifient pas le réseau ou la prise en main distante. Voir [v0.46.3](docs/V0463-PERIPHERIQUES.md).
 
 Le bureau du technicien ajoute **Fiches des postes** et **Documentation** : sélection par numéro de série, prise en main ciblée et six procédures consultables. Voir [v0.46.2](docs/V0462-FICHES-DOCUMENTATION.md).
 
