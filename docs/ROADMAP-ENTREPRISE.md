@@ -25,6 +25,10 @@ Premier cycle de réserve/remise/restitution et consultation du parc commun. La 
 
 L’atelier visuel est lié à un article du stock ; la remise exige son bilan réussi. La restitution démarre un nouveau cycle protégé contre les anciennes fenêtres. Le remplacement du poste connecté reste à réaliser. Voir [le périmètre](V0461-STOCK-DEPLOIEMENT.md).
 
+## Livraison v0.46.2
+
+Fiches des postes et six procédures intégrées au bureau. Le coffre d’accès locaux, les périphériques et leurs interventions sont les prochains blocs avant l’extension des services. Voir [le périmètre](V0462-FICHES-DOCUMENTATION.md).
+
 ## Suite envisagée
 
 | Version | Objectif | Critère de sortie |

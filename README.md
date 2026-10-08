@@ -10,9 +10,11 @@ en anglais au choix — puis vérifie ta réparation. Propose aussi des missions
 > l'assistance d'une IA (Claude), testé et validé dans Packet Tracer 9.
 > Voir `docs/JOURNAL.md` pour la démarche, les découvertes et les bugs résolus.
 
-## Interface web — livraison v0.46.1
+## Interface web — livraison v0.46.2
 
-Le bureau du technicien ajoute **Parc et stock** : réserve, remise à un employé et restitution persistantes. La préparation passe désormais par un atelier visuel lié au numéro de série ; la remise exige un bilan réussi. Aucun appareil réseau n’est ajouté automatiquement. Voir [v0.46.1](docs/V0461-STOCK-DEPLOIEMENT.md). Voir [v0.46](docs/V046-PARC-STOCK.md).
+Le bureau du technicien ajoute **Fiches des postes** et **Documentation** : sélection par numéro de série, prise en main ciblée et six procédures consultables. Voir [v0.46.2](docs/V0462-FICHES-DOCUMENTATION.md).
+
+Le bureau du technicien propose **Parc et stock** : réserve, remise à un employé et restitution persistantes. La préparation passe désormais par un atelier visuel lié au numéro de série ; la remise exige un bilan réussi. Aucun appareil réseau n’est ajouté automatiquement. Voir [v0.46.1](docs/V0461-STOCK-DEPLOIEMENT.md). Voir [v0.46](docs/V046-PARC-STOCK.md).
 
 La console d’annuaire propose les vues utilisateurs, groupes, ordinateurs, OU, historique et stratégie, avec protection contre les modifications depuis une vue périmée. Voir [v0.45](docs/V045-ANNUAIRE-CONSOLES.md).
 
