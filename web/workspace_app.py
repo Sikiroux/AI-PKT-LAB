@@ -324,6 +324,9 @@ class Controller:
             outcome=sim_files.perform_file_action(s['file_service'],req,files_adapter.context(s,now),now)
             if outcome['result']['allowed']:
                 s['file_service']=outcome['service'];s['files']=files_adapter.names(s)
+                if req.get('action')=='read':
+                    import workstation_requests
+                    workstation_requests.record(s,'read',req.get('file_id'),now)
                 if req.get('action') in ('write','delete'):s['validated']=False
                 self.workspace.save()
             return dict(result=files_adapter.presentation(outcome['result']),revision=s['file_service']['revision'])

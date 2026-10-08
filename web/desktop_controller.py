@@ -51,7 +51,11 @@ def handle(c,path,data):
         if app=='printing' and action=='print':
             r=ds.print_job(s,data.get('name'),data.get('queue_id'),now);s['validated']=False;c.workspace.event('Impression : '+r['code']);return dict(result=r,service=ds.public(s)['printing'])
         if app=='ftp' and action in ('login','logout','list','download','upload'):
-            r=ds.ftp_action(s,action,payload,'client',now);s['validated']=False;c.workspace.event('FTP '+action+' : '+r['code']);return dict(result=r,revision=s['desktop_services']['ftp']['revision'])
+            r=ds.ftp_action(s,action,payload,'client',now)
+            if r.get('allowed') and action in ('download','upload'):
+                import workstation_requests
+                workstation_requests.record(s,action,payload.get('name'),now)
+            s['validated']=False;c.workspace.event('FTP '+action+' : '+r['code']);return dict(result=r,revision=s['desktop_services']['ftp']['revision'])
         if app=='endpoint' and action=='read-local':
             name=ds.file_name(data.get('name'));files=s['desktop_services']['endpoint']['local_files']
             if name not in files:raise ValueError('Fichier local absent.')

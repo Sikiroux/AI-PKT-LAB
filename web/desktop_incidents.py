@@ -10,9 +10,12 @@ FAMILIES={'printing':('spooler_stopped','queue_paused','offline_mode','wrong_def
 KEYS=('desktop_incident','mixed_incident','directory_incident','file_incident','dns_incident')
 
 def prepare(s,now,target='random',minutes=30):
-    if target not in ('random','deployment',*FAMILIES):raise ValueError('Famille d’application inconnue.')
+    if target not in ('random','deployment','workstation_setup',*FAMILIES):raise ValueError('Famille d’application inconnue.')
     if any(s.get(k) for k in KEYS) and not s['validated']:raise ValueError('Termine et vérifie l’intervention active.')
     if type(minutes) is not int or not 0<=minutes<=1440:raise ValueError('Durée de 0 à 1440 minutes.')
+    if target=='workstation_setup':
+        import workstation_requests
+        return workstation_requests.prepare(s,now,minutes)
     if target=='deployment':
         import deployment_incidents
         return deployment_incidents.prepare(s,now,minutes)
@@ -64,6 +67,9 @@ def public(s):
     i=s.get('desktop_incident');return {k:copy.deepcopy(i[k]) for k in ('id','title','description','goal','created','dialogue')} if i else None
 
 def checks(s,now):
+    if s['desktop_incident'].get('family')=='workstation_setup':
+        import workstation_requests
+        return workstation_requests.checks(s,now)
     if s['desktop_incident'].get('family')=='deployment':
         import deployment_incidents
         return deployment_incidents.checks(s)
@@ -96,6 +102,10 @@ def dialogue(s, ident, question, now=None):
     if question not in QUESTIONS:
         raise ValueError('Question inconnue.')
     family = incident['family']
+    if family=='workstation_setup':
+        import workstation_requests
+        answer=incident['description'] if question=='scope' else 'Cette demande prépare le poste pour son utilisateur.' if question=='when' else 'La préparation est conforme.' if question=='retest' and all(r['status']=='valide' for r in workstation_requests.checks(s,now)) else 'Il faut réaliser les actions demandées sur le poste, puis vérifier leur résultat.'
+        row=dict(at=now,question=QUESTIONS[question],answer=answer,speaker=s['requester']);incident['dialogue'].append(row);incident['dialogue']=incident['dialogue'][-60:];return row
     if family=='deployment':
         import deployment_incidents
         return deployment_incidents.dialogue(s,question,now)
