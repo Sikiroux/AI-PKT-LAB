@@ -13,12 +13,16 @@ Les numéros ci-dessous sont des objectifs, pas des promesses de fonctionnalité
 
 Référentiel des personnes représentées, comptes, appareils et tickets ; identifiants logiques reproductibles et portée par environnement. Le personnel complet et l’historique de remplacement matériel restent à étendre. Voir [le contrat et les limites](V044-REFERENTIEL.md).
 
+## Livraison v0.45
+
+Console d’annuaire : utilisateurs, groupes, ordinateurs, OU, historique, stratégie et refus des modifications périmées. Messagerie et licences restent au bloc v0.47. Voir [le périmètre](V045-ANNUAIRE-CONSOLES.md).
+
 ## Suite envisagée
 
 | Version | Objectif | Critère de sortie |
 |---|---|---|
 | 0.44 | Référentiel procédural commun | Un employé, son compte, son matériel et ses tickets partagent des identifiants stables. Même seed et même version de génération : même état initial. |
-| 0.45 | Affiner les applications d’administration | Séparer les outils reproduits (annuaire, licences, messagerie) tout en reliant les fiches utilisateurs. Définir les références réelles et limites de fidélité. |
+| 0.45 | Affiner les applications d’administration | Affiner la console d’annuaire et les liens des fiches utilisateurs. Définir les références réelles et limites de fidélité. |
 | 0.46 | Parc matériel et préparation | Stock, attribution, restitution et installation visuelle : chaque opération persiste et modifie l’inventaire. |
 | 0.47 | Mail, licences et documents | Comptes mail et conventions, places disponibles, documents de remise et validation des résultats attendus. |
 | 0.48 | Arrivée d’employé complète | Préparer compte, accès, mail, licences, poste, documents et livraison à partir d’une demande procédurale. |

@@ -10,7 +10,9 @@ en anglais au choix — puis vérifie ta réparation. Propose aussi des missions
 > l'assistance d'une IA (Claude), testé et validé dans Packet Tracer 9.
 > Voir `docs/JOURNAL.md` pour la démarche, les découvertes et les bugs résolus.
 
-## Interface web — livraison v0.44
+## Interface web — livraison v0.45
+
+La console d’annuaire propose les vues utilisateurs, groupes, ordinateurs, OU, historique et stratégie, avec protection contre les modifications depuis une vue périmée. Voir [v0.45](docs/V045-ANNUAIRE-CONSOLES.md).
 
 Le référentiel relie désormais personnes représentées, comptes, postes et tickets de la même entreprise. Les liens persistent après renommage et reprise. Voir [v0.44](docs/V044-REFERENTIEL.md).
 

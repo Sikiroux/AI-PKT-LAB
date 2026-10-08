@@ -33,6 +33,7 @@ import desktop_incidents
 import desktop_controller
 import client_workspaces as clients
 import company_registry
+import directory_console
 from contextlib import contextmanager
 
 ROOT = Path(__file__).resolve().parent
@@ -325,7 +326,8 @@ class Controller:
                 if n['status'] != 'passed' or not n['observed_at'] <= now <= n['valid_until'] or ctx['directory_service'] != 'running':
                     raise ValueError('Annuaire inaccessible depuis le technicien. Vérifie le réseau maintenant.')
                 if action == 'state':
-                    return {'directory':sim_ad.public_directory(s['directory']), 'requester_id':s['directory_user_id'], 'resource':s['directory_resource']}
+                    return {'directory':sim_ad.public_directory(s['directory']), 'requester_id':s['directory_user_id'], 'resource':s['directory_resource'], 'administration':directory_console.public_context(s)}
+                directory_console.check_revision(s['directory'], data)
                 outcome = sim_ad.apply_operation(s['directory'], data.get('operation'), data.get('payload',{}), ad.actor(s), now)
                 s['directory'] = outcome['directory']
                 files_adapter.sync_catalog(s)
