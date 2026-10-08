@@ -85,6 +85,21 @@ class ClientWorkspacesTests(unittest.TestCase):
         self.assertIn(('second','192.168.50.10'),calls)
         r=self.s['client_workspaces']['second'];self.assertEqual(r['local']['observation']['probes']['share']['source_device'],'second')
         self.assertEqual(self.s['observation']['probes']['share']['source_device'],'client')
+    def test_discreet_observation_is_batched_targeted_and_manual_only(self):
+        from diagnostic import Engine
+        self.s['network_file']='C:/agency.pkt';engine=Engine(Mock())
+        engine.snapshot=Mock(return_value=dict(saved_filename=self.s['network_file'],devices=[dict(d,ports=[dict(name='FastEthernet0',linked=True,ip=d['ip'],mask='255.255.255.0')]) for d in self.s['devices'].values()]))
+        engine.quiet_pings=Mock(return_value=[dict(status='valide',detail='ICMP IPC') for _ in range(4)])
+        engine.ping=Mock();self.c.engine=engine
+        self.c.observe(True,client_serial='second',accelerate=True)
+        self.assertEqual(engine.quiet_pings.call_count,1)
+        self.assertTrue(engine.quiet_pings.call_args.kwargs['accelerate'])
+        self.assertEqual(engine.quiet_pings.call_args.args[0][0],('technician','192.168.50.3'))
+        engine.quiet_pings.reset_mock();self.c.observe()
+        self.assertEqual(engine.quiet_pings.call_count,2)
+        self.assertTrue(all(not call.kwargs['accelerate'] for call in engine.quiet_pings.call_args_list))
+        engine.ping.assert_not_called()
+
     def test_failure_of_second_closes_only_second_session(self):
         self.prove_second();self.s['client_workspaces']['second']['local']['observation']['probes']['remote']['status']='failed'
         self.assertFalse(self.c.public_snapshot('second')['checks']['remote']['allowed']);self.assertTrue(self.c.public_snapshot()['checks']['remote']['allowed'])

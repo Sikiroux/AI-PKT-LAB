@@ -59,10 +59,12 @@ class WorkspaceRoutes:
             import client_workspaces
             if serial!=client_workspaces.primary_serial(s) and serial not in s.get('client_workspaces',{}):raise ValueError('Bureau simulé inconnu pour ce poste.')
             if action=='refresh':
-                c.observe(blocking=True);handler.send(200,c.public_snapshot(serial));return True
+                c.observe(blocking=True,client_serial=serial,accelerate=True);handler.send(200,c.public_snapshot(serial));return True
             allowed=action.startswith(('desktop/','files/','directory/','dns/')) or action in ('desktop-incident','ping') or (action=='action' and data.get('action') in ('connect','disconnect','read','write'))
             if not allowed:raise ValueError('Cette action concerne l’entreprise, pas un poste distant.')
             if action=='desktop-incident' and any(s.get(k) for k in client_workspaces.INCIDENT_KEYS) and not s.get('validated'):raise ValueError('Termine le ticket actif avant de créer une autre intervention.')
+            if action=='action' and data.get('action')=='connect' and callable(getattr(type(c.engine),'quiet_pings',None)):
+                c.observe(blocking=True,client_serial=serial,accelerate=True)
             with c.client_scope(serial):return self._dispatch_locked(handler,data)
         return self._dispatch_locked(handler,data)
 
@@ -103,7 +105,8 @@ class WorkspaceRoutes:
             result=c.dns(action.removeprefix('dns/'),data)
         elif action == 'select': result = c.select(data.get('id'))
         elif action == 'refresh':
-            c.observe(blocking=True)
+            if callable(getattr(type(c.engine),'quiet_pings',None)):c.observe(blocking=True,accelerate=True)
+            else:c.observe(blocking=True)
             with c.lock: result = c.workspace.public()
         elif action.startswith('directory/'):
             if data.get('environment_id') != (c.workspace.state or {}).get('environment_id','legacy'):

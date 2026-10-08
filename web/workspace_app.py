@@ -194,12 +194,15 @@ class Controller:
                     self.workspace=original;self._canonical_workspace=None
                     self._read_state=copy.deepcopy(original.state)
 
-    def observe(self, blocking=False):
+    def observe(self, blocking=False, client_serial=None, accelerate=False):
         if not self.lock.acquire(blocking=blocking):return
         try:
             s=self.workspace.state
             if not s:return
-            self._observe_one(blocking=True)
+            if client_serial:
+                with self.client_scope(client_serial):self._observe_one(blocking=True,accelerate=accelerate)
+                return
+            self._observe_one(blocking=True,accelerate=accelerate)
             # One observation per simulated client; never share another PC's ping proof.
             for serial in list(s.get('client_workspaces',{})):
                 if serial!=clients.primary_serial(s):
@@ -207,7 +210,7 @@ class Controller:
             self._read_state=copy.deepcopy(self.workspace.state)
         finally:self.lock.release()
 
-    def _observe_one(self, blocking=False):
+    def _observe_one(self, blocking=False, accelerate=False):
         # Ne jamais attendre le pont si une action utilisateur l'utilise déjà.
         if not self.lock.acquire(blocking=blocking):
             return
@@ -222,19 +225,24 @@ class Controller:
                 client=found['client'];ports=[p for p in client.get('ports',[]) if p.get('name')=='FastEthernet0']
                 s['network_observation']=dict(at=time.time(),devices=workspace_links.signature(snapshot,s),client_link=ports[0].get('linked') if ports else None,interfaces={role:[dict(p) for p in device.get('ports',[]) if p.get('name')=='FastEthernet0'] for role,device in found.items()})
                 probes = {}
+                jobs=[('remote','technician','client'),('share','client','server'),('directory','technician','server')]
+                if 'desktop_services' in s:jobs.append(('printing','client',s['desktop_services']['printing']['printer']['device_role']))
+                batch=None
+                if callable(getattr(type(self.engine),'quiet_pings',None)):
+                    batch=dict(zip([j[0] for j in jobs],self.engine.quiet_pings([(found[source]['name'],s['devices'][target_role]['ip']) for key,source,target_role in jobs],accelerate=accelerate)))
                 for key, source, target_role in (('remote', 'technician', 'client'), ('share', 'client', 'server'), ('directory', 'technician', 'server')):
                     target = s['devices'][target_role]['ip']
-                    ping = self.engine.ping(found[source]['name'], target)
+                    ping = batch[key] if batch is not None else self.engine.ping(found[source]['name'], target)
                     probes[key] = dict(at=time.time(), source='Packet Tracer',
                         status={'valide': 'passed', 'non satisfait': 'failed'}.get(ping['status'], 'unknown'),
                         detail=ping.get('detail', ''), source_device=found[source]['name'], target=target)
                 if 'desktop_services' in s:
                     printer=s['desktop_services']['printing']['printer'];target=s['devices'][printer['device_role']]['ip']
-                    ping=self.engine.ping(found['client']['name'],target)
+                    ping=batch['printing'] if batch is not None else self.engine.ping(found['client']['name'],target)
                     probes['printing']=dict(at=time.time(),source='Packet Tracer',status={'valide':'passed','non satisfait':'failed'}.get(ping['status'],'unknown'),detail=ping.get('detail',''),source_device=found['client']['name'],target=target)
                 outside=s.get('technician_locations',{}).get('outside')
                 if outside and (s.get('technician_session') or {}).get('location')=='outside':
-                    ping=self.engine.ping(found['technician']['name'],outside['gateway'])
+                    ping=self.engine.quiet_pings([(found['technician']['name'],outside['gateway'])],accelerate=accelerate)[0] if batch is not None else self.engine.ping(found['technician']['name'],outside['gateway'])
                     probes['vpn_gateway']=dict(at=time.time(),source='Packet Tracer',status={'valide':'passed','non satisfait':'failed'}.get(ping['status'],'unknown'),detail=ping.get('detail',''),source_device=found['technician']['name'],target=outside['gateway'])
             if s.get('technician_session',{}).get('location')=='outside' and probes.get('vpn_gateway',{}).get('status')!='passed':s['technician_session']['vpn'].update(connected=False,expires_at=0)
             statuses = [p['status'] for p in probes.values()]

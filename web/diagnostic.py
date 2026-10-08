@@ -73,6 +73,10 @@ class Engine:
         data=json.loads(self.call(SNAPSHOT_JS))
         if 'error' in data:raise RuntimeError(data['error'])
         return data
+    def quiet_pings(self,pairs,accelerate=False):
+        import quiet_checks
+        return quiet_checks.run(self,pairs,accelerate)
+
     def ping(self,name,target):
         target=str(ipaddress.ip_address(target));dev=json.dumps(name);cmd=json.dumps('ping '+target)
         arm=f"var cl=ipc.network().getDevice({dev}).getCommandLine();var o=String(cl.getOutput());var m=o.match(/Packets: Sent|Success rate/g);var base=m?m.length:0;cl.enterCommand({cmd});reportResult(String(base));"

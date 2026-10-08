@@ -10,7 +10,7 @@ en anglais au choix — puis vérifie ta réparation. Propose aussi des missions
 > l'assistance d'une IA (Claude), testé et validé dans Packet Tracer 9.
 > Voir `docs/JOURNAL.md` pour la démarche, les découvertes et les bugs résolus.
 
-## Interface web — livraison v0.39
+## Interface web — livraison v0.40
 
 Lance `LANCER-WEB.bat` pour le service desk et les bureaux simulés.
 Le générateur de labs Packet Tracer reste accessible dans l’interface et avec `lancer.bat`.
@@ -19,6 +19,11 @@ Les nouvelles entreprises disposent de deux bureaux clients distincts et d’un 
 liés aux appareils de leur unique réseau Packet Tracer. Chaque client conserve ses fichiers locaux,
 applications, réglages et sessions ; les services d’entreprise restent partagés.
 Les interventions applicatives peuvent cibler un poste choisi ou choisi procéduralement.
+
+Les contrôles internes utilisent désormais l’API ICMP sans injection CLI, par lots.
+Le fast forward est réservé aux contrôles manuels ; les changements de statut et les notes
+n’attendent plus le verrou réseau. Cette méthode est **à tester dans Packet Tracer 9**.
+Mode d’emploi et essai du pont : [docs/V040-CONTROLES-DISCRETS.md](docs/V040-CONTROLES-DISCRETS.md).
 
 Mode d’emploi et limites : [docs/V039-BUREAUX.md](docs/V039-BUREAUX.md).
 Les anciennes sauvegardes restent compatibles. La validation visuelle et les essais du pont

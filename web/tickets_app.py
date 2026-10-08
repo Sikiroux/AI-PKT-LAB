@@ -15,6 +15,14 @@ import desktop_incidents
 from workspace_routes import WorkspaceRoutes
 import timers
 import re
+import copy
+from functools import wraps
+
+def metadata_locked(fn):
+    @wraps(fn)
+    def wrapped(self,*args,**kwargs):
+        with self.metadata_lock:return fn(self,*args,**kwargs)
+    return wrapped
 import live_faults,vlan_faults
 import site_services
 from service_desk import ServiceDesk
@@ -30,6 +38,7 @@ def device(snapshot, name):
 
 class Tickets:
     def __init__(self, engine, path):
+        self.metadata_lock=threading.RLock()
         self.engine=engine; self.path=Path(path)
         self.open_target=None
         self.desk=None
@@ -40,6 +49,7 @@ class Tickets:
             if t.get('injection',{}).get('state')=='pending':
                 t['injection']['state']='uncertain';t['status']='a_controler';interrupted=True
         if interrupted:self.save()
+    @metadata_locked
     def append_workspace_incident(self,state):
         incident=state.get('desktop_incident') or state.get('mixed_incident') or state.get('dns_incident') or state.get('file_incident') or state.get('directory_incident')
         if not incident:return
@@ -50,6 +60,7 @@ class Tickets:
         self.state['tickets'].append(dict(id=incident['id'],kind='workspace',name=incident.get('station',incident.get('target_name',state['devices']['client']['name'])),target_serial=incident.get('target_serial',state['devices']['client'].get('serial')),title=incident['title'],description=incident['description'],workspace_goal=incident['goal'],status='nouveau',severity='elevee' if incident.get('level',1)>1 else 'moderee',created=now(),checks=[],complete=False,notes='',dialogue=incident.get('dialogue',[]),timer=timers.configure(incident.get('timer_minutes',30),'training')))
         self.event(incident['id']+' : nouvelle intervention sur l’environnement actif.')
 
+    @metadata_locked
     def bind_environment(self, state, folder, generator, controller):
         site=self.state.get('site') or {}
         if site.get('environment_id')==state.get('environment_id') and site.get('reset_id')==state.get('reset_id') and self.path==Path(folder)/'tickets.json':
@@ -62,7 +73,7 @@ class Tickets:
         if state.get('reset_id') and (fresh.state.get('site') or {}).get('reset_id')!=state['reset_id']:
             if path.exists():shutil.copy2(path,path.with_name('tickets-before-reset-'+state['reset_id']+'.json'))
             fresh.state={'site':None,'tickets':[],'events':[]}
-        self.__dict__.update(fresh.__dict__)
+        self.__dict__.update({k:v for k,v in fresh.__dict__.items() if k!='metadata_lock'})
         self.controller = controller
         client = state['devices']['client']
         self.state['site'] = self.state.get('site') or dict(devices=[dict(name=d['name'], serial=d['serial']) for d in state['devices'].values()], inventory=[])
@@ -82,15 +93,18 @@ class Tickets:
         defaults = dict(switch='SW1',server='192.168.50.10',network='192.168.50.0/24',client='PC-ADMIN',ap='AP1',site='AG1')
         return (self.state.get('site') or {}).get('profile',{}).get(key,defaults[key])
 
+    @metadata_locked
     def save(self):
         self.path.parent.mkdir(parents=True, exist_ok=True)
         temp=self.path.with_suffix('.tmp')
         temp.write_text(json.dumps(self.state,ensure_ascii=False,indent=2),encoding='utf-8');os.replace(temp,self.path)
+    @metadata_locked
     def event(self,text): self.state['events'].append({'date':now(),'text':text});self.save()
+    @metadata_locked
     def public(self):
-        return {'site':{'name':self.state['site'].get('name','Agence de test'),'environment_id':self.state['site'].get('environment_id'),'profile':self.state['site'].get('profile',{}),'devices':len(self.state['site']['devices']),'file':self.state['site'].get('file'),'ready':self.readiness,'inventory':self.state['site'].get('inventory',[]),'inventory_at':self.state['site'].get('inventory_at'),'service_capabilities':self.state['site'].get('service_capabilities',[])} if self.state['site'] else None,
+        return copy.deepcopy({'site':{'name':self.state['site'].get('name','Agence de test'),'environment_id':self.state['site'].get('environment_id'),'profile':self.state['site'].get('profile',{}),'devices':len(self.state['site']['devices']),'file':self.state['site'].get('file'),'ready':self.readiness,'inventory':self.state['site'].get('inventory',[]),'inventory_at':self.state['site'].get('inventory_at'),'service_capabilities':self.state['site'].get('service_capabilities',[])} if self.state['site'] else None,
                 'tickets':[{k:v for k,v in t.items() if k not in ('baseline','injection','service_scenario','procedural')} for t in self.state['tickets']],
-                'session':self.desk.public() if self.desk else None,'service_jobs':self.desk.g.jobs() if self.desk else [],'console_diagnostic':self.state.get('console_diagnostic'),'events':self.state['events'][-40:]}
+                'session':self.desk.public() if self.desk else None,'service_jobs':self.desk.g.jobs() if self.desk else [],'console_diagnostic':self.state.get('console_diagnostic'),'events':self.state['events'][-40:]})
     def check_file(self,snapshot,expected):
         actual=snapshot.get('saved_filename')
         if not actual:raise ValueError('Le pont ne confirme pas le nom du fichier ouvert.')
@@ -327,7 +341,9 @@ class Tickets:
             active=self.controller.workspace.state.get('desktop_incident') or self.controller.workspace.state.get('mixed_incident') or self.controller.workspace.state.get('dns_incident') or self.controller.workspace.state.get('file_incident') or self.controller.workspace.state.get('directory_incident') or {}
             if t['id'].startswith(('INC-AD-','INC-FIC-','INC-DNS-','INC-MIX-','INC-APP-')) and t['id'] != active.get('id'):
                 raise ValueError('Cet incident appartient à un exercice précédent.')
-            self.controller.observe(blocking=True)
+            if callable(getattr(type(self.controller.engine),'quiet_pings',None)):
+                self.controller.observe(blocking=True,client_serial=t.get('target_serial') or self.controller.workspace.state.get('devices',{}).get('client',{}).get('serial'),accelerate=True)
+            else:self.controller.observe(blocking=True)
             public=self.controller.workspace.public()
             result=public['checks']['read']
             t['checks']=[dict(label='Réseau et accès en lecture du partage',status='valide' if result['allowed'] else 'non satisfait',detail='Contrôle actuel du réseau Packet Tracer et des droits simulés.')]
@@ -461,7 +477,7 @@ def run():
                     self.send_response(200);self.send_header('Content-Type','text/html; charset=utf-8' if p.suffix=='.html' else 'application/octet-stream');self.send_header('Content-Length',str(len(body)));self.end_headers();self.wfile.write(body);return
                 except Exception:return self.send(404,{'error':'Fichier introuvable'})
             if self.path=='/state':
-                with workspace.lock, engine.lock:return self.send(200,dict(tickets.public(),connected=bridge.is_connected))
+                return self.send(200,dict(tickets.public(),connected=bridge.is_connected))
             self.send(404,{'error':'Page inconnue'})
         def check_environment(self,data):
             site=tickets.state.get('site') or {}
@@ -473,6 +489,10 @@ def run():
                 n=int(self.headers.get('Content-Length','0'))
                 if not 0<=n<=8192:raise ValueError('Requete trop grande')
                 data=json.loads(self.rfile.read(n) or b'{}')
+                if self.path=='/action' and data.get('action') in ('take','wait','notes','severity','timer'):
+                    with tickets.metadata_lock:
+                        self.check_environment(data)
+                        return self.send(200,tickets.action(data['id'],data['action'],data))
                 if workspace_routes.post(self,data):return
                 if self.path in ('/new','/action','/inventory','/open','/ready','/attach','/service-ticket','/session-config','/session-control','/service-scan','/site-service','/console-test'):
                     with workspace.lock:
