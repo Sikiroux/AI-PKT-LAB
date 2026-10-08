@@ -322,6 +322,10 @@ class Controller:
             if not s or not s.get('devices'):raise ValueError('Crée ou reprends un environnement.')
             company_registry.ensure(s)
             if sim_inventory.ensure(s):self.workspace.save()
+            if action in ('deployment-state','deployment-operation'):
+                result=sim_inventory.deployment(s,action,data,time.time())
+                if action=='deployment-operation':self.workspace.event('Préparation du stock : '+str(data.get('operation')))
+                return result
             if action=='state':return {'inventory':sim_inventory.public(s),'registry':company_registry.public(s)}
             if action!='operation':raise ValueError('Action de stock inconnue.')
             sim_inventory.operate(s,data,time.time())

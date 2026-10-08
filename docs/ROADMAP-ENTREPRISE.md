@@ -21,6 +21,10 @@ Console d’annuaire : utilisateurs, groupes, ordinateurs, OU, historique, strat
 
 Premier cycle de réserve/remise/restitution et consultation du parc commun. La préparation est déclarative ; le lien avec le déploiement visuel et le remplacement des postes connectés restent à développer. Voir [le périmètre](V046-PARC-STOCK.md).
 
+## Livraison v0.46.1
+
+L’atelier visuel est lié à un article du stock ; la remise exige son bilan réussi. La restitution démarre un nouveau cycle protégé contre les anciennes fenêtres. Le remplacement du poste connecté reste à réaliser. Voir [le périmètre](V0461-STOCK-DEPLOIEMENT.md).
+
 ## Suite envisagée
 
 | Version | Objectif | Critère de sortie |

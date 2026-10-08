@@ -28,19 +28,18 @@ const byButton=(root,text)=>find(root,e=>e.tagName==='button'&&e.textContent===t
 let inventory={revision:0,items:{reserve:{id:'reserve',name:'Portable réserve',serial:'STK-01',status:'stock',prepared:false,employee_id:null}},history:[]};
 const registry={assets:{pc:{represented:true,name:'PC-01',serial:'NET-01',employee_id:'person'}},people:{person:{id:'person',display_name:'Mina',username:'mina',represented:true,account_present:true}}};
 let fail=false;
-ctx.fetch=async(url,options)=>{const req=JSON.parse(options.body||'{}');requests.push([url,req]);if(fail)return{ok:false,json:async()=>({error:'Stock périmé'})};if(url.endsWith('operation')){const item=inventory.items[req.item_id];if(req.operation==='prepare')item.prepared=true;if(req.operation==='assign'){item.status='assigned';item.employee_id=req.employee_id}if(req.operation==='return'){item.status='stock';item.employee_id=null;item.prepared=false}inventory.revision++}return{ok:true,json:async()=>({inventory:JSON.parse(JSON.stringify(inventory)),registry})}};
+ctx.fetch=async(url,options)=>{const req=JSON.parse(options.body||'{}');requests.push([url,req]);if(url.includes('inventory/deployment-'))return{ok:true,json:async()=>({cycle:3,service:{revision:0,station:'STK-01',stage:'idle',attempt:1,images:[{id:'image',name:'Image'}],requirements:{image_id:'image',locale:'fr-FR',keyboard:'fr-FR',account:'formation'}},result:{passed:false,checks:{}}})};if(fail)return{ok:false,json:async()=>({error:'Stock périmé'})};if(url.endsWith('operation')){const item=inventory.items[req.item_id];if(req.operation==='prepare')item.prepared=true;if(req.operation==='assign'){item.status='assigned';item.employee_id=req.employee_id}if(req.operation==='return'){item.status='stock';item.employee_id=null;item.prepared=false}inventory.revision++}return{ok:true,json:async()=>({inventory:JSON.parse(JSON.stringify(inventory)),registry})}};
 (async()=>{
  discard=true;vm.runInContext('inventoryApp()',ctx);await tick();const root=contents[0];
  assert(!byButton(root,'Enregistrer la remise'),'Unprepared stock cannot be handed over');
- await byButton(root,'Confirmer la préparation vérifiée').onclick();
- assert.equal(requests.at(-1)[1].expected_revision,0);
+ await byButton(root,'Préparer ce matériel').onclick();await tick();const installer=contents.at(-1);assert(vm.runInContext("windows.has('deployment-stock-reserve')",ctx),'Bound workshop has a separate identity');await byButton(installer,'Commencer le déploiement').onclick();assert.equal(requests.at(-1)[1].item_id,'reserve');assert.equal(requests.at(-1)[1].expected_cycle,3);assert.equal(requests.at(-1)[1].expected_revision,0);inventory.items.reserve.prepared=true;inventory.revision=1;await byButton(root,'Actualiser le stock').onclick();
  await byButton(root,'Enregistrer la remise').onclick();
  assert.equal(requests.at(-1)[1].employee_id,'person');assert.equal(requests.at(-1)[1].expected_revision,1);
  assert(find(root,e=>e.textContent==='Attribué à Mina'));
  fail=true;await byButton(root,'Enregistrer la restitution').onclick();
  assert(find(root,e=>e.textContent==='Stock périmé'));assert(byButton(root,'Enregistrer la restitution'),'Failed return must retain assignment');
  fail=false;await byButton(root,'Enregistrer la restitution').onclick();
- assert(byButton(root,'Confirmer la préparation vérifiée'));
+ assert(byButton(root,'Préparer ce matériel'));assert(!byButton(root,'Enregistrer la remise')); 
  assert(requests.every(([url])=>url.includes('/inventory/')),'Stock UI does not invoke PT probes');
  console.log('Inventory UI: preparation, employee targeting, revision, error rollback and return OK');
 })().catch(e=>{console.error(e);process.exitCode=1});
