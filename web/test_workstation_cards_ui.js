@@ -39,6 +39,7 @@ ctx.fetch=async(url,options)=>{const req=JSON.parse(options.body||'{}');requests
  fail=true;await byButton(root,'Actualiser les fiches').onclick();assert(!byButton(root,'PC-01 · serial-a'));assert(find(root,e=>e.textContent==='Session indisponible'));fail=false;
  const before=requests.length;vm.runInContext('documentationApp()',ctx);const docs=contents.at(-1);assert(find(docs,e=>e.textContent==='Repérer son environnement'));
  vm.runInContext("documentationApp('stock')",ctx);assert(find(docs,e=>e.tagName==='h2'&&e.textContent==='Préparer et remettre un matériel'));assert.equal(requests.length,before,'Documentation never probes PT');
+ vm.runInContext("documentationApp('ticket-queue')",ctx);assert(find(docs,e=>e.tagName==='h2'&&e.textContent==='Comprendre la file des tickets'));assert.equal(requests.length,before);
  const query=find(docs,e=>e.tagName==='input');query.value='inexistant';query.oninput();assert(find(docs,e=>e.textContent==='Aucune procédure ne correspond à cette recherche.'));
  assert(requests.filter(([url])=>url.endsWith('/action')).length===1,'Reading cards must not trigger a connection');
  console.log('Workstation cards and documentation: target identity, search, technician distinction, stale-view clearing and read-only documentation OK');

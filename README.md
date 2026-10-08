@@ -10,7 +10,9 @@ en anglais au choix — puis vérifie ta réparation. Propose aussi des missions
 > l'assistance d'une IA (Claude), testé et validé dans Packet Tracer 9.
 > Voir `docs/JOURNAL.md` pour la démarche, les découvertes et les bugs résolus.
 
-## Interface web — livraison v0.47
+## Interface web — livraison v0.47.1
+
+La v0.47.1 clarifie la file : scénario actif en tête, filtres À préparer / Intervention active, réglages adaptés au catalogue et compte à rebours des arrivées. Voir [le guide](docs/V0471-ERGONOMIE-FILE.md).
 
 Nouveauté : premier ticket procédural pour les nouvelles entreprises, file de demandes et arrivées réglables (5 minutes / plafond 3 par défaut). Une seule panne préparée à la fois. Voir [la documentation v0.47](docs/V047-FILE-DE-TICKETS.md).
 
