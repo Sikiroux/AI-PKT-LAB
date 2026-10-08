@@ -6,6 +6,7 @@ from addressing import private_networks
 from lab_engine import organization
 import timers
 import procedural,live_faults
+import ticket_arrivals
 import site_services
 CATALOGUE=[
  ('dns_service_off','Les employés ne retrouvent plus les services par leur nom','Les employés indiquent que les accès par adresse IP fonctionnent, mais plus les noms des services.','elevee'),
@@ -66,14 +67,19 @@ class ServiceDesk:
   level=d.get('mixed_level',self.settings.get('mixed_level',1));target=d.get('mixed_target',self.settings.get('mixed_target','random'))
   if type(level) is not int or level not in (1,2,3) or target not in ('random','ad','files','dns','network'):raise ValueError('Difficulté ou famille mixte inconnue.')
   engine=d.get('arrival_engine',self.settings.get('arrival_engine','mixed'));app_target=d.get('app_target',self.settings.get('app_target','random'))
-  if engine not in ('mixed','apps') or app_target not in ('random','endpoint','printing','ftp','deployment','workstation_setup','peripherals'):raise ValueError('Catalogue d’applications inconnu.')
+  if engine not in ('mixed','apps','varied') or app_target not in ('random','endpoint','printing','ftp','deployment','workstation_setup','peripherals'):raise ValueError('Catalogue d’applications inconnu.')
+  if source=='site' and (self.t.state.get('site') or {}).get('environment_id') and engine=='mixed' and target=='network':raise ValueError('Les arrivées automatiques excluent les mutations réseau ; utilise une intervention réseau manuelle.')
   self.settings.update(arrival_engine=engine,app_target=app_target,mixed_level=level,mixed_target=target)
   self.settings.update(live_services=live,fault_mode=fault,source=source,trace_mode=traces,interval=mode,minimum=minimum,maximum=maximum,max_open=cap,ticket_minutes=duration)
   if self.settings['active']:self.schedule()
   self.t.save();return self.public()
  def schedule(self,at=None):
   at=time.time() if at is None else at
-  minutes=self.settings['minimum'] if self.settings['interval']=='fixed' else random.uniform(self.settings['minimum'],self.settings['maximum'])
+  rng=random
+  if (self.t.state.get('site') or {}).get('environment_id'):
+   self.settings['schedule_count']=self.settings.get('schedule_count',0)+1
+   rng=random.Random(str(self.t.controller.workspace.state['seed'])+':arrivals-clock:v1:'+str(self.settings['schedule_count']))
+  minutes=self.settings['minimum'] if self.settings['interval']=='fixed' else rng.uniform(self.settings['minimum'],self.settings['maximum'])
   self.settings['next_at']=at+minutes*60
  def control(self,active):
   if active and self.settings['source']=='site' and not self.t.state['site']:raise ValueError('Enregistre le site avant de démarrer ses arrivées.')
@@ -81,10 +87,10 @@ class ServiceDesk:
   if active:self.schedule()
   else:self.settings['next_at']=None
   self.t.save();return self.public()
- def create(self,scenario=None):
+ def create(self,scenario=None,request=None):
   opened=[t for t in self.t.state['tickets'] if t['status']!='clos']
   if len(opened)>=self.settings['max_open']:raise ValueError('Plafond de tickets ouverts atteint.')
-  if self.settings['source']=='site':return self.create_site(scenario,opened)
+  if self.settings['source']=='site':return self.create_site(scenario,opened,request)
   seed=random.SystemRandom().randrange(10**9)
   plan=procedural.choose(seed,scenario,self.t.state['tickets'],opened)
   fid=plan['cause'];_,_,complaint,severity=next(x for x in CATALOGUE if x[0]==fid)
@@ -102,16 +108,12 @@ class ServiceDesk:
   ident='INC-'+str(1001+len(self.t.state['tickets']))
   t=dict(id=ident,kind='service',service_scenario=fid,procedural=plan,job_id=job['id'],title=title,description=f"Agence {site} — {plan['requester']} signale : "+complaint+f" Réseau employés : {networks['employees']} ; {plan['employee_count']} postes utilisateurs {'avec un poste IT dédié' if plan['has_it'] else 'sans poste IT dédié ; intervention par un prestataire externe'}. Réalise l’intervention demandée dans le réseau dédié à ce ticket. Conserve les autres services. Consulte la feuille du ticket pour les appareils, adresses et tests attendus.",severity=severity,status='nouveau',created=time.strftime('%Y-%m-%d %H:%M:%S'),checks=[],complete=False,notes='',manual_ssid=False,validation='manual',timer=timers.configure(self.settings['ticket_minutes'],'training'))
   self.t.state['tickets'].append(t);self.t.event(ident+' : incident reçu, réseau dédié en préparation.');return self.t.public()
- def create_site(self,scenario,opened):
-  if (self.t.state.get('site') or {}).get('environment_id') and (scenario=='workspace:apps' or scenario in (None,'') and self.settings.get('arrival_engine')=='apps'):
-   
-   if (self.t.controller.workspace.state or {}).get('client_workspaces'):
-    self.t.controller.next_desktop_incident(self.settings.get('app_target','random'),self.settings['ticket_minutes'],client_serial='random')
-   else:self.t.controller.next_desktop_incident(self.settings.get('app_target','random'),self.settings['ticket_minutes'])
-   return self.t.public()
-  if (self.t.state.get('site') or {}).get('environment_id') and scenario in (None,'','workspace:mixed'):
-   self.t.controller.next_mixed_incident(self.settings.get('mixed_level',1),self.settings.get('mixed_target','random'),self.settings['ticket_minutes'])
-   return self.t.public()
+ def create_site(self,scenario,opened,request=None):
+  if (self.t.state.get('site') or {}).get('environment_id') and scenario in (None,'','workspace:apps','workspace:mixed'):
+   request=request or {}
+   engine=request.get('engine') or ('apps' if scenario=='workspace:apps' else 'mixed' if scenario=='workspace:mixed' else self.settings.get('arrival_engine','varied'))
+   target=request.get('target',self.settings.get('app_target','random') if engine=='apps' else self.settings.get('mixed_target','random'))
+   return ticket_arrivals.receive(self.t,engine,target,request.get('level',self.settings.get('mixed_level',1)),request.get('minutes',self.settings['ticket_minutes']),request.get('target_client','random'))
   from contextlib import nullcontext
   with getattr(self.t.engine,'lock',nullcontext()):return self._create_site_legacy(scenario,opened)
  def _create_site_legacy(self,scenario,opened):

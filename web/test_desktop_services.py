@@ -245,7 +245,9 @@ class IntegrationTests(unittest.TestCase):
         t=Mock();t.state={'site':{'environment_id':'env'},'tickets':[]};t.controller=self.c;t.public.return_value={}
         desk=ServiceDesk(t,Mock());desk.settings.update(arrival_engine='apps',app_target='printing',ticket_minutes=15)
         self.c.next_desktop_incident=Mock()
-        desk.create_site(None,[]);self.c.next_desktop_incident.assert_called_once_with('printing',15)
+        desk.create_site(None,[]);self.c.next_desktop_incident.assert_not_called()
+        ticket=t.state['tickets'][0];self.assertEqual(ticket['stage'],'queued')
+        self.assertEqual(ticket['arrival_plan']['target'],'printing');self.assertEqual(ticket['arrival_plan']['minutes'],15)
     def test_desktop_app_action_missing_environment_rejected(self):
         h=Mock();h.path='/workspace/desktop/ftp/login'
         with self.assertRaises(ValueError):WorkspaceRoutes(self.c,'token').post(h,{'payload':{}})

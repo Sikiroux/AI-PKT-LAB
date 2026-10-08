@@ -9,13 +9,13 @@ import files_adapter as fa
 FAMILIES={'printing':('spooler_stopped','queue_paused','offline_mode','wrong_default','driver_invalid','wrong_port','paper_empty'),'ftp':('service_stopped','control_blocked','data_blocked','account_disabled','password_wrong','read_denied','write_denied','disk_full'),'endpoint':('install_ftp','mapped_drive_wrong','documents_missing')}
 KEYS=('desktop_incident','mixed_incident','directory_incident','file_incident','dns_incident')
 
-def prepare(s,now,target='random',minutes=30):
+def prepare(s,now,target='random',minutes=30,generation_seed=None):
     if target not in ('random','deployment','workstation_setup','peripherals',*FAMILIES):raise ValueError('Famille d’application inconnue.')
     if any(s.get(k) for k in KEYS) and not s['validated']:raise ValueError('Termine et vérifie l’intervention active.')
     if type(minutes) is not int or not 0<=minutes<=1440:raise ValueError('Durée de 0 à 1440 minutes.')
     if target=='peripherals':
         import peripheral_incidents
-        return peripheral_incidents.prepare(s,now,minutes)
+        return peripheral_incidents.prepare(s,now,minutes,generation_seed=generation_seed)
     if target=='workstation_setup':
         import workstation_requests
         return workstation_requests.prepare(s,now,minutes)
@@ -24,7 +24,7 @@ def prepare(s,now,target='random',minutes=30):
         return deployment_incidents.prepare(s,now,minutes)
     s=copy.deepcopy(s);ds.ensure(s)
     for k in KEYS:s.pop(k,None)
-    index=s.get('desktop_incident_count',0)+1;rng=random.Random(hashlib.sha256((s['seed']+':apps:v1:'+str(index)).encode()).hexdigest());family=rng.choice(list(FAMILIES)) if target=='random' else target;cause=rng.choice(FAMILIES[family]);d=s['desktop_services'];e=d['endpoint'];p=d['printing'];f=d['ftp'];uid=s['directory_user_id']
+    index=s.get('desktop_incident_count',0)+1;rng=random.Random(hashlib.sha256((str(generation_seed or s['seed'])+':apps:v1:'+str(1 if generation_seed else index)).encode()).hexdigest());family=rng.choice(list(FAMILIES)) if target=='random' else target;cause=rng.choice(FAMILIES[family]);d=s['desktop_services'];e=d['endpoint'];p=d['printing'];f=d['ftp'];uid=s['directory_user_id']
     # Préparer seulement les dépendances nécessaires au scénario, en gardant les autres comptes.
     e['applications']=list(ds.APPS);e['mapped_drive']['path']='\\\\'+s['devices']['server']['name']+'\\Documents'
     p.update(spooler_running=True,default_queue='office');p['queues']['office'].update(port_ip=s['devices'][p['printer']['device_role']]['ip'],driver_valid=True,paused=False,use_offline=False);p['printer'].update(enabled=True,paper_pages=max(20,p['printer']['paper_pages']))

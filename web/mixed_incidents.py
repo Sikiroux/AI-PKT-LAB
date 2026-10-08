@@ -18,17 +18,18 @@ WRITE={'write_group_missing','folder_write_missing','quota_full','disk_full','fi
 def catalogue():
     return [dict(id=layer+':'+cause,label={'ad':'Annuaire','files':'Fichiers','dns':'DNS','network':'Réseau'}[layer]+' · '+cause) for layer,causes in CATALOGUE.items() for cause in causes]
 
-def choose(seed,index,level,target='random'):
+def choose(seed,index,level,target='random',include_network=True):
     if type(level) is not int or level not in (1,2,3):raise ValueError('Difficulté : 1, 2 ou 3 couches.')
     if target not in ('random',*CATALOGUE):raise ValueError('Famille ciblée inconnue.')
     rng=random.Random(hashlib.sha256((str(seed)+':mixed:v1:'+str(index)).encode()).hexdigest())
-    layers=list(CATALOGUE);rng.shuffle(layers)
+    layers=[k for k in CATALOGUE if include_network or k!='network'];rng.shuffle(layers)
+    if target=='network' and not include_network:raise ValueError('Réseau exclu de ce catalogue.')
     if target!='random':layers.remove(target);layers.insert(0,target)
     return [(layer,rng.choice(CATALOGUE[layer])) for layer in layers[:level]]
 
-def prepare(state,now,level=1,target='random'):
+def prepare(state,now,level=1,target='random',include_network=True,generation_seed=None):
     if any(state.get(k) for k in ('mixed_incident','dns_incident','file_incident','directory_incident','desktop_incident')) and not state.get('validated'):raise ValueError('Termine et vérifie l’incident courant.')
-    causes=choose(state['seed'],state.get('mixed_incident_count',0),level,target)
+    causes=choose(generation_seed or state['seed'],0 if generation_seed else state.get('mixed_incident_count',0),level,target,include_network=include_network)
     s=copy.deepcopy(state);da.ensure(s)
     for k in ('mixed_incident','dns_incident','file_incident','directory_incident','desktop_incident'):s.pop(k,None)
     d=s['directory'];uid=s['directory_user_id'];u=d['users'][uid]
@@ -91,7 +92,7 @@ def prepare(state,now,level=1,target='random'):
     fs['revision']+=1;d['revision']+=1;dns['revision']+=1
     index=s.get('mixed_incident_count',0)+1
     text=f"{s['requester']} ({s['devices']['client']['name']}) signale : « "+('Je ne peux plus enregistrer mes modifications dans Documents.' if goal=='write' else 'Je n’arrive plus à ouvrir mon document dans Documents.')+f" » Document concerné : {file['name']}, serveur {name}. Rétablis la lecture"+(' et la sauvegarde avec du texte supplémentaire' if goal=='write' else '')+'. Préserve les autres accès et fichiers. Tu peux contacter le demandeur pour préciser les symptômes.'
-    s.update(mixed_incident=dict(id='INC-MIX-'+str(index).zfill(4),title='Accès aux documents perturbé',description=text,goal=goal,level=level,causes=causes,target_file_id=file['id'],created=now,baseline=baseline,injection_state='pending' if any(l=='network' for l,_ in causes) else 'applied',dialogue=[]),mixed_incident_count=index,ticket=text,remote_session=False)
+    s.update(mixed_incident=dict(id='INC-MIX-'+str(index).zfill(4),title='Accès aux documents perturbé',description=text,goal=goal,level=level,causes=causes,target_file_id=file['id'],created=now,baseline=baseline,injection_state='pending' if any(l=='network' for l,_ in causes) else 'applied',dialogue=[]),mixed_incident_count=index,ticket=text,remote_session=False,validated=False)
     ad.invalidate(s);return s
 
 def public(s):

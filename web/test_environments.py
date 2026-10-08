@@ -6,7 +6,7 @@ from workspace_app import Controller
 from workspace_model import Workspace, generate
 
 
-def fake_build(seed, folder):
+def fake_build(seed, folder, initial_fault=True):
     s = generate(seed)
     s['network_file'] = str(Path(folder) / 'entreprise.pkt')
     return s

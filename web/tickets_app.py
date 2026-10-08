@@ -12,6 +12,7 @@ import file_incidents
 import dns_incidents
 import mixed_incidents
 import desktop_incidents
+import ticket_arrivals
 import company_registry
 from workspace_routes import WorkspaceRoutes
 import timers
@@ -85,13 +86,18 @@ class Tickets:
         self.state['site'].update(name=state['company'], file=state['network_file'], environment_id=state.get('environment_id','legacy'),
             reset_id=state.get('reset_id'), profile=dict(switch=state['expected_cable']['peer'], server=state['devices']['server']['ip'],
                          network=str(ipaddress.ip_network(client['ip']+'/24',strict=False)), client=client['name'], site=state['site'], ap=None))
-        if not any(t['kind']=='workspace' for t in self.state['tickets']):
+        queue_fresh=bool(state.get('arrival_queue_version')) and not self.state['tickets']
+        if not state.get('arrival_queue_version') and not any(t['kind']=='workspace' for t in self.state['tickets']):
             self.state['tickets'].append(dict(id='INC-1000', kind='workspace', name=client['name'], title='Documents partagés inaccessibles',
                 description=state['ticket']+' Poste concerné : '+client['name']+'. Rétablis le réseau puis l’accès en lecture depuis le bureau distant.',
                 status='nouveau', severity='moderee', created=now(), checks=[], complete=False, notes=''))
         self.append_workspace_incident(state)
         self.desk = ServiceDesk(self, generator)
         self.desk.settings.update(source='site',active=False,next_at=None)
+        if queue_fresh:
+            self.desk.settings.update(arrival_engine='varied')
+            ticket_arrivals.receive(self,minutes=self.desk.settings['ticket_minutes'])
+            self.desk.control(True)
         self.save()
 
     def profile(self, key):
@@ -341,8 +347,10 @@ class Tickets:
         if t['status']=='clos':raise ValueError('Ce ticket est clos.')
         if action=='notes':t['notes']=str(data.get('notes',''))[:4000]
         elif action in ('take','wait'):
+            if action=='take' and t.get('stage')=='queued':ticket_arrivals.activate(self,t)
             t['status']='en_cours' if action=='take' else 'en_attente'
         elif action in ('verify','close'):
+            if t.get('stage')=='queued':raise ValueError('Prends en charge cette demande pour préparer son scénario avant de vérifier.')
             active=self.controller.workspace.state.get('desktop_incident') or self.controller.workspace.state.get('mixed_incident') or self.controller.workspace.state.get('dns_incident') or self.controller.workspace.state.get('file_incident') or self.controller.workspace.state.get('directory_incident') or {}
             if t['id'].startswith(('INC-AD-','INC-FIC-','INC-DNS-','INC-MIX-','INC-APP-')) and t['id'] != active.get('id'):
                 raise ValueError('Cet incident appartient à un exercice précédent.')
@@ -402,6 +410,7 @@ class Tickets:
             if value not in ('faible','moderee','elevee','critique'):raise ValueError('Sévérité inconnue')
             t['severity']=value;self.event(t['id']+' : sévérité mise à jour.')
         elif action=='take':
+            if t['kind']=='workspace' and t.get('stage')=='queued':ticket_arrivals.activate(self,t)
             timers.autostart(t.get('timer'));t['status']='en_cours';self.event(t['id']+' : pris en charge.')
         elif action=='retry_service':
             if t['kind']!='service' or not self.desk:raise ValueError('Action réservée aux réseaux de tickets.')
@@ -509,7 +518,7 @@ def run():
                         self.check_environment(data)
                         if self.path=='/session-config':result=tickets.desk.configure(data)
                         elif self.path=='/session-control':result=tickets.desk.control(data.get('active') is True)
-                        else:result=tickets.desk.create(data.get('scenario'))
+                        else:result=tickets.desk.create(data.get('scenario'),request=data)
                     return self.send(200,result)
                 if self.path=='/generate':return self.send(200,generator.start(data))
                 if self.path=='/lab-timer':return self.send(200,generator.timer(data))

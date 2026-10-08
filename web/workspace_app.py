@@ -82,7 +82,7 @@ class Controller:
         with self.lock:
             # Construire avant de changer : un échec ne remplace pas la session active.
             ident, path = self.environments.allocate()
-            state = build(seed, path.parent / 'network')
+            state = build(seed, path.parent / 'network', initial_fault=False)
             state['environment_id'] = ident
             ad.ensure(state)
             files_adapter.ensure(state)
@@ -299,7 +299,7 @@ class Controller:
                     raise ValueError('Choisis un environnement.')
                 seed = self.workspace.state['seed']
                 ident = self.environments.data['active']
-                state = build(seed, self.workspace.path.parent / 'network')
+                state = build(seed, self.workspace.path.parent / 'network', initial_fault=not self.workspace.state.get('arrival_queue_version'))
                 state['environment_id'] = ident
                 state['reset_id'] = secrets.token_hex(8)
                 ad.ensure(state)
@@ -468,7 +468,7 @@ class Controller:
             if self.on_change:self.on_change(self.workspace.state,self.workspace.path.parent)
             return self.workspace.public()
 
-    def next_desktop_incident(self,target='random',minutes=30,client_serial=None):
+    def next_desktop_incident(self,target='random',minutes=30,client_serial=None,generation_seed=None):
         with self.lock:
             if client_serial:
                 import hashlib,random
@@ -479,13 +479,13 @@ class Controller:
                     rng=random.Random(hashlib.sha256((str(state.get('seed'))+':ticket-client:v1:'+str(state.get('desktop_incident_count',0)+1)).encode()).hexdigest())
                     client_serial=rng.choice(candidates)
                 if target=='peripherals':sim_peripherals.ensure(state,self.workspace.workstations())
-                with self.client_scope(client_serial):return self.next_desktop_incident(target,minutes)
+                with self.client_scope(client_serial):return self.next_desktop_incident(target,minutes,generation_seed=generation_seed)
 
             s=self.workspace.state
             if not s or 'file_service' not in s:raise ValueError('Crée ou reprends une entreprise complète.')
             now=time.time();net=ad.context(s,'technician',now)['network']
             if target!='peripherals' and (net['status']!='passed' or not net['observed_at']<=now<=net['valid_until']):raise ValueError('Vérifie le réseau du technicien avant la préparation.')
-            self.workspace.state=desktop_incidents.prepare(s,now,target,minutes)
+            self.workspace.state=desktop_incidents.prepare(s,now,target,minutes,generation_seed=generation_seed)
             i=self.workspace.state['desktop_incident'];i.update(target_serial=s['devices']['client']['serial'],target_name=s['devices']['client']['name'])
             self.workspace.save()
             if self.on_change:
@@ -495,7 +495,7 @@ class Controller:
 
     def desktop(self,path,data):return desktop_controller.handle(self,path,data)
 
-    def next_mixed_incident(self, level=1, target='random', minutes=30):
+    def next_mixed_incident(self, level=1, target='random', minutes=30, include_network=True, generation_seed=None):
         with self.lock:
             s=self.workspace.state
             if not s or 'file_service' not in s:raise ValueError('Crée ou reprends un environnement complet.')
@@ -504,7 +504,7 @@ class Controller:
             for source in ('client','technician'):
                 n=ad.context(s,source=source,now=now)['network']
                 if n['status']!='passed' or not n['observed_at']<=now<=n['valid_until']:raise ValueError('Vérifie le réseau client et technicien avant la préparation.')
-            prepared=mixed_incidents.prepare(s,now,level,target)
+            prepared=mixed_incidents.prepare(s,now,level,target,include_network=include_network,generation_seed=generation_seed)
             incident=prepared['mixed_incident'];incident['timer_minutes']=minutes
             if any(layer=='network' for layer,cause in incident['causes']):
                 with self.engine.lock:

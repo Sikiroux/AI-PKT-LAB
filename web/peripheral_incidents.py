@@ -18,13 +18,13 @@ def preserved_state(state):
     if 'dns_service' in result:result['dns_service'].pop('cache',None)
     return result
 
-def prepare(state,now,minutes):
+def prepare(state,now,minutes,generation_seed=None):
     s=copy.deepcopy(state);serial=s['devices']['client']['serial']
     hardware.ensure(s,[{'serial':serial,'remote_supported':True}])
     if not all(c['available'] for c in hardware.evaluate(s['peripherals'],serial).values()):
         raise ValueError('Rétablis les accessoires locaux de ce poste avant le nouvel exercice.')
     index=s.get('desktop_incident_count',0)+1
-    rng=random.Random(hashlib.sha256((str(s['seed'])+':peripheral-incidents:v1:'+str(index)+':'+serial).encode()).hexdigest())
+    rng=random.Random(hashlib.sha256((str(generation_seed or s['seed'])+':peripheral-incidents:v1:'+str(1 if generation_seed else index)+':'+serial).encode()).hexdigest())
     kind,cause=rng.choice(CAUSES)
     item=next(i for i in s['peripherals']['items'].values() if i['station_serial']==serial and i['kind']==kind)
     others=copy.deepcopy({k:i for k,i in s['peripherals']['items'].items() if i['station_serial'] not in (None,serial)})

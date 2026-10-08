@@ -13,7 +13,7 @@ from lab_engine import organization
 from workspace_model import generate
 
 
-def build(seed, folder):
+def build(seed, folder, initial_fault=True):
     state = generate(seed)
     folder = Path(folder)
     tree, topo = workshops.make_topology('enterprise_services', state['network_seed'], folder,
@@ -66,6 +66,12 @@ def build(seed, folder):
     tree.write(folder / 'reference.xml', encoding='utf-8', short_empty_elements=False)
     ptexplorer.ptfile_encode(str(folder / 'reference.xml'), str(folder / 'reference.pkt'))
     # Retirer uniquement la liaison du poste concerné. L'apprenant la rétablit dans PT.
+    if not initial_fault:
+        state.update(arrival_queue_version=1,read_allowed=True,write_allowed=True,ticket='Demandes procédurales de l’entreprise : choisir un ticket et le prendre en charge.')
+        tree.write(folder / 'initial.xml', encoding='utf-8', short_empty_elements=False)
+        ptexplorer.ptfile_encode(str(folder / 'initial.xml'), state['network_file'])
+        (folder / 'entreprise.json').write_text(__import__('json').dumps(state,ensure_ascii=False,indent=2),encoding='utf-8')
+        return state
     initial = copy.deepcopy(tree)
     devices = initial.getroot().findall('NETWORK/DEVICES/DEVICE')
     index = next(i for i, d in enumerate(devices) if d.findtext('ENGINE/NAME') == names['PC-ALICE'])
