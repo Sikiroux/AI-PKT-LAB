@@ -12,6 +12,7 @@ import file_incidents
 import dns_incidents
 import mixed_incidents
 import desktop_incidents
+import company_registry
 from workspace_routes import WorkspaceRoutes
 import timers
 import re
@@ -52,12 +53,16 @@ class Tickets:
     @metadata_locked
     def append_workspace_incident(self,state):
         incident=state.get('desktop_incident') or state.get('mixed_incident') or state.get('dns_incident') or state.get('file_incident') or state.get('directory_incident')
-        if not incident:return
+        company_registry.ensure(state)
+        company_registry.link_tickets(state,self.state['tickets'])
+        if not incident:
+            self.save();return
         existing=next((t for t in self.state['tickets'] if t['id']==incident['id']),None)
         if existing:
             if 'dialogue' in incident:existing['dialogue']=incident['dialogue']
             self.save();return
         self.state['tickets'].append(dict(id=incident['id'],kind='workspace',name=incident.get('station',incident.get('target_name',state['devices']['client']['name'])),target_serial=incident.get('target_serial',state['devices']['client'].get('serial')),title=incident['title'],description=incident['description'],workspace_goal=incident['goal'],status='nouveau',severity='elevee' if incident.get('level',1)>1 else 'moderee',created=now(),checks=[],complete=False,notes='',dialogue=incident.get('dialogue',[]),timer=timers.configure(incident.get('timer_minutes',30),'training')))
+        company_registry.link_tickets(state,self.state['tickets'])
         self.event(incident['id']+' : nouvelle intervention sur l’environnement actif.')
 
     @metadata_locked

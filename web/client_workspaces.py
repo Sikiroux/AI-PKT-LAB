@@ -5,6 +5,7 @@ Une vue temporaire fournit l'alias client aux moteurs, sous le verrou Controller
 Les services serveur sont communs ; observations, sessions et paramètres sont locaux.
 """
 import copy
+import hashlib
 import time
 import sim_ad
 import files_adapter
@@ -39,8 +40,12 @@ def ensure(s):
         outcome=sim_ad.apply_operation(s['directory'],'create_user',dict(username=username,display_name=name,
             ou_id=source['ou_id'],initial_password=sim_ad.TRAINING_PASSWORD,must_change_password=False),actor,time.time())
         generated=outcome['result']['user_id'];s['directory']=outcome['directory']
-        # Garder l'identifiant généré par le moteur, lié au seul bureau de cette entreprise.
-        uid=generated
+        # Initialisation procédurale uniquement : une création manuelle dans AD reste aléatoire.
+        uid='usr-'+hashlib.sha256((s['seed']+':client2-account:v1').encode()).hexdigest()[:16]
+        if uid in s['directory']['users']:raise ValueError('Collision d’identité du second poste.')
+        user=s['directory']['users'].pop(generated);user['id']=uid;s['directory']['users'][uid]=user
+        s['directory']['audit'][-1]['user_id']=uid
+        sim_ad.validate_directory(s['directory'])
         record=copy.deepcopy(profiles[first]);record.update(device=copy.deepcopy(second),requester=name,user_id=uid)
         record['local'].update(remote_service=True,remote_session=False,directory_auth=None,observation=None,network_observation=None)
         record['endpoint']['local_files']={'Bienvenue.txt':'Poste de '+name+' — '+s['company']}

@@ -32,6 +32,7 @@ import desktop_services
 import desktop_incidents
 import desktop_controller
 import client_workspaces as clients
+import company_registry
 from contextlib import contextmanager
 
 ROOT = Path(__file__).resolve().parent
@@ -50,6 +51,9 @@ class Controller:
 
     def _migrate_directory(self, workspace):
         state = workspace.state
+        if state and not state.get('company_registry') and state.get('devices'):
+            backup = workspace.path.with_suffix('.before-registry.json')
+            if workspace.path.exists() and not backup.exists():backup.write_bytes(workspace.path.read_bytes())
         if state and 'directory' not in state and all(k in state.get('devices',{}) for k in ('client','server','technician')):
             backup = workspace.path.with_suffix('.before-directory.json')
             if workspace.path.exists() and not backup.exists():
@@ -68,6 +72,7 @@ class Controller:
         if technician_model.ensure(state):workspace.save()
         if state and desktop_services.ensure(state):workspace.save()
         if clients.ensure(state):workspace.save()
+        if company_registry.ensure(state):workspace.save()
 
     def new(self, seed):
         with self.lock:

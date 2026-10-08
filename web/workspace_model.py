@@ -14,6 +14,7 @@ import technician_model
 import desktop_services
 import desktop_incidents
 import client_workspaces as clients
+import company_registry
 
 VERSION = 1
 TTL = 45
@@ -100,6 +101,7 @@ class Workspace:
 
     def save(self):
         clients.sync_primary(self.state)
+        company_registry.ensure(self.state)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         temp = self.path.with_suffix('.tmp')
         temp.write_text(json.dumps(self.state, ensure_ascii=False, indent=2), encoding='utf-8')
@@ -133,6 +135,8 @@ class Workspace:
             rows.append(dict(serial=d['serial'], name=d['name'], ip=addresses[0] if addresses else None,
                              user=None, role='observed', simulated=False, ticket_target=False,
                              remote_supported=False, status='unknown'))
+        for row in rows:
+            row.update(company_registry.links(s, row.get('serial')))
         return rows
 
     def public(self):
@@ -145,6 +149,7 @@ class Workspace:
             'environment_id': s.get('environment_id', 'legacy'),
             'client_serial':s['devices'].get('client',{}).get('serial'),
             'workstations': self.workstations(),
+            'company_registry': company_registry.public(s),
             'directory_incident': directory_incidents.public_incident(s),
             'file_incident': file_incidents.public_incident(s),
             'dns_incident': dns_incidents.public_incident(s),

@@ -9,6 +9,10 @@ Les numéros ci-dessous sont des objectifs, pas des promesses de fonctionnalité
 - Ticket épinglé facultatif et ouverture du bureau distant en grand.
 - Pas de nouvelle migration de sauvegarde dans cette livraison.
 
+## Livraison v0.44
+
+Référentiel des personnes représentées, comptes, appareils et tickets ; identifiants logiques reproductibles et portée par environnement. Le personnel complet et l’historique de remplacement matériel restent à étendre. Voir [le contrat et les limites](V044-REFERENTIEL.md).
+
 ## Suite envisagée
 
 | Version | Objectif | Critère de sortie |

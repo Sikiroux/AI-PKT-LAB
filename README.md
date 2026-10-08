@@ -10,7 +10,9 @@ en anglais au choix — puis vérifie ta réparation. Propose aussi des missions
 > l'assistance d'une IA (Claude), testé et validé dans Packet Tracer 9.
 > Voir `docs/JOURNAL.md` pour la démarche, les découvertes et les bugs résolus.
 
-## Interface web — livraison v0.43
+## Interface web — livraison v0.44
+
+Le référentiel relie désormais personnes représentées, comptes, postes et tickets de la même entreprise. Les liens persistent après renommage et reprise. Voir [v0.44](docs/V044-REFERENTIEL.md).
 
 Diagnostics et correctifs regroupés : [docs/V042-DIAGNOSTICS.md](docs/V042-DIAGNOSTICS.md).
 

@@ -18,3 +18,10 @@ get('notice').scrollIntoView=()=>{get('notice').scrolled=true;};
 ctx.fetch=async(url,opts)=>opts?{ok:false,json:async()=>({error:'Contrôle discret : registerEvent donePing : invalid string position'})}:{ok:false};
 vm.runInContext(html.match(/<script>([\s\S]*?)<\/script>/)[1].split('async function state()')[1].split("$('workstationSearch').oninput")[0].replace(/^/, 'async function state()'),ctx);
 (async()=>{await vm.runInContext("call('action',{action:'connect'})",ctx);assert(get('notice').textContent.includes('registerEvent donePing'));assert(get('notice').scrolled);console.log('Connection refusal: backend error remains visible and scrolled into view OK');})().catch(e=>{console.error(e);process.exitCode=1;});
+
+// Registry identity is read-only and follows the selected serial.
+s.environment_id='one';s.workstations[0].employee_id='employee-1';s.workstations[0].asset_id='asset-1';
+s.company_registry={people:{'employee-1':{id:'employee-1',display_name:'Mina',username:'mina.compta',account_id:'u1',account_present:true}},assets:{'asset-1':{id:'asset-1',name:'PC-COMPTA',serial:'client'}}};
+vm.runInContext('render(s)',ctx);assert.equal(get('identityCard').hidden,false);assert(get('identitySummary').children.some(x=>x.textContent==='Compte : mina.compta'));assert(get('identityReferences').textContent.includes('Compte : u1'));
+vm.runInContext('render(null)',ctx);assert(get('identityCard').hidden);assert.equal(get('identityReferences').textContent,'');
+console.log('Registry identity: account linkage follows target and clears on environment loss OK');
