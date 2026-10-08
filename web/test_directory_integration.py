@@ -79,4 +79,32 @@ class IntegrationTests(unittest.TestCase):
         r=self.c.directory('change-password',{'old_password':'wrong','new_password':'Formation!Autre'})
         self.assertFalse(r['result']['allowed']);self.assertEqual(s['directory']['users'][uid]['failed_attempts'],1)
 
+    def test_console_create_move_and_membership_survive_save(self):
+        s=self.c.workspace.state
+        def operation(name, payload):
+            return self.c.directory('operation', {'operation': name, 'payload': payload})['result']
+        ou=operation('create_ou', {'name':'Nouveau service', 'parent_id':None})['ou_id']
+        group=operation('create_group', {'name':'Support-Nouveau', 'ou_id':ou})['group_id']
+        user=operation('create_user', {'username':'nouveau.client', 'display_name':'Nouveau Client',
+                                      'ou_id':ou, 'initial_password':'Formation!Autre',
+                                      'must_change_password':True})['user_id']
+        operation('add_group_member', {'user_id':user, 'group_id':group})
+        destination=next(k for k in s['directory']['ous'] if k!=ou)
+        operation('move_object', {'object_type':'user', 'object_id':user, 'new_ou_id':destination})
+        self.assertIn(user, s['directory']['groups'][group]['member_user_ids'])
+        self.assertEqual(s['directory']['users'][user]['ou_id'], destination)
+        self.assertTrue(s['directory']['users'][user]['must_change_password'])
+        self.assertIsNone(s['directory_auth'])
+        self.c.workspace.save();restored=Workspace(self.c.workspace.path)
+        self.assertEqual(restored.state['directory'], s['directory'])
+        public=json.dumps(self.c.directory('state', {})['directory'])
+        self.assertNotIn('Formation!Autre', public);self.assertNotIn('credential', public)
+
+    def test_console_creation_refused_without_technician_network(self):
+        s=self.c.workspace.state;s['observation']['probes']['directory']['status']='failed'
+        before=copy.deepcopy(s['directory'])
+        with self.assertRaises(ValueError):
+            self.c.directory('operation', {'operation':'create_ou', 'payload':{'name':'Interdit'}})
+        self.assertEqual(s['directory'], before)
+
 if __name__=='__main__':unittest.main()
