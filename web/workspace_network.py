@@ -45,7 +45,7 @@ def build(seed, folder):
     admin.remove(old);admin.insert(0,portable)
     organization.rename_tree(root,{names['PC-ADMIN']:tech_name})
     names['PC-ADMIN']=tech_name
-    selected = {'client': 'PC-ALICE', 'technician': 'PC-ADMIN', 'server': 'SRV-FTP','printer':'PRN-OFFICE'}
+    selected = {'client': 'PC-ALICE', 'technician': 'PC-ADMIN', 'server': 'SRV-FTP','printer':'PRN-OFFICE','client2':'PC-BOB'}
     for role, old in selected.items():
         engine = next(d.find('ENGINE') for d in root.findall('NETWORK/DEVICES/DEVICE')
                       if d.findtext('ENGINE/NAME') == names[old])

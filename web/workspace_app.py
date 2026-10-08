@@ -31,6 +31,8 @@ import client_dialogue
 import desktop_services
 import desktop_incidents
 import desktop_controller
+import client_workspaces as clients
+from contextlib import contextmanager
 
 ROOT = Path(__file__).resolve().parent
 
@@ -65,6 +67,7 @@ class Controller:
 
         if technician_model.ensure(state):workspace.save()
         if state and desktop_services.ensure(state):workspace.save()
+        if clients.ensure(state):workspace.save()
 
     def new(self, seed):
         with self.lock:
@@ -77,6 +80,7 @@ class Controller:
             dns_adapter.ensure(state)
             technician_model.ensure(state)
             desktop_services.ensure(state)
+            clients.ensure(state)
             candidate = Workspace(path)
             candidate.state = state
             candidate.save()
@@ -154,7 +158,7 @@ class Controller:
             found[role] = matches[0]
         return found
 
-    def public_snapshot(self):
+    def public_snapshot(self, client_serial=None):
         # GET must not wait behind a series of Packet Tracer pings. The cached
         # state is evaluated again at the current time, so expired proofs fail.
         acquired = self.lock.acquire(blocking=False)
@@ -166,12 +170,44 @@ class Controller:
             if not state or not active or state.get('environment_id') != active.get('environment_id'):
                 return None
             view = Workspace.__new__(Workspace)
-            view.state = copy.deepcopy(state)
+            view.state = clients.project(state,client_serial) if client_serial else copy.deepcopy(state)
             return view.public()
         finally:
             if acquired: self.lock.release()
 
+    @contextmanager
+    def client_scope(self, serial):
+        with self.lock:
+            original=self.workspace;s=original.state
+            if not serial or serial==clients.primary_serial(s or {}):
+                yield;return
+            clients.ensure(s);clients.sync_primary(s)
+            projected=Workspace.__new__(Workspace);projected.path=original.path;projected.state=clients.project(s,serial)
+            def save():
+                clients.merge(s,projected.state,serial);original.save()
+            projected.save=save
+            self.workspace=projected;self._canonical_workspace=original
+            try:yield
+            finally:
+                try:save()
+                finally:
+                    self.workspace=original;self._canonical_workspace=None
+                    self._read_state=copy.deepcopy(original.state)
+
     def observe(self, blocking=False):
+        if not self.lock.acquire(blocking=blocking):return
+        try:
+            s=self.workspace.state
+            if not s:return
+            self._observe_one(blocking=True)
+            # One observation per simulated client; never share another PC's ping proof.
+            for serial in list(s.get('client_workspaces',{})):
+                if serial!=clients.primary_serial(s):
+                    with self.client_scope(serial):self._observe_one(blocking=True)
+            self._read_state=copy.deepcopy(self.workspace.state)
+        finally:self.lock.release()
+
+    def _observe_one(self, blocking=False):
         # Ne jamais attendre le pont si une action utilisateur l'utilise déjà.
         if not self.lock.acquire(blocking=blocking):
             return
@@ -254,6 +290,7 @@ class Controller:
                 dns_adapter.ensure(state)
                 technician_model.ensure(state)
                 desktop_services.ensure(state)
+                clients.ensure(state)
                 self.workspace.state = state
                 self.workspace.save()
                 if self.on_change:self.on_change(self.workspace.state,self.workspace.path.parent)
@@ -364,14 +401,28 @@ class Controller:
             if self.on_change:self.on_change(self.workspace.state,self.workspace.path.parent)
             return self.workspace.public()
 
-    def next_desktop_incident(self,target='random',minutes=30):
+    def next_desktop_incident(self,target='random',minutes=30,client_serial=None):
         with self.lock:
+            if client_serial:
+                import hashlib,random
+                state=self.workspace.state or {}
+                if any(state.get(k) for k in clients.INCIDENT_KEYS) and not state.get('validated'):raise ValueError('Termine le ticket actif avant la nouvelle intervention.')
+                if client_serial=='random':
+                    candidates=sorted(state.get('client_workspaces',{})) or [clients.primary_serial(state)]
+                    rng=random.Random(hashlib.sha256((str(state.get('seed'))+':ticket-client:v1:'+str(state.get('desktop_incident_count',0)+1)).encode()).hexdigest())
+                    client_serial=rng.choice(candidates)
+                with self.client_scope(client_serial):return self.next_desktop_incident(target,minutes)
+
             s=self.workspace.state
             if not s or 'file_service' not in s:raise ValueError('Crée ou reprends une entreprise complète.')
             now=time.time();net=ad.context(s,'technician',now)['network']
             if net['status']!='passed' or not net['observed_at']<=now<=net['valid_until']:raise ValueError('Vérifie le réseau du technicien avant la préparation.')
-            self.workspace.state=desktop_incidents.prepare(s,now,target,minutes);self.workspace.save()
-            if self.on_change:self.on_change(self.workspace.state,self.workspace.path.parent)
+            self.workspace.state=desktop_incidents.prepare(s,now,target,minutes)
+            i=self.workspace.state['desktop_incident'];i.update(target_serial=s['devices']['client']['serial'],target_name=s['devices']['client']['name'])
+            self.workspace.save()
+            if self.on_change:
+                canonical=getattr(self,'_canonical_workspace',None) or self.workspace
+                self.on_change(canonical.state,canonical.path.parent)
             return self.workspace.public()
 
     def desktop(self,path,data):return desktop_controller.handle(self,path,data)

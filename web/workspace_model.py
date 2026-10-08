@@ -13,6 +13,7 @@ import mixed_incidents
 import technician_model
 import desktop_services
 import desktop_incidents
+import client_workspaces as clients
 
 VERSION = 1
 TTL = 45
@@ -92,9 +93,11 @@ class Workspace:
             self.state['network_observation'] = None
             if 'desktop_services' in self.state:self.state['desktop_services']['ftp']['sessions']={}
             self.state['validated'] = False
+            clients.reset_sessions(self.state)
             if 'technician_session' in self.state:self.state['technician_session']['vpn'].update(connected=False,expires_at=0)
 
     def save(self):
+        clients.sync_primary(self.state)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         temp = self.path.with_suffix('.tmp')
         temp.write_text(json.dumps(self.state, ensure_ascii=False, indent=2), encoding='utf-8')
@@ -114,8 +117,15 @@ class Workspace:
             rows.append(dict(serial=d.get('serial'), name=d['name'], ip=d.get('ip'),
                              user=s.get('requester') if role=='client' else 'Technicien',
                              role=role, simulated=True, ticket_target=role=='client',
-                             remote_supported=role=='client',
+                             remote_supported=role=='client',remote_connected=bool(s.get('remote_session')) if role=='client' else False,
                              status=evaluate(s,'remote')['status'] if role=='client' else 'unknown'))
+        ticket_serial=(s.get('desktop_incident') or {}).get('target_serial',client.get('serial'))
+        for row in rows:row['ticket_target']=row['serial']==ticket_serial and row['role']=='client'
+        for serial,profile in ({} if s.get('_client_view') else s.get('client_workspaces',{})).items():
+            if serial==client.get('serial'):continue
+            seen=observed.pop(serial,None);d=profile['device'];view=clients.project(s,serial)
+            rows.append(dict(serial=serial,name=d['name'],ip=d.get('ip'),user=profile['requester'],role='client',
+                simulated=True,ticket_target=serial==ticket_serial,remote_supported=True,status=evaluate(view,'remote')['status'],remote_connected=bool(view['remote_session'])))
         for d in observed.values():
             addresses=[p.get('ip') for p in d.get('ports',[]) if p.get('ip') not in (None,'','0.0.0.0')]
             rows.append(dict(serial=d['serial'], name=d['name'], ip=addresses[0] if addresses else None,
@@ -131,6 +141,7 @@ class Workspace:
         return {k: s[k] for k in ('seed', 'version', 'company', 'requester', 'ticket', 'devices', 'files',
                                  'bound_file', 'remote_session', 'validated')} | {
             'environment_id': s.get('environment_id', 'legacy'),
+            'client_serial':s['devices'].get('client',{}).get('serial'),
             'workstations': self.workstations(),
             'directory_incident': directory_incidents.public_incident(s),
             'file_incident': file_incidents.public_incident(s),

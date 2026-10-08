@@ -61,6 +61,7 @@ def prepare(state,now,minutes=30):
 def record(s,kind,name,now):
     i=s.get('desktop_incident') or {}
     targets={'read':i.get('target_file_id'),'download':i.get('download'),'upload':i.get('upload')}
+    if i.get('target_serial',s['devices']['client']['serial'])!=s['devices']['client']['serial']:return False
     if i.get('family')!='workstation_setup' or kind not in i['tasks'] or kind not in targets or targets[kind]!=name:return False
     i['evidence'][kind]=dict(at=now,environment_id=s['environment_id'],source=s['devices']['client']['serial'],target=name);return True
 

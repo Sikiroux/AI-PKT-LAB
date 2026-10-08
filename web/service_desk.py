@@ -104,7 +104,11 @@ class ServiceDesk:
   self.t.state['tickets'].append(t);self.t.event(ident+' : incident reçu, réseau dédié en préparation.');return self.t.public()
  def create_site(self,scenario,opened):
   if (self.t.state.get('site') or {}).get('environment_id') and (scenario=='workspace:apps' or scenario in (None,'') and self.settings.get('arrival_engine')=='apps'):
-   self.t.controller.next_desktop_incident(self.settings.get('app_target','random'),self.settings['ticket_minutes']);return self.t.public()
+   
+   if (self.t.controller.workspace.state or {}).get('client_workspaces'):
+    self.t.controller.next_desktop_incident(self.settings.get('app_target','random'),self.settings['ticket_minutes'],client_serial='random')
+   else:self.t.controller.next_desktop_incident(self.settings.get('app_target','random'),self.settings['ticket_minutes'])
+   return self.t.public()
   if (self.t.state.get('site') or {}).get('environment_id') and scenario in (None,'','workspace:mixed'):
    self.t.controller.next_mixed_incident(self.settings.get('mixed_level',1),self.settings.get('mixed_target','random'),self.settings['ticket_minutes'])
    return self.t.public()

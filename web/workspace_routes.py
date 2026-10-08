@@ -1,7 +1,7 @@
 """Routes du bureau avec le pont et le jeton du serveur principal."""
 import mimetypes
 import os
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, parse_qs
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -22,7 +22,9 @@ class WorkspaceRoutes:
             with self.controller.lock:
                 handler.send(200, self.controller.environments.public())
         elif path == '/workspace/state':
-            handler.send(200, self.controller.public_snapshot())
+            query=parse_qs(urlsplit(handler.path).query)
+            serial=query.get('client_serial',[None])[0]
+            handler.send(200, self.controller.public_snapshot(serial) if serial else self.controller.public_snapshot())
         elif path.startswith('/osjs/'):
             name = path.removeprefix('/osjs/')
             allowed = {'main.js', 'main.css', 'LICENSE',
@@ -47,6 +49,24 @@ class WorkspaceRoutes:
             return self._post_locked(handler, data)
 
     def _post_locked(self, handler, data):
+        c=self.controller;action=handler.path.removeprefix('/workspace/')
+        serial=data.get('client_serial')
+        if action=='action' and data.get('action')=='connect':serial=data.get('target_serial') or serial
+        if serial:
+            if not isinstance(serial,str):raise ValueError('Identité de poste invalide.')
+            s=c.workspace.state or {}
+            if data.get('environment_id')!=s.get('environment_id','legacy'):raise ValueError('Cet accès distant appartient à un autre environnement. Reconnecte-toi.')
+            import client_workspaces
+            if serial!=client_workspaces.primary_serial(s) and serial not in s.get('client_workspaces',{}):raise ValueError('Bureau simulé inconnu pour ce poste.')
+            if action=='refresh':
+                c.observe(blocking=True);handler.send(200,c.public_snapshot(serial));return True
+            allowed=action.startswith(('desktop/','files/','directory/','dns/')) or action in ('desktop-incident','ping') or (action=='action' and data.get('action') in ('connect','disconnect','read','write'))
+            if not allowed:raise ValueError('Cette action concerne l’entreprise, pas un poste distant.')
+            if action=='desktop-incident' and any(s.get(k) for k in client_workspaces.INCIDENT_KEYS) and not s.get('validated'):raise ValueError('Termine le ticket actif avant de créer une autre intervention.')
+            with c.client_scope(serial):return self._dispatch_locked(handler,data)
+        return self._dispatch_locked(handler,data)
+
+    def _dispatch_locked(self, handler, data):
         if not handler.path.startswith('/workspace/'):
             return False
         c = self.controller
@@ -60,7 +80,7 @@ class WorkspaceRoutes:
         if action == 'new': result = c.new(data.get('seed', ''))
         elif action=='desktop-incident' or action.startswith('desktop/'):
             if data.get('environment_id') != (c.workspace.state or {}).get('environment_id','legacy'):raise ValueError('Environnement actif requis.')
-            result=c.next_desktop_incident(data.get('target','random'),data.get('minutes',30)) if action=='desktop-incident' else c.desktop(action.removeprefix('desktop/'),data)
+            result=c.next_desktop_incident(data.get('target','random'),data.get('minutes',30),client_serial=data.get('target_client')) if action=='desktop-incident' else c.desktop(action.removeprefix('desktop/'),data)
         elif action == 'directory-incident':
             if data.get('environment_id') != (c.workspace.state or {}).get('environment_id', 'legacy'):
                 raise ValueError('Environnement actif requis.')

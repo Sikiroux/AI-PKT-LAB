@@ -47,7 +47,7 @@ class Tickets:
         if existing:
             if 'dialogue' in incident:existing['dialogue']=incident['dialogue']
             self.save();return
-        self.state['tickets'].append(dict(id=incident['id'],kind='workspace',name=incident.get('station',state['devices']['client']['name']),title=incident['title'],description=incident['description'],workspace_goal=incident['goal'],status='nouveau',severity='elevee' if incident.get('level',1)>1 else 'moderee',created=now(),checks=[],complete=False,notes='',dialogue=incident.get('dialogue',[]),timer=timers.configure(incident.get('timer_minutes',30),'training')))
+        self.state['tickets'].append(dict(id=incident['id'],kind='workspace',name=incident.get('station',incident.get('target_name',state['devices']['client']['name'])),target_serial=incident.get('target_serial',state['devices']['client'].get('serial')),title=incident['title'],description=incident['description'],workspace_goal=incident['goal'],status='nouveau',severity='elevee' if incident.get('level',1)>1 else 'moderee',created=now(),checks=[],complete=False,notes='',dialogue=incident.get('dialogue',[]),timer=timers.configure(incident.get('timer_minutes',30),'training')))
         self.event(incident['id']+' : nouvelle intervention sur l’environnement actif.')
 
     def bind_environment(self, state, folder, generator, controller):

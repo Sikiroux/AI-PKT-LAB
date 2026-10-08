@@ -32,7 +32,7 @@ class NavigationContract(unittest.TestCase):
         for obsolete in ('environmentChoice', 'nextMixed', 'grant_read', 'Correction du premier exercice', 'data-call="open"'):
             self.assertNotIn(obsolete, html)
         self.assertIn('expandDesktop', html)
-        self.assertIn('!s.remote_session||!s.checks.remote.allowed', html)
+        self.assertIn("!target||!connected||target.status!=='passed'", html)
 
     def test_tickets_have_only_active_enterprise_source(self):
         html = (ROOT / 'web/tickets.html').read_text()

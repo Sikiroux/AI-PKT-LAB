@@ -10,20 +10,19 @@ en anglais au choix — puis vérifie ta réparation. Propose aussi des missions
 > l'assistance d'une IA (Claude), testé et validé dans Packet Tracer 9.
 > Voir `docs/JOURNAL.md` pour la démarche, les découvertes et les bugs résolus.
 
-## Interface web — livraison v0.38
+## Interface web — livraison v0.39
 
 Lance `LANCER-WEB.bat` pour le service desk et les bureaux simulés.
 Le générateur de labs Packet Tracer reste accessible dans l’interface et avec `lancer.bat`.
 
-Cette version regroupe un lanceur d’applications filtrable, les consoles Partages/DNS/FTP
-réorganisées et trois profils procéduraux de préparation du poste client existant.
-Pour les nouveaux tickets : **Recevoir une intervention → Poste, préparation, impression et FTP →
-Préparer un poste · Applications**. Même choix pour les arrivées automatiques.
-Les actions demandées sont contrôlées, ainsi que la préservation des autres fichiers et droits.
+Les nouvelles entreprises disposent de deux bureaux clients distincts et d’un portable technicien,
+liés aux appareils de leur unique réseau Packet Tracer. Chaque client conserve ses fichiers locaux,
+applications, réglages et sessions ; les services d’entreprise restent partagés.
+Les interventions applicatives peuvent cibler un poste choisi ou choisi procéduralement.
 
-Mode d’emploi, périmètre et limites : [docs/V038-CHANTIER.md](docs/V038-CHANTIER.md).
-Les tests logiciels sont automatisés ; cette nouvelle interface reste à essayer dans ton navigateur
-et avec ton pont Packet Tracer. Elle ne fournit ni Windows réel, ni serveur SMB/FTP réel.
+Mode d’emploi et limites : [docs/V039-BUREAUX.md](docs/V039-BUREAUX.md).
+Les anciennes sauvegardes restent compatibles. La validation visuelle et les essais du pont
+sur Packet Tracer restent à effectuer dans ton environnement.
 
 ## Démarrage
 

@@ -64,9 +64,13 @@ def prepare(s,now,target='random',minutes=30):
     ad.invalidate(s);return s
 
 def public(s):
-    i=s.get('desktop_incident');return {k:copy.deepcopy(i[k]) for k in ('id','title','description','goal','created','dialogue')} if i else None
+    i=s.get('desktop_incident');return {k:copy.deepcopy(i[k]) for k in ('id','title','description','goal','created','dialogue','target_serial','target_name') if k in i} if i else None
 
 def checks(s,now):
+    import client_workspaces
+    target=s['desktop_incident'].get('target_serial')
+    if target and target!=s['devices']['client']['serial']:
+        return checks(client_workspaces.project(s,target),now)
     if s['desktop_incident'].get('family')=='workstation_setup':
         import workstation_requests
         return workstation_requests.checks(s,now)
@@ -99,6 +103,12 @@ def dialogue(s, ident, question, now=None):
     incident = s.get('desktop_incident')
     if not incident or incident['id'] != ident:
         raise ValueError('Ce dialogue ne concerne pas l’incident actif.')
+    if incident.get('target_serial') and incident['target_serial']!=s['devices']['client']['serial']:
+        import client_workspaces
+        view=client_workspaces.project(s,incident['target_serial'])
+        result=dialogue(view,ident,question,now)
+        incident['dialogue']=view['desktop_incident']['dialogue']
+        return result
     if question not in QUESTIONS:
         raise ValueError('Question inconnue.')
     family = incident['family']

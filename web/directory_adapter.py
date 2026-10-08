@@ -61,5 +61,6 @@ def actor(state):
 
 
 def invalidate(state):
+    for profile in state.get('client_workspaces',{}).values():profile['local']['directory_auth']=None
     state['directory_auth'] = None
     state['validated'] = False
