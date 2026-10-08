@@ -1,5 +1,9 @@
 # pkt_lab — Générateur de labs Packet Tracer (.pka)
 
+## v0.47.3 — recette et lisibilité des tickets
+
+Lancer toute la recette : `python tests/run_tests.py` (Python 3.10+ et Node.js). Les contrôles automatiques des tickets sont regroupés dans un volet pédagogique et l'application FTP propose une aide de connexion. Voir [le périmètre et les vérifications manuelles](docs/V0473-RECETTE-ET-CONTROLES.md). La refonte métier des tickets, le nommage et les topologies restent les prochains blocs.
+
 Génère des fichiers `.pka` Packet Tracer avec une ou plusieurs pannes cachées
 et les consignes embarquées directement dans l'onglet natif « Instructions »
 du fichier (objectifs, mise en situation, table d'adressage), en français ou

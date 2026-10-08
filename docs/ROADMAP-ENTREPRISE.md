@@ -31,6 +31,17 @@ Fiches des postes et six procédures intégrées au bureau. Le coffre d’accès
 
 ## Suite envisagée
 
+### Priorité revue après la recette v0.47.2
+
+Avant mail et licences : fiabiliser la recette, puis retravailler les tickets et le placement. Les numéros ci-dessous sont des objectifs historiques à replanifier, pas un inventaire des versions livrées.
+
+1. Tickets : liste filtrable, fiche structurée, suivi et solution ; contrôles pédagogiques séparés. La fiche épinglée actuelle reste en lecture seule.
+2. Demandes contextualisées : auteur et bénéficiaire distincts, impact, service, échéance et résultat attendu. La documentation actuelle explique le simulateur ; la base de connaissances propre à l'entreprise reste à générer.
+3. Nommage indépendant des personnes : nom technique stable, affectation et localisation séparées. Ne pas renommer les sauvegardes existantes automatiquement.
+4. Placement compact par zone : branches lisibles, marge pour les libellés, limitation des croisements et variantes. Augmenter ensuite la taille et la diversité réelle des réseaux.
+
+Ces étapes restent à implémenter ; elles ne sont pas livrées par le nettoyage.
+
 | Version | Objectif | Critère de sortie |
 |---|---|---|
 | 0.44 | Référentiel procédural commun | Un employé, son compte, son matériel et ses tickets partagent des identifiants stables. Même seed et même version de génération : même état initial. |

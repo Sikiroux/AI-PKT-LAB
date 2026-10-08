@@ -74,7 +74,7 @@ affirmer un comportement de Packet Tracer sans l'avoir vérifié ou fait tester.
 
 
 ## Ateliers à validation manuelle (demande explicite de Damien)
-- Le logiciel reste exclusivement un générateur de missions Packet Tracer.
+- Le logiciel combine un générateur de missions Packet Tracer et un simulateur de service desk : annuaire, fichiers, DNS, parc et bureaux simulés. Packet Tracer reste la référence réseau ; les services web sont des simulations pédagogiques, pas des services Windows réels.
 - Le correcteur automatique est FACULTATIF et ne doit pas limiter le catalogue.
 - `workshops.py` gère 3 nouveaux gabarits et 40 ateliers ; menu 5 dans `main.py`.
 - Une feuille HTML contient contexte, consignes, table, indices repliables et correction finale avec tests observables. Configurer, ajouter un appareil et appliquer une politique sont aussi des missions valides.
@@ -84,3 +84,8 @@ affirmer un comportement de Packet Tracer sans l'avoir vérifié ou fait tester.
 - Exécuter `python tests/test_all.py` et `python tests/test_workshops.py` avant livraison.
 - Les anciens templates serveur DNS n’offrent pas tous les services. WorkshopLab préfère le Server-PT complet du catalogue, sans changer les 6 anciens gabarits.
 - Ne pas élargir ce projet aux VM/Windows Server/Docker.
+
+## Recette unifiée
+- `python tests/run_tests.py` lance séparément le cœur, les ateliers, les tests web Python et chaque suite JavaScript. Cette séparation évite les collisions de modules entre la racine et `web/`.
+- Python 3.10+ et Node.js sont nécessaires pour la recette complète. Un outil manquant ou une suite en échec produit un code de sortie non nul ; ce n'est jamais une validation partielle présentée comme complète.
+- Les tests automatisés ne remplacent pas les vérifications réelles dans Packet Tracer 9.
