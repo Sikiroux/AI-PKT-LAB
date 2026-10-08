@@ -1,0 +1,40 @@
+# Roadmap prévisionnelle — entreprise persistante
+
+Les numéros ci-dessous sont des objectifs, pas des promesses de fonctionnalités livrées. Les moteurs AD, fichiers, DNS, impression, FTP et déploiement existent déjà ; les prochaines étapes les rendent cohérents et plus fidèles dans l’interface. Une version intermédiaire peut remplacer plusieurs petits incréments.
+
+## Livraison regroupée v0.43
+
+- Correctifs après v0.41 : processus ICMP réellement disponible et icônes OS.js.
+- Diagnostics : identité, preuves datées, prérequis distincts et export limité.
+- Ticket épinglé facultatif et ouverture du bureau distant en grand.
+- Pas de nouvelle migration de sauvegarde dans cette livraison.
+
+## Suite envisagée
+
+| Version | Objectif | Critère de sortie |
+|---|---|---|
+| 0.44 | Référentiel procédural commun | Un employé, son compte, son matériel et ses tickets partagent des identifiants stables. Même seed et même version de génération : même état initial. |
+| 0.45 | Affiner les applications d’administration | Séparer les outils reproduits (annuaire, licences, messagerie) tout en reliant les fiches utilisateurs. Définir les références réelles et limites de fidélité. |
+| 0.46 | Parc matériel et préparation | Stock, attribution, restitution et installation visuelle : chaque opération persiste et modifie l’inventaire. |
+| 0.47 | Mail, licences et documents | Comptes mail et conventions, places disponibles, documents de remise et validation des résultats attendus. |
+| 0.48 | Arrivée d’employé complète | Préparer compte, accès, mail, licences, poste, documents et livraison à partir d’une demande procédurale. |
+| 0.49 | Événements d’entreprise | Arrivées, mobilités et départs produisent des demandes cohérentes ; incidents collectifs regroupés ; pause et fréquence réglables. |
+| 0.50 | Conversations | Dialogue scénarisé fiable, puis modèle local facultatif. Le client décrit seulement ce qu’il sait ; la clôture dépend du moteur. |
+| 0.51 | Supervision et salle serveurs | Observations PT et services simulés distingués ; métriques reliées à l’activité et aux incidents, sans valeurs décoratives présentées comme mesures. |
+| 0.52 | Formation | Difficultés, procédures internes, aide facultative, bilan des interventions, parcours de départ et changement de service. |
+
+## Principes
+
+Le scénario décrit une entreprise complète avec ou sans personnel IT interne. Le portable du technicien est distinct du personnel de l’entreprise. Tous les employés n’ont pas nécessairement un appareil Packet Tracer dédié ; le périmètre modélisé doit être explicite.
+
+La seed crée l’état initial, puis l’historique enregistré devient la vérité de la session. Une réparation, un nouvel employé ou une licence attribuée ne sont pas effacés par une régénération arbitraire. Les événements futurs utilisent leurs propres tirages reproductibles et leur ordre est sauvegardé.
+
+Le moteur vérifie les résultats ; un LLM ne peut pas créer une réparation, accorder des droits ou valider un ticket. Les symptômes proviennent des états réels de la simulation.
+
+Les demandes de service et changements planifiés complètent les incidents. La préparation d’un nouveau poste doit être associée à un employé et à un matériel identifié, pas seulement à une case « terminé ».
+
+## Hotfixes
+
+Corriger en priorité les blocages, erreurs de preuve, pertes de sauvegarde et fenêtres inutilisables. Chaque correction significative a une reproduction et un test ciblé. Sauvegarder avant migration. Exécuter les suites requises avant commit ; distinguer tests automatisés et validation réelle dans PT.
+
+Différés : appareil définitivement HS, Packet Tracer complètement sans interface, appels IA, terminal IOS web complet. Le contrôle discret utilise Packet Tracer ouvert et son IPC : ce n’est pas un moteur PT headless indépendant.

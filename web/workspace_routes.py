@@ -12,8 +12,8 @@ class WorkspaceRoutes:
 
     def get(self, handler):
         path = urlsplit(handler.path).path
-        if path in ('/workspace', '/workspace/desktop', '/workspace/technician'):
-            name = 'workspace.html' if path == '/workspace' else 'desktop.html'
+        if path in ('/workspace', '/workspace/desktop', '/workspace/technician', '/workspace/diagnostics'):
+            name = 'workspace.html' if path == '/workspace' else 'diagnostics.html' if path == '/workspace/diagnostics' else 'desktop.html'
             html = (ROOT / name).read_text(encoding='utf-8')
             html = html.replace('__TECHNICIAN__', 'true' if path == '/workspace/technician' else 'false')
             html = html.replace('__TOKEN__', self.token).replace('__API_BASE__', '/workspace')

@@ -58,9 +58,7 @@ def evaluate(state, action, at=None):
     fresh = (observation.get('status') in ('passed', 'failed') and
              0 <= at - observation.get('at', 0) <= TTL)
     net = observation['status'] if fresh else 'unknown'
-    if action=='remote':
-        policy=technician_model.policy(state,at)
-        if not policy['allowed']:net=policy['status']
+    policy = technician_model.policy(state, at) if action == 'remote' else None
     checks = [('service', 'Service de prise en main' if action == 'remote' else 'Service de partage',
                state['remote_service'] if action == 'remote' else state['share_service']),
               ('account', 'Compte actif', (state['directory']['users'][state['directory_user_id']]['enabled'] if 'directory' in state else state['account_enabled']))]
@@ -69,6 +67,10 @@ def evaluate(state, action, at=None):
                        state['read_allowed'] if action == 'read' else state['write_allowed']))
     statuses = []
     parent_ok = net == 'passed'
+    if policy is not None:
+        status = policy['status'] if parent_ok else 'blocked'
+        statuses.append(('technician', 'Accès du technicien : ' + policy['reason'], status))
+        parent_ok = parent_ok and policy['allowed']
     for key, label, value in checks:
         status = ('passed' if value else 'failed') if parent_ok else 'blocked'
         statuses.append((key, label, status))
@@ -78,7 +80,7 @@ def evaluate(state, action, at=None):
         children = [result(key, label, status, children)]
     tree = result('network', 'Connectivité ICMP observée dans Packet Tracer (approximation du transport)', net, children)
     return dict(allowed=parent_ok, tree=tree,
-                status='passed' if parent_ok else ('unknown' if net == 'unknown' else 'failed'))
+                status='passed' if parent_ok else ('unknown' if net == 'unknown' or any(x[2] == 'unknown' for x in statuses) else 'failed'))
 
 
 class Workspace:
@@ -171,9 +173,17 @@ class Workspace:
             s['remote_session'] = False
             if 'directory' in s: ad.invalidate(s)
         elif action == 'connect':
-            if not evaluate(s, 'remote')['allowed']:
-                detail = (s.get('observation') or {}).get('probes', {}).get('remote', {}).get('detail', '')
-                raise ValueError('Connexion impossible ou réseau non vérifié.' + (' ' + detail if detail else ' Consulte les prérequis.'))
+            access = evaluate(s, 'remote')
+            if not access['allowed']:
+                node = access['tree']
+                while node['status'] == 'passed' and node['children']:
+                    node = node['children'][0]
+                message = node['label'] + (' : non vérifié récemment.' if node['status'] == 'unknown' else ' : accès refusé.')
+                if node['id'] == 'network':
+                    observation = s.get('observation') or {}
+                    probe = observation.get('probes', {}).get('remote', observation)
+                    if probe.get('detail'): message += ' ' + probe['detail']
+                raise ValueError('Connexion impossible. ' + message)
             s['remote_session'] = True
         elif action in ('read', 'write'):
             if not s['remote_session'] or not evaluate(s, 'remote')['allowed']:

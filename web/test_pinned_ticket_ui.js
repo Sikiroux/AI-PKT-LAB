@@ -1,0 +1,10 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+class E{constructor(){this.children=[];this.attributes={};this.style={values:{},getPropertyValue(k){return this.values[k]},setProperty(k,v){this.values[k]=v}};this.classes=new Set();this.classList={toggle:(k,v)=>v?this.classes.add(k):this.classes.delete(k)}}append(...c){this.children.push(...c)}replaceChildren(...c){this.children=c}setAttribute(k,v){this.attributes[k]=v}}
+const dom=Object.fromEntries(['pinnedTicket','pinTicket','filter','search','severityFilter'].map(id=>[id,new E()])),shell=new E(),location={hash:'#site'};
+const html=fs.readFileSync(__dirname+'/tickets.html','utf8'),code=html.slice(html.indexOf('let pinnedTicketId='),html.indexOf("$('openDiagnostics').onclick="));
+const ctx={state:{site:{environment_id:'env'},tickets:[{id:'T1',status:'en_cours',title:'Documents',description:'Plainte du client'}]},selected:'T1',statuses:{en_cours:'En cours'},location,document:{querySelector:()=>shell},$:id=>dom[id],el:(tag,text)=>{const e=new E();e.textContent=text;return e},msg:()=>{},page:name=>{location.hash='#'+name},render:()=>{}};
+vm.createContext(ctx);vm.runInContext(code,ctx);dom.pinTicket.onclick();assert(shell.classes.has('ticket-pinned'));assert.equal(dom.pinTicket.attributes['aria-pressed'],'true');
+location.hash='#tickets';vm.runInContext('renderPinnedTicket()',ctx);assert(!shell.classes.has('ticket-pinned'));assert.equal(dom.pinTicket.attributes['aria-pressed'],'true');
+location.hash='#workspace';vm.runInContext('renderPinnedTicket()',ctx);assert(shell.classes.has('ticket-pinned'));const range=dom.pinnedTicket.children.find(e=>e.id==='pinnedWidth');range.value='400';range.oninput();assert.equal(shell.style.values['--ticket-width'],'400px');
+ctx.state.site.environment_id='other';vm.runInContext('renderPinnedTicket()',ctx);assert(!shell.classes.has('ticket-pinned'));assert.equal(dom.pinTicket.attributes['aria-pressed'],'false');assert.equal(dom.pinnedTicket.children.length,0);
+console.log('Pinned ticket: optional layout, navigation retention, resizing and environment reset OK');

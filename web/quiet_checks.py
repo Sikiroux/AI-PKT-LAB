@@ -14,7 +14,7 @@ function startOne(i){
  var p=null,step="appareil source";
  try{
  var j=jobs[i],dev=ipc.network().getDevice(j.source);
- step="processus Icmp";var icmp=dev.getProcess("Icmp");
+ step="processus Icmp";var icmp=dev.getProcess("IcmpProcess");
  step="interface source";var ports=[];
  for(var k=0;k<dev.getPortCount();k++){
   var port=dev.getPortAt(k),address=null;

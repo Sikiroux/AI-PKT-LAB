@@ -10,7 +10,11 @@ en anglais au choix — puis vérifie ta réparation. Propose aussi des missions
 > l'assistance d'une IA (Claude), testé et validé dans Packet Tracer 9.
 > Voir `docs/JOURNAL.md` pour la démarche, les découvertes et les bugs résolus.
 
-## Interface web — livraison v0.41
+## Interface web — livraison v0.43
+
+Diagnostics et correctifs regroupés : [docs/V042-DIAGNOSTICS.md](docs/V042-DIAGNOSTICS.md).
+
+Espace de travail facultatif : [docs/V043-ESPACE-DE-TRAVAIL.md](docs/V043-ESPACE-DE-TRAVAIL.md).
 
 Correctif des événements ICMP et erreurs de connexion : [docs/V041-CORRECTIF-ICMP.md](docs/V041-CORRECTIF-ICMP.md).
 Le fonctionnement réel du contrôle discret reste à confirmer dans Packet Tracer 9.

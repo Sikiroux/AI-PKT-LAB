@@ -4,7 +4,7 @@ function script(accelerate){const r=cp.spawnSync(process.platform==='win32'?'pyt
 function run(accelerate,simulation=false,portCount=1,failedSource=null){
  const processes=[],reports=[];let advances=0;
  function getProcess(kind){
-  assert.strictEqual(kind,'Icmp');
+  assert.strictEqual(kind,'IcmpProcess');
   return {
    createPingProcess(ip,count,timeout,wait,port){assert.strictEqual(count,2);assert.strictEqual(port,'FastEthernet0');return processes.length;},
    getPingProcess(){
