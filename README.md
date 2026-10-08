@@ -10,7 +10,9 @@ en anglais au choix — puis vérifie ta réparation. Propose aussi des missions
 > l'assistance d'une IA (Claude), testé et validé dans Packet Tracer 9.
 > Voir `docs/JOURNAL.md` pour la démarche, les découvertes et les bugs résolus.
 
-## Interface web — livraison v0.47.1
+## Interface web — livraison v0.47.2
+
+La v0.47.2 ajoute des formulations procédurales, une urgence déclarée expliquant la sévérité initiale et conserve la durée choisie lors de la préparation. Voir [le guide](docs/V0472-DEMANDES-CONTEXTUALISEES.md).
 
 La v0.47.1 clarifie la file : scénario actif en tête, filtres À préparer / Intervention active, réglages adaptés au catalogue et compte à rebours des arrivées. Voir [le guide](docs/V0471-ERGONOMIE-FILE.md).
 

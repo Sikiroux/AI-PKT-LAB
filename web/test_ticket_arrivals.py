@@ -73,6 +73,27 @@ class ArrivalTests(unittest.TestCase):
   with self.assertRaises(ValueError):arrivals.activate(self.t,t)
   self.assertIs(self.c.on_change,callback);self.assertEqual(t['stage'],'queued')
   self.c.next_desktop_incident.assert_not_called()
+ def test_wording_is_replayed_without_changing_plan_or_company_identity(self):
+  arrivals.receive(self.t);first=copy.deepcopy(self.t.state['tickets'][0])
+  self.t.state['tickets']=[];self.t.state['arrival_count']=0;arrivals.receive(self.t);again=self.t.state['tickets'][0]
+  for key in ('arrival_plan','request_context','title','description','severity'):self.assertEqual(first[key],again[key])
+  self.assertEqual(first['request_context']['requester'],self.s['requester'])
+  self.assertEqual(first['request_context']['serial'],'client')
+  self.assertEqual(first['request_context']['company'],self.s['company'])
+ def test_selected_timer_duration_used_on_activation(self):
+  for duration in (15,0):
+   with self.subTest(duration=duration):
+    self.t.state['tickets']=[];self.s.pop('desktop_incident',None)
+    arrivals.receive(self.t,'apps','peripherals',minutes=30);t=self.t.state['tickets'][0];old_plan=copy.deepcopy(t['arrival_plan'])
+    self.t.action(t['id'],'timer',dict(timer_action='configure',minutes=duration,mode='challenge'))
+    def prepare(*args,**kwargs):self.s['desktop_incident']={'id':'temporary','title':'Écran','description':'Diagnostic écran','goal':'peripherals'}
+    self.c.next_desktop_incident.side_effect=prepare
+    self.t.action(t['id'],'take',{})
+    self.assertEqual(self.c.next_desktop_incident.call_args.args[1],duration)
+    self.assertEqual(self.s['desktop_incident']['timer_minutes'],duration)
+    self.assertEqual(t['timer']['mode'],'challenge');self.assertEqual(t['timer']['limit'],duration*60)
+    self.assertEqual(t['timer']['started'],bool(duration));self.assertEqual(t['arrival_plan'],old_plan)
+    self.assertEqual(t['title'],self.s['desktop_incident']['title'])
  def test_restart_preserves_queue_and_pauses(self):
   self.d.create();self.d.control(True);saved=copy.deepcopy(self.t.state['tickets'])
   fresh=Tickets(Fake(),self.t.path);desk=ServiceDesk(fresh,Mock())
@@ -95,6 +116,8 @@ class ActualActivationTests(unittest.TestCase):
   self.assertEqual(len(t.state['tickets']),1)
   self.assertEqual(self.c.workspace.state['desktop_incident']['id'],ident)
   self.assertEqual(self.c.workspace.state['desktop_incident']['target_serial'],'second')
+  self.assertEqual(t.state['tickets'][0]['request_context']['serial'],'second')
+  self.assertEqual(t.state['tickets'][0]['request_context']['requester'],self.s['client_workspaces']['second']['requester'])
   self.assertEqual(self.c.workspace.state['devices']['client']['serial'],'client')
   self.c.observe.assert_not_called()
 

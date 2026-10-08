@@ -3,19 +3,10 @@ import hashlib
 import random
 import time
 import timers
+import ticket_wording
 
 APP_TARGETS=('printing','ftp','endpoint','peripherals','deployment','workstation_setup')
 VARIED=(('apps','printing'),('apps','ftp'),('apps','endpoint'),('apps','peripherals'),('mixed','ad'),('mixed','files'),('mixed','dns'))
-LABELS={
- 'printing':('Impression introuvable','ne retrouve plus son impression attendue'),
- 'ftp':('Transfert de documents impossible','signale un problème de transfert avec le dépôt FTP'),
- 'endpoint':('Application du poste à rétablir','ne retrouve plus une application ou son accès aux documents'),
- 'peripherals':('Accessoire du poste inutilisable','signale un accessoire externe inutilisable sur son poste'),
- 'deployment':('Préparer un système de formation','demande un déploiement sur le disque d’atelier'),
- 'workstation_setup':('Préparer le poste utilisateur','demande la préparation des applications et documents de son poste'),
- 'ad':('Accès du compte à rétablir','signale un problème d’accès lié à sa session ou ses permissions'),
- 'files':('Documents partagés indisponibles','ne peut plus utiliser ses documents partagés'),
- 'dns':('Accès par nom perturbé','ne retrouve plus le service documentaire par son nom')}
 
 def receive(tickets,engine='varied',target='random',level=1,minutes=30,client_serial='random'):
     s=tickets.controller.workspace.state
@@ -38,11 +29,11 @@ def receive(tickets,engine='varied',target='random',level=1,minutes=30,client_se
     profile=s.get('client_workspaces',{}).get(serial)
     name=profile['device']['name'] if profile else s['devices']['client']['name']
     requester=profile['requester'] if profile else s['requester']
-    title,symptom=LABELS[target];ident=('INC-APP-Q' if selected=='apps' else 'INC-MIX-Q')+str(index).zfill(4)
+    wording=ticket_wording.compose(seed,target,requester,s['company'],name,serial)
+    ident=('INC-APP-Q' if selected=='apps' else 'INC-MIX-Q')+str(index).zfill(4)
     plan={'version':1,'seed':seed,'index':index,'engine':selected,'target':target,'level':level,'minutes':minutes,'client_serial':serial}
-    ticket={'id':ident,'kind':'workspace','name':name,'target_serial':serial,'title':title,
-       'description':f'{requester} ({name}, {serial}) {symptom}. Demande reçue pour {s["company"]}. Prendre en charge prépare le scénario ; les consignes détaillées seront affichées après cette étape.',
-       'workspace_goal':'pending','status':'nouveau','stage':'queued','severity':'moderee','created':time.strftime('%Y-%m-%d %H:%M:%S'),
+    ticket={'id':ident,'kind':'workspace','name':name,'target_serial':serial,**wording,
+       'workspace_goal':'pending','status':'nouveau','stage':'queued','created':time.strftime('%Y-%m-%d %H:%M:%S'),
        'checks':[],'complete':False,'notes':'','dialogue':[],'arrival_plan':plan,'timer':timers.configure(minutes,'training')}
     tickets.state['tickets'].append(ticket);tickets.state['arrival_count']=index
     import company_registry
@@ -55,6 +46,8 @@ def activate(tickets,ticket):
     others=[t for t in tickets.state['tickets'] if t['id']!=ticket['id'] and t['kind']=='workspace' and t['status']!='clos' and t.get('stage')!='queued']
     if others:raise ValueError('Termine et clôture l’intervention préparée avant d’activer celle-ci. Les autres demandes restent en attente.')
     c=tickets.controller;p=ticket['arrival_plan'];s=c.workspace.state
+    timer=ticket.get('timer') or {}
+    minutes=timer.get('limit',p['minutes']*60)//60
     active=next((s[k] for k in ('desktop_incident','mixed_incident','directory_incident','file_incident','dns_incident') if s.get(k)),None)
     closed_active=bool(active and any(t['id']==active['id'] and t['status']=='clos' for t in tickets.state['tickets']))
     if active and not closed_active and not s.get('validated'):raise ValueError('Un exercice non terminé utilise déjà cet environnement.')
@@ -63,14 +56,15 @@ def activate(tickets,ticket):
         if p['engine']=='apps':
             if p['target']!='peripherals':c.observe(blocking=True,client_serial=p['client_serial'],accelerate=True)
             if closed_active:c.workspace.state['validated']=True
-            c.next_desktop_incident(p['target'],p['minutes'],client_serial=p['client_serial'],generation_seed=p['seed'])
+            c.next_desktop_incident(p['target'],minutes,client_serial=p['client_serial'],generation_seed=p['seed'])
         else:
             c.observe(blocking=True,client_serial=s['devices']['client']['serial'],accelerate=True)
             if closed_active:c.workspace.state['validated']=True
-            c.next_mixed_incident(p['level'],p['target'],p['minutes'],include_network=False,generation_seed=p['seed'])
+            c.next_mixed_incident(p['level'],p['target'],minutes,include_network=False,generation_seed=p['seed'])
         s=c.workspace.state
         incident=s.get('desktop_incident') or s.get('mixed_incident')
-        incident.update(id=ticket['id'],target_serial=p['client_serial'],target_name=ticket['name'])
+        incident.update(id=ticket['id'],target_serial=p['client_serial'],target_name=ticket['name'],timer_minutes=minutes)
+        if ticket.get('request_context'):incident['title']=ticket['title']
         ticket.update(stage='prepared',title=incident['title'],description=incident['description'],workspace_goal=incident['goal'])
         c.workspace.save()
         if callback:callback(s,c.workspace.path.parent)
