@@ -9,11 +9,11 @@ class QuietChecksTests(unittest.TestCase):
         code=quiet_checks.script([('PC-1','192.168.1.1')])
         for forbidden in ('enterCommand','getCommandLine','clearConsole','setSimulationMode','resetNetwork'):
             self.assertNotIn(forbidden,code)
-        self.assertIn('if(false&&pending>0)ipc.appWindow()',code)
-        self.assertIn('createPingProcess',code);self.assertIn('donePing.connect',code)
+        self.assertIn('if(false&&pending>0&&active>0)',code)
+        self.assertIn('createPingProcess',code);self.assertIn('registerEvent("donePing"',code)
     def test_manual_acceleration_is_explicit_and_simulation_guarded(self):
         code=quiet_checks.script([('PC-1','192.168.1.1')],True)
-        self.assertIn('if(true&&pending>0)ipc.appWindow()',code)
+        self.assertIn('if(true&&pending>0&&active>0)',code)
         self.assertIn('isSimulationMode()',code)
         self.assertIn('contrôle suspendu',code)
     def test_batch_is_correlated_and_bounded(self):
@@ -35,6 +35,24 @@ class QuietChecksTests(unittest.TestCase):
     def test_engine_uses_new_adapter(self):
         engine=Engine(Mock());engine.call=Mock(return_value='[{"status":"valide"}]')
         self.assertEqual(engine.quiet_pings([('a','192.168.1.1')])[0]['status'],'valide')
+
+class ConnectionErrorTests(unittest.TestCase):
+    def test_unknown_network_error_is_visible_and_session_stays_closed(self):
+        import tempfile
+        from pathlib import Path
+        from workspace_model import Workspace,generate
+        with tempfile.TemporaryDirectory() as folder:
+            w=Workspace(Path(folder)/'state.json');w.state=generate('test')
+            w.state['observation']={'probes':{'remote':{'status':'unknown','detail':'createPingProcess : invalid string position'}}}
+            with self.assertRaisesRegex(ValueError,'createPingProcess : invalid string position'):w.action('connect')
+            self.assertFalse(w.state['remote_session'])
+    def test_absent_observation_is_a_normal_refusal(self):
+        import tempfile
+        from pathlib import Path
+        from workspace_model import Workspace,generate
+        with tempfile.TemporaryDirectory() as folder:
+            w=Workspace(Path(folder)/'state.json');w.state=generate('test')
+            with self.assertRaisesRegex(ValueError,'Connexion impossible'):w.action('connect')
 
 class TicketMetadataTests(unittest.TestCase):
     def test_manual_ticket_verification_targets_primary_when_legacy_ticket_has_no_serial(self):

@@ -172,7 +172,8 @@ class Workspace:
             if 'directory' in s: ad.invalidate(s)
         elif action == 'connect':
             if not evaluate(s, 'remote')['allowed']:
-                raise ValueError('Connexion impossible ou réseau non vérifié. Consulte les prérequis.')
+                detail = (s.get('observation') or {}).get('probes', {}).get('remote', {}).get('detail', '')
+                raise ValueError('Connexion impossible ou réseau non vérifié.' + (' ' + detail if detail else ' Consulte les prérequis.'))
             s['remote_session'] = True
         elif action in ('read', 'write'):
             if not s['remote_session'] or not evaluate(s, 'remote')['allowed']:

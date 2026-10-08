@@ -10,7 +10,10 @@ en anglais au choix — puis vérifie ta réparation. Propose aussi des missions
 > l'assistance d'une IA (Claude), testé et validé dans Packet Tracer 9.
 > Voir `docs/JOURNAL.md` pour la démarche, les découvertes et les bugs résolus.
 
-## Interface web — livraison v0.40
+## Interface web — livraison v0.41
+
+Correctif des événements ICMP et erreurs de connexion : [docs/V041-CORRECTIF-ICMP.md](docs/V041-CORRECTIF-ICMP.md).
+Le fonctionnement réel du contrôle discret reste à confirmer dans Packet Tracer 9.
 
 Lance `LANCER-WEB.bat` pour le service desk et les bureaux simulés.
 Le générateur de labs Packet Tracer reste accessible dans l’interface et avec `lancer.bat`.

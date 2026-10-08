@@ -1,6 +1,6 @@
 // Role/target selection checks for the workstation list (no browser dependency).
 const fs=require('fs'),vm=require('vm'),assert=require('assert');
-class Element{constructor(tag){this.tagName=tag;this.children=[];this.value='';this.attributes={};this.classList={remove(){}}}append(...v){this.children.push(...v)}replaceChildren(...v){this.children=[...v]}setAttribute(k,v){this.attributes[k]=v}getAttribute(k){return this.attributes[k]}removeAttribute(k){delete this.attributes[k]}set src(v){this.attributes.src=v}}
+class Element{constructor(tag){this.tagName=tag;this.children=[];this.value='';this.attributes={};this.classList={remove(){},add(){}}}append(...v){this.children.push(...v)}replaceChildren(...v){this.children=[...v]}setAttribute(k,v){this.attributes[k]=v}getAttribute(k){return this.attributes[k]}removeAttribute(k){delete this.attributes[k]}set src(v){this.attributes.src=v}}
 const dom=new Map(),get=id=>{if(!dom.has(id))dom.set(id,new Element('div'));return dom.get(id)};
 const ctx={document:{getElementById:get,createElement:t=>new Element(t),querySelectorAll:()=>[get('connectTarget'),get('openTechnician')]}};vm.createContext(ctx);
 const html=fs.readFileSync(__dirname+'/workspace.html','utf8'),script=html.match(/<script>([\s\S]*?)<\/script>/)[1].split('async function state()')[0];vm.runInContext(script,ctx);
@@ -12,3 +12,9 @@ s.environment_id='two';vm.runInContext('render(s)',ctx);assert.equal(get('workst
 s.remote_session=true;s.checks.remote.allowed=true;s.workstations[0].remote_connected=true;vm.runInContext('render(s)',ctx);assert.equal(get('osjsDesktop').getAttribute('src'),'__API_BASE__/desktop?client_serial=client#two');s.checks.remote.allowed=false;s.workstations[0].status='failed';vm.runInContext('render(s)',ctx);assert(get('desktop').hidden);assert.equal(get('osjsDesktop').getAttribute('src'),undefined,'Lost connection unloads remote desktop');
 vm.runInContext('render(null)',ctx);assert(get('connectTarget').disabled);assert.equal(get('workstationList').children.length,0);
 console.log('Workstation list: separate technician, supported targets, search identity, environment reset, connection loss and empty state OK');
+
+// A failed connection must show the backend diagnostic, without a success banner.
+get('notice').scrollIntoView=()=>{get('notice').scrolled=true;};
+ctx.fetch=async(url,opts)=>opts?{ok:false,json:async()=>({error:'Contrôle discret : registerEvent donePing : invalid string position'})}:{ok:false};
+vm.runInContext(html.match(/<script>([\s\S]*?)<\/script>/)[1].split('async function state()')[1].split("$('workstationSearch').oninput")[0].replace(/^/, 'async function state()'),ctx);
+(async()=>{await vm.runInContext("call('action',{action:'connect'})",ctx);assert(get('notice').textContent.includes('registerEvent donePing'));assert(get('notice').scrolled);console.log('Connection refusal: backend error remains visible and scrolled into view OK');})().catch(e=>{console.error(e);process.exitCode=1;});
