@@ -17,13 +17,17 @@ Référentiel des personnes représentées, comptes, appareils et tickets ; iden
 
 Console d’annuaire : utilisateurs, groupes, ordinateurs, OU, historique, stratégie et refus des modifications périmées. Messagerie et licences restent au bloc v0.47. Voir [le périmètre](V045-ANNUAIRE-CONSOLES.md).
 
+## Livraison v0.46
+
+Premier cycle de réserve/remise/restitution et consultation du parc commun. La préparation est déclarative ; le lien avec le déploiement visuel et le remplacement des postes connectés restent à développer. Voir [le périmètre](V046-PARC-STOCK.md).
+
 ## Suite envisagée
 
 | Version | Objectif | Critère de sortie |
 |---|---|---|
 | 0.44 | Référentiel procédural commun | Un employé, son compte, son matériel et ses tickets partagent des identifiants stables. Même seed et même version de génération : même état initial. |
 | 0.45 | Affiner les applications d’administration | Affiner la console d’annuaire et les liens des fiches utilisateurs. Définir les références réelles et limites de fidélité. |
-| 0.46 | Parc matériel et préparation | Stock, attribution, restitution et installation visuelle : chaque opération persiste et modifie l’inventaire. |
+| 0.46 | Parc matériel et préparation | Premier cycle stock/remise/restitution livré ; association au déploiement visuel et remplacement réseau encore à faire. |
 | 0.47 | Mail, licences et documents | Comptes mail et conventions, places disponibles, documents de remise et validation des résultats attendus. |
 | 0.48 | Arrivée d’employé complète | Préparer compte, accès, mail, licences, poste, documents et livraison à partir d’une demande procédurale. |
 | 0.49 | Événements d’entreprise | Arrivées, mobilités et départs produisent des demandes cohérentes ; incidents collectifs regroupés ; pause et fréquence réglables. |

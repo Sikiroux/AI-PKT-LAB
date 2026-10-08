@@ -34,6 +34,7 @@ import desktop_controller
 import client_workspaces as clients
 import company_registry
 import directory_console
+import sim_inventory
 from contextlib import contextmanager
 
 ROOT = Path(__file__).resolve().parent
@@ -314,6 +315,18 @@ class Controller:
                 right = 'read' if action == 'grant_read' else 'write'
                 return self.directory('operation', {'operation':'add_group_member','payload':{'group_id':s['directory_resource']['allowed_group_ids'][right][0], 'user_id':s['directory_user_id']}})
             return self.workspace.action(action)
+
+    def inventory(self, action, data):
+        with self.lock:
+            s=self.workspace.state
+            if not s or not s.get('devices'):raise ValueError('Crée ou reprends un environnement.')
+            company_registry.ensure(s)
+            if sim_inventory.ensure(s):self.workspace.save()
+            if action=='state':return {'inventory':sim_inventory.public(s),'registry':company_registry.public(s)}
+            if action!='operation':raise ValueError('Action de stock inconnue.')
+            sim_inventory.operate(s,data,time.time())
+            self.workspace.event('Stock : '+str(data.get('operation')))
+            return {'inventory':sim_inventory.public(s),'registry':company_registry.public(s)}
 
     def directory(self, action, data):
         with self.lock:

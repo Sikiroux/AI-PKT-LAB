@@ -108,6 +108,10 @@ class WorkspaceRoutes:
             if callable(getattr(type(c.engine),'quiet_pings',None)):c.observe(blocking=True,accelerate=True)
             else:c.observe(blocking=True)
             with c.lock: result = c.workspace.public()
+        elif action.startswith('inventory/'):
+            if data.get('environment_id') != (c.workspace.state or {}).get('environment_id','legacy'):
+                raise ValueError('Environnement actif requis.')
+            result = c.inventory(action.removeprefix('inventory/'), data)
         elif action.startswith('directory/'):
             if data.get('environment_id') != (c.workspace.state or {}).get('environment_id','legacy'):
                 raise ValueError('Environnement actif requis.')

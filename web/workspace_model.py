@@ -15,6 +15,7 @@ import desktop_services
 import desktop_incidents
 import client_workspaces as clients
 import company_registry
+import sim_inventory
 
 VERSION = 1
 TTL = 45
@@ -102,6 +103,7 @@ class Workspace:
     def save(self):
         clients.sync_primary(self.state)
         company_registry.ensure(self.state)
+        sim_inventory.ensure(self.state)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         temp = self.path.with_suffix('.tmp')
         temp.write_text(json.dumps(self.state, ensure_ascii=False, indent=2), encoding='utf-8')
