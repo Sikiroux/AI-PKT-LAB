@@ -14,6 +14,10 @@ class TechnicianTests(unittest.TestCase):
         self.c.identities=Mock(return_value={'client':{'name':'Client'},'technician':{'name':'Tech'}})
         self.routes=WorkspaceRoutes(self.c,'token');self.handler=Mock()
 
+    def test_technician_deep_link_serves_desktop(self):
+        self.handler.path='/workspace/technician?app=deployment'
+        self.assertTrue(self.routes.get(self.handler))
+        self.assertIn('const technician=true',self.handler.send.call_args.args[1])
     def test_source_is_actual_technician_even_without_remote_session(self):
         self.c.ping('192.168.1.1',source='technician')
         self.engine.ping.assert_called_once_with('Tech','192.168.1.1')

@@ -1,6 +1,7 @@
 """Routes du bureau avec le pont et le jeton du serveur principal."""
 import mimetypes
 import os
+from urllib.parse import urlsplit
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -10,7 +11,7 @@ class WorkspaceRoutes:
         self.controller, self.token = controller, token
 
     def get(self, handler):
-        path = handler.path
+        path = urlsplit(handler.path).path
         if path in ('/workspace', '/workspace/desktop', '/workspace/technician'):
             name = 'workspace.html' if path == '/workspace' else 'desktop.html'
             html = (ROOT / name).read_text(encoding='utf-8')
