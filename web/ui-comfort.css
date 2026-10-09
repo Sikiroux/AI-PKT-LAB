@@ -41,3 +41,12 @@ button:active:not(:disabled){filter:brightness(.94)}
 
 #root .desktop-app-content .deployment-shell{margin:-20px}@media(max-width:600px){#root .desktop-app-content .deployment-shell{margin:-12px}}
 #root .osjs-window-header{flex:0 0 42px;align-items:center}#root .osjs-window-button{flex:0 0 34px;height:100%}#root .osjs-window-icon{display:grid;place-items:center;flex:0 0 34px}#root .osjs-window-icon>div{width:20px;height:20px;background-size:contain}#root .osjs-window-title{padding:0 8px}
+
+/* v0.53: documentation workstation, bounded list and readable article. */
+#root .knowledge-app{height:100%;display:flex;flex-direction:column;min-height:0}
+#root .knowledge-layout{flex:1;min-height:0;overflow:hidden;grid-template-columns:minmax(180px,32%) minmax(0,1fr)}
+#root .knowledge-layout>.workstation-list,#root .knowledge-article{min-height:0;overflow:auto}
+#root .knowledge-article{line-height:1.65;padding:20px;max-width:100%;overflow-wrap:anywhere}
+#root .knowledge-badge{display:inline-block;background:#e8eefb;color:#29477e;border-radius:20px;padding:4px 10px;font-size:12px}
+#root .knowledge-layout .directory-person[aria-pressed="true"]{background:#e8eefb;border-left:3px solid #4b72cc}
+@media(max-width:620px){#root .knowledge-layout{grid-template-columns:1fr;grid-template-rows:minmax(100px,30%) minmax(0,1fr)}}

@@ -107,3 +107,7 @@ Livré sur les nouvelles entreprises : 30 employés, six services, 30 postes PT 
 ### v0.50.1 — Accessoires simultanés
 
 Les neuf causes d’accessoires locaux sont intégrées au registre simultané. La vérification ne dépend pas du réseau. La préparation/déploiement, les sessions durables et l’enrichissement des applications restent à poursuivre. Voir [la recette](V0501-ACCESSOIRES-SIMULTANES.md).
+
+### v0.51 / v0.52 / v0.53 — Traitement et applications
+
+La livraison v0.52 remplace les objectifs historiques 0.51 et 0.52 du tableau : fil d’activité, tâches, priorité expliquée, fenêtres et verrouillage. v0.53 rend la documentation consultable par recherche et catégorie et corrige les anciennes consignes. Supervision/salle serveurs et bilan pédagogique restent au backlog ; ces numéros ne les déclarent pas livrés. Prochains blocs : applications de diagnostic plus fidèles, politiques d’entreprise issues de la seed, puis bilan des interventions.

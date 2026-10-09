@@ -1,3 +1,7 @@
+# v0.53 — Documentation et cohérence des consignes
+
+Recherche sans distinction d’accents, catégories, liste et lecture séparées, informations de l’entreprise distinguées des procédures. Correction du parcours des tickets simultanés et du coffre local dans l’aide. Voir [la recette](docs/V053-DOCUMENTATION.md). Rendu Windows à tester.
+
 # v0.52 — Centre de tickets et bureaux (blocs 0.51 + 0.52)
 
 Fil d’activité unifié, suivis publics / internes, tâches persistantes et qualification urgence × impact. Fenêtres harmonisées, barre des tâches, verrouillage conservant les applications et console de ping améliorée. Recettes et limites : [Traitement des tickets](docs/V051-TRAITEMENT-TICKETS.md) et [Bureaux et sessions](docs/V052-BUREAUX-ET-SESSIONS.md). À tester dans ton environnement Windows / Packet Tracer 9.
