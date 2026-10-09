@@ -65,6 +65,9 @@ def evaluate(state, action, at=None):
     checks = [('service', 'Service de prise en main' if action == 'remote' else 'Service de partage',
                state['remote_service'] if action == 'remote' else state['share_service']),
               ('account', 'Compte actif', (state['directory']['users'][state['directory_user_id']]['enabled'] if 'directory' in state else state['account_enabled']))]
+    if action == 'remote':
+        # Le transport distant est indépendant du compte Windows du demandeur.
+        checks = [check for check in checks if check[0] != 'account']
     if action != 'remote':
         checks.append(('permission', 'Autorisation de lecture' if action == 'read' else 'Autorisation d’écriture',
                        state['read_allowed'] if action == 'read' else state['write_allowed']))
@@ -182,7 +185,7 @@ class Workspace:
             raise ValueError('Génère un environnement.')
         if action == 'disconnect':
             s['remote_session'] = False
-            if 'directory' in s: ad.invalidate(s)
+            # Déconnexion du transport, pas déconnexion Windows.
         elif action == 'connect':
             access = evaluate(s, 'remote')
             if not access['allowed']:
@@ -198,7 +201,7 @@ class Workspace:
             s['remote_session'] = True
         elif action in ('read', 'write'):
             if not s['remote_session'] or not evaluate(s, 'remote')['allowed']:
-                s['remote_session'] = False
+                if evaluate(s, 'remote')['status'] == 'failed':s['remote_session'] = False
                 raise ValueError('Reconnecte la session distante après vérification réseau.')
             if not evaluate(s, action)['allowed']:
                 raise ValueError('Accès au partage refusé ou connectivité inconnue.')

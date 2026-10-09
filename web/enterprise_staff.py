@@ -7,4 +7,4 @@ LAST=('Martin','Bernard','Diallo','Moreau','Laurent','Dubois','Petit','Robert','
 def generate(seed):
     rng=random.Random(hashlib.sha256((str(seed)+':staff:v1').encode()).hexdigest())
     first=list(FIRST);last=list(LAST);rng.shuffle(first);rng.shuffle(last)
-    return [dict(index=i+1,display_name=first[i]+' '+last[i],username='u'+str(i+1).zfill(3),department=DEPARTMENTS[i//5],activity=('Traiter les dossiers partagés','Préparer les propositions','Gérer les dossiers salariés','Suivre les indicateurs','Accueillir les visiteurs','Préparer les commandes')[i//5]) for i in range(30)]
+    return [dict(index=i+1,display_name=first[i]+' '+last[i],username='u'+str(i+1).zfill(3),department=DEPARTMENTS[i//5],activity=('Traiter les dossiers partagés','Préparer les propositions','Gérer les dossiers salariés','Suivre les indicateurs','Accueillir les visiteurs','Traiter les commandes clients')[i//5]) for i in range(30)]

@@ -104,7 +104,7 @@ class Controller:
             self.workspace.state['remote_session'] = False
             self.workspace.state['observation'] = None
             self.workspace.state['validated'] = False
-            if 'directory' in self.workspace.state: ad.invalidate(self.workspace.state)
+            if 'directory' in self.workspace.state: ad.invalidate(self.workspace.state, all_clients=True)
             self.workspace.save()
 
     def _guard_historical_incident(self):
@@ -281,7 +281,7 @@ class Controller:
             s['observation'] = dict(at=time.time(), status='unknown', source='Packet Tracer', detail=str(e))
         finally:
             if self.workspace.state:
-                if not evaluate(self.workspace.state, 'remote')['allowed']:
+                if evaluate(self.workspace.state, 'remote')['status'] == 'failed':
                     self.workspace.state['remote_session'] = False
                     # Une rupture de transport ferme la prise en main, pas la session Windows simulée.
                 if (not all(row['status']=='valide' for row in desktop_incidents.checks(self.workspace.state,time.time())) if self.workspace.state.get('desktop_incident') else not evaluate(self.workspace.state, 'read')['allowed']):
@@ -400,14 +400,16 @@ class Controller:
                 outcome = sim_ad.apply_operation(s['directory'], data.get('operation'), data.get('payload',{}), ad.actor(s), now)
                 s['directory'] = outcome['directory']
                 files_adapter.sync_catalog(s)
-                ad.invalidate(s)
+                # Les opérations administratives ne ferment pas les sessions Windows.
+                # Les accès suivants réévaluent l’état du compte et les droits.
+                s['validated'] = False
                 self.workspace.event('Annuaire : '+str(data.get('operation')))
                 return {'result':outcome['result']}
             if action not in ('login','change-password','logout'):raise ValueError('Action annuaire inconnue.')
             if action == 'logout':
                 ad.invalidate(s);self.workspace.save();return {'result':{'code':'LOGGED_OUT','allowed':False}}
             if not s['remote_session'] or not evaluate(s,'remote')['allowed']:
-                ad.invalidate(s);self.workspace.save();raise ValueError('Ouvre une session distante connectée avant l’authentification utilisateur.')
+                self.workspace.save();raise ValueError('Ouvre une session distante connectée avant l’authentification utilisateur.')
             # Ce bureau représente le demandeur du ticket ; le navigateur ne choisit pas son identité.
             username = s['directory']['users'][s['directory_user_id']]['username']
             if action == 'login':
@@ -439,7 +441,8 @@ class Controller:
                 return {'result':outcome['result']}
             if action!='action':raise ValueError('Action de fichiers inconnue.')
             if not s['remote_session'] or not evaluate(s,'remote')['allowed']:
-                s['remote_session']=False;self.workspace.save();raise ValueError('Reconnecte le poste distant.')
+                if evaluate(s,'remote')['status']=='failed':s['remote_session']=False
+                self.workspace.save();raise ValueError('Reconnecte le poste distant.')
             if s.get('desktop_services') and 'documents' not in s['desktop_services']['endpoint']['applications']:return dict(result={'allowed':False,'code':'APPLICATION_MISSING'},revision=s['file_service']['revision'])
             req=data.get('request',{})
             outcome=sim_files.perform_file_action(s['file_service'],req,files_adapter.context(s,now),now)

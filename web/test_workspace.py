@@ -11,7 +11,7 @@ from workspace_network import build
 
 
 class ModelTests(unittest.TestCase):
-    def test_manual_refresh_waits_for_busy_controller_and_closes_session(self):
+    def test_manual_refresh_waits_and_preserves_session_on_unknown_transport(self):
         import threading
         class Broken:
             lock = threading.Lock()
@@ -33,7 +33,22 @@ class ModelTests(unittest.TestCase):
                 self.assertFalse(done.wait(.05))
             worker.join(2)
             self.assertTrue(done.is_set())
-            self.assertFalse(c.workspace.public()['remote_session'])
+            self.assertTrue(c.workspace.public()['remote_session'])
+
+    def test_unknown_read_blocks_action_without_destroying_transport(self):
+        with tempfile.TemporaryDirectory() as folder:
+            w=Workspace(Path(folder)/'session.json');w.state=generate('abc')
+            w.state['remote_session']=True
+            with self.assertRaises(ValueError):w.action('read')
+            self.assertTrue(w.state['remote_session'])
+
+    def test_failed_remote_read_closes_transport(self):
+        with tempfile.TemporaryDirectory() as folder:
+            w=Workspace(Path(folder)/'session.json');w.state=generate('abc')
+            w.state['remote_session']=True
+            w.state['observation']={'probes':{'remote':dict(at=time.time(),status='failed')}}
+            with self.assertRaises(ValueError):w.action('read')
+            self.assertFalse(w.state['remote_session'])
 
     def test_seed_and_separate_draws(self):
         self.assertEqual(generate('abc'), generate('abc'))
@@ -90,7 +105,7 @@ class ModelTests(unittest.TestCase):
             c.workspace.state['remote_session'] = True
             c.observe()
             self.assertEqual(c.workspace.state['observation']['status'], 'unknown')
-            self.assertFalse(c.workspace.state['remote_session'])
+            self.assertTrue(c.workspace.state['remote_session'])
 
     def test_identity_survives_rename_and_rejects_wrong_file(self):
         with tempfile.TemporaryDirectory() as d:

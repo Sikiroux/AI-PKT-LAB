@@ -1,3 +1,7 @@
+# v0.50.7 — Sessions conservées pendant les contrôles indisponibles
+
+Reconnexion distante sans destruction des fenêtres sur preuve inconnue ; opérations AD sans logout général. Recette et limites : docs/V0507-SESSIONS.md.
+
 # v0.50.6 — Fiche ticket et actions dédiées
 
 Trois onglets séparent les échanges, l’intervention et les contrôles pédagogiques. Les suivis, notes et actions de résolution utilisent une fenêtre centrée. Recette visuelle : docs/V0506-FICHE-TICKET.md.

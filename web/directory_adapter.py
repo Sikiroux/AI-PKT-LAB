@@ -60,7 +60,9 @@ def actor(state):
     return dict(id='technician',environment_id=state.get('environment_id','legacy'),permissions=[sim_ad.CAPABILITY_USERS,sim_ad.CAPABILITY_PASSWORDS,sim_ad.CAPABILITY_GROUPS,sim_ad.CAPABILITY_OUS,sim_ad.CAPABILITY_COMPUTERS])
 
 
-def invalidate(state):
-    for profile in state.get('client_workspaces',{}).values():profile['local']['directory_auth']=None
+def invalidate(state, all_clients=False):
+    # Logout / échec de connexion : uniquement le poste actuellement sélectionné.
+    if all_clients:
+        for profile in state.get('client_workspaces',{}).values():profile['local']['directory_auth']=None
     state['directory_auth'] = None
     state['validated'] = False

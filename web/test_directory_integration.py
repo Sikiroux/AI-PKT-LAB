@@ -29,10 +29,10 @@ class IntegrationTests(unittest.TestCase):
         self.grant();self.assertFalse(evaluate(self.c.workspace.state,'read')['allowed'])
         self.assertTrue(self.login()['allowed']);self.assertTrue(evaluate(self.c.workspace.state,'read')['allowed'])
         self.assertFalse(evaluate(self.c.workspace.state,'write')['allowed'])
-    def test_remove_membership_invalidates_login_and_right(self):
+    def test_remove_membership_preserves_login_and_rechecks_right(self):
         self.grant();self.login();s=self.c.workspace.state
         self.c.directory('operation',{'operation':'remove_group_member','payload':{'user_id':s['directory_user_id'],'group_id':s['directory_resource']['allowed_group_ids']['read'][0]}})
-        self.assertIsNone(s['directory_auth']);self.login();self.assertFalse(evaluate(s,'read')['allowed'])
+        self.assertIsNotNone(s['directory_auth']);self.assertFalse(evaluate(s,'read')['allowed'])
     def test_reset_expired_password_and_mandatory_change(self):
         s=self.c.workspace.state;uid=s['directory_user_id'];s['directory']['users'][uid]['password_expires_at']=time.time()-5
         r=self.c.directory('operation',{'operation':'reset_password','payload':{'user_id':uid}})['result']
@@ -54,10 +54,10 @@ class IntegrationTests(unittest.TestCase):
         routes=WorkspaceRoutes(self.c,'t');h=Mock();h.path='/workspace/directory/login'
         for data in ({'password':sim_ad.TRAINING_PASSWORD},{'environment_id':'old','password':sim_ad.TRAINING_PASSWORD}):
             with self.assertRaises(ValueError):routes.post(h,data)
-    def test_transport_control_failure_keeps_employee_authentication(self):
+    def test_unknown_transport_preserves_remote_and_employee_authentication(self):
         self.login();s=self.c.workspace.state;auth=copy.deepcopy(s['directory_auth'])
         self.c.observe(blocking=True)
-        self.assertFalse(s['remote_session'])
+        self.assertTrue(s['remote_session'])
         self.assertEqual(s['directory_auth'],auth)
         self.assertFalse(evaluate(s,'read')['allowed'])
 
@@ -113,5 +113,30 @@ class IntegrationTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.c.directory('operation', {'operation':'create_ou', 'payload':{'name':'Interdit'}})
         self.assertEqual(s['directory'], before)
+
+    def test_remote_disconnect_preserves_windows_authentication(self):
+        self.login();s=self.c.workspace.state;auth=copy.deepcopy(s['directory_auth'])
+        self.c.workspace.action('disconnect')
+        self.assertFalse(s['remote_session']);self.assertEqual(s['directory_auth'],auth)
+
+    def test_unrelated_ou_creation_preserves_authenticated_session(self):
+        self.login();s=self.c.workspace.state;auth=copy.deepcopy(s['directory_auth'])
+        self.c.directory('operation',{'operation':'create_ou','payload':{'name':'Autre service','parent_id':None}})
+        self.assertEqual(s['directory_auth'],auth)
+        self.assertTrue(s['remote_session'])
+
+    def test_logout_does_not_clear_other_employees(self):
+        self.login();s=self.c.workspace.state
+        other={'status':'authenticated','user_id':'other'}
+        s['client_workspaces']={'other':{'local':{'directory_auth':copy.deepcopy(other)}}}
+        self.c.directory('logout',{})
+        self.assertIsNone(s['directory_auth'])
+        self.assertEqual(s['client_workspaces']['other']['local']['directory_auth'],other)
+
+    def test_disabled_employee_does_not_disable_remote_transport(self):
+        self.login();s=self.c.workspace.state
+        s['directory']['users'][s['directory_user_id']]['enabled']=False
+        self.assertTrue(evaluate(s,'remote')['allowed'])
+        self.assertFalse(self.login()['allowed'])
 
 if __name__=='__main__':unittest.main()
