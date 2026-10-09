@@ -1,3 +1,7 @@
+# v0.50.4 — Accueil et sessions
+
+Accueil réorganisé depuis le nouvel export Figma : prochain ticket, état du site, raccourcis et entreprises sauvegardées. Voir [la note de version](docs/V0504-ACCUEIL-SESSIONS.md). Rendu Windows et Packet Tracer à tester.
+
 # v0.50.3 — Détails visuels Figma
 
 Icônes issues de la maquette, bandeau compact, diagnostic en lignes et suppression du double défilement d’inventaire. Voir [le détail et la recette](docs/V0503-FIDELITE-FIGMA.md).
