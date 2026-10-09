@@ -1,3 +1,7 @@
+# v0.50.2 — Parc et réseau, maquette Figma
+
+Quatre onglets, recherche d’équipements et cartes reliées aux observations du pont. Voir [la livraison et la recette](docs/V0502-PARC-FIGMA.md). Le rendu visuel reste à confirmer sur Windows.
+
 # v0.50.1 — Accessoires simultanés
 
 Écran, clavier et souris rejoignent les incidents des entreprises à 30 employés : panne avant ticket, intervention locale, clôture sans ping. La fenêtre Équipement local présente trois cartes matériel. Voir [le périmètre et la recette](docs/V0501-ACCESSOIRES-SIMULTANES.md).

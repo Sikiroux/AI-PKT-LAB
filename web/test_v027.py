@@ -21,9 +21,11 @@ class NavigationContract(unittest.TestCase):
             for ref in re.findall(r"\$\('([^']+)'\)", html):
                 self.assertIn(ref, ids + dynamic, (name, ref))
 
-    def test_single_enterprise_network_button(self):
+    def test_enterprise_network_shortcuts_share_one_target(self):
         html = (ROOT / 'web/tickets.html').read_text()
-        self.assertEqual(len(re.findall(r'<button[^>]*class="[^"]*openNetwork', html)), 1)
+        self.assertEqual(len(re.findall(r'<button[^>]*class="[^"]*openNetwork', html)), 3)
+        self.assertIn("document.querySelectorAll('.openNetwork').forEach(b=>b.onclick=openNetwork)", html)
+        self.assertIn("request('/open',{})", html)
         self.assertIn('id="openActiveNetwork"', html)
         self.assertIn("if(!state.site?.environment_id)", html)
 
