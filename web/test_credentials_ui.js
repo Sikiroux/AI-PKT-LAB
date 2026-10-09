@@ -20,7 +20,7 @@ if(url.endsWith('directory/operation')){result={result:{code:'OK'}};if(req.opera
 if(url.endsWith('directory/login')||url.endsWith('directory/change-password'))result={result:{code:'OK',allowed:true}};
 return{ok:true,json:async()=>result}}};
 vm.createContext(ctx);const html=fs.readFileSync(__dirname+'/desktop.html','utf8');const source=html.match(/<script>\s*const technician=([\s\S]*?)<\/script>/)[0].replace(/^<script>/,'').replace(/<\/script>$/,'').split('async function boot()')[0].replace('__TECHNICIAN__','false').replace('__TOKEN__','test').replace('__API_BASE__','/workspace');vm.runInContext(source,ctx);
-const contents=[];ctx.contents=contents;vm.runInContext("check=async()=>{};core={make:()=>({raise(){},focus(){},on(){},render(fn){const el=document.createElement('div');contents.push(el);fn(el)}})}",ctx);
+const contents=[];ctx.contents=contents;vm.runInContext("check=async()=>{};core={make:()=>({state:{focused:false,minimized:false},setIcon(){},raise(){},focus(){},on(){},render(fn){const el=document.createElement('div');contents.push(el);fn(el)}})}",ctx);
 const tick=()=>new Promise(r=>setImmediate(r));
 const find=(root,predicate)=>{if(predicate(root))return root;for(const e of root.children||[]){if(typeof e==='object'){const match=find(e,predicate);if(match)return match}}};
 const byButton=(root,text)=>find(root,e=>e.tagName==='button'&&e.textContent===text);

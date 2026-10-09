@@ -1,0 +1,14 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+class E{constructor(){this.hidden=true;this.inert=false;this.value='';this.dataset={};this.attrs={};this.isConnected=true}focus(){this.focused=true}setAttribute(k,v){this.attrs[k]=v}remove(){this.removed=true}}
+const elements={},storage=new Map(),calls=[];const ctx={expectedEnvironment:'env-A',expectedClient:'pc-A',technician:false,stopped:false,innerWidth:1200,innerHeight:800,windows:new Map(),document:{getElementById:id=>elements[id]||(elements[id]=new E()),activeElement:new E()},sessionStorage:{getItem:k=>storage.get(k),setItem:(k,v)=>storage.set(k,v)},identityMessage:c=>c,api:async(p,d)=>{calls.push([p,d]);return {result:{allowed:ctx.allowed,code:'DENIED'}}},button:(label,parent,fn)=>{const b=new E();b.onclick=fn;return b}};vm.createContext(ctx);
+const html=fs.readFileSync(__dirname+'/desktop.html','utf8');vm.runInContext(html.slice(html.indexOf('let desktopLocked='),html.indexOf('function openApp(')),ctx);
+(async()=>{
+ ctx.lockDesktop();assert(elements.root.inert);assert(!elements.desktopLock.hidden);assert.equal(storage.size,1);assert(!storage.values().next().value.includes('password'));
+ elements.lockPassword.value='Wrong';ctx.allowed=false;await ctx.unlockDesktop({preventDefault(){}});assert(elements.root.inert);assert.equal(elements.lockPassword.value,'');assert.equal(elements.lockError.textContent,'DENIED');assert.equal(calls[0][0],'directory/login');
+ elements.lockPassword.value='Good';ctx.allowed=true;await ctx.unlockDesktop({preventDefault(){}});assert(!elements.root.inert);assert(elements.desktopLock.hidden);
+ ctx.technician=true;ctx.lockDesktop();const count=calls.length;await ctx.unlockDesktop({preventDefault(){}});assert.equal(calls.length,count,'Technician resume is not an employee logon');
+ ctx.saveDesktopPreference('window:x',{position:{left:900,top:700},dimension:{width:900,height:600}});ctx.innerWidth=600;ctx.innerHeight=500;const geometry=ctx.savedWindowOptions('x');assert(geometry.position.left<=280);assert(geometry.dimension.width<=570);
+ ctx.expectedEnvironment='env-B';assert.equal(ctx.readDesktopPreference('window:x'),null,'Window preferences must not cross environments');
+ let minimized=0,raised=0;const events={},w={state:{focused:true,minimized:false},on:(key,fn)=>events[key]=fn,minimize(){minimized++;this.state.minimized=true},raise(){raised++;this.state.minimized=false},focus(){}};const task=ctx.attachWindowTask('x','Notes',w);await task.onclick();assert.equal(minimized,1);events.minimize();assert.equal(task.dataset.minimized,'true');await task.onclick();assert.equal(raised,1);events.destroy();assert(task.removed);
+ console.log('Desktop lock: identity, failure, credential clearing, scope, geometry and taskbar OK');
+})().catch(e=>{console.error(e);process.exit(1)});

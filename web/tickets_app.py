@@ -17,6 +17,7 @@ import enterprise_incidents
 import company_registry
 from workspace_routes import WorkspaceRoutes
 import timers
+import ticket_processing
 import re
 import copy
 import uuid
@@ -119,7 +120,7 @@ class Tickets:
     @metadata_locked
     def public(self):
         return copy.deepcopy({'site':{'name':self.state['site'].get('name','Agence de test'),'environment_id':self.state['site'].get('environment_id'),'profile':self.state['site'].get('profile',{}),'devices':len(self.state['site']['devices']),'file':self.state['site'].get('file'),'ready':self.readiness,'inventory':self.state['site'].get('inventory',[]),'inventory_at':self.state['site'].get('inventory_at'),'service_capabilities':self.state['site'].get('service_capabilities',[])} if self.state['site'] else None,
-                'tickets':[{k:v for k,v in t.items() if k not in ('baseline','injection','service_scenario','procedural')} for t in self.state['tickets']],
+                'tickets':[dict({k:v for k,v in t.items() if k not in ('baseline','injection','service_scenario','procedural')}, classification=ticket_processing.classification(t), timeline=ticket_processing.timeline(t)) for t in self.state['tickets']],
                 'session':self.desk.public() if self.desk else None,'service_jobs':self.desk.g.jobs() if self.desk else [],'console_diagnostic':self.state.get('console_diagnostic'),'events':self.state['events'][-40:]})
     def check_file(self,snapshot,expected):
         actual=snapshot.get('saved_filename')
@@ -457,15 +458,26 @@ class Tickets:
         if kind not in ('followup','solution'):raise ValueError('Type de suivi inconnu.')
         if not isinstance(text,str) or not text.strip() or len(text)>2000:
             raise ValueError('Le suivi doit contenir entre 1 et 2000 caractères.')
+        visibility=data.get('visibility','public')
+        if visibility not in ('public','private'):raise ValueError('Visibilité du suivi inconnue.')
+        if kind=='solution' and visibility!='public':raise ValueError('Une proposition de solution est destinée au demandeur.')
         history=t.get('followups',[])
         if len(history)>=100:raise ValueError('Ce ticket contient déjà 100 suivis ; utilise le compte rendu pour la synthèse.')
-        entry=dict(id=len(history)+1,date=now(),author='Technicien de la session',kind=kind,text=text.strip())
+        entry=dict(id=len(history)+1,date=now(),author='Technicien de la session',kind=kind,text=text.strip(),visibility=visibility)
         t.setdefault('followups',[]).append(entry)
         self.event(t['id']+' : '+('proposition de solution ajoutée.' if kind=='solution' else 'suivi ajouté.'))
         return self.public()
 
     def action(self,ident,action,data,resolving=False):
         t=self.get(ident)
+        if action in ('classify','task_add','task_update'):
+            with self.metadata_lock:
+                if t['status']=='clos':raise ValueError('Ticket clos : traitement en lecture seule.')
+                if action=='classify':ticket_processing.set_classification(t,data,now())
+                elif action=='task_add':ticket_processing.add_task(t,data,now())
+                else:ticket_processing.update_task(t,data,now())
+                self.event(t['id']+' : traitement mis à jour.')
+                return self.public()
         if action=='reopen':return self.reopen(t,data)
         if action=='resolve':
             if t['status'] in ('clos','resolu'):raise ValueError('Ce ticket est déjà résolu ou clos.')
@@ -491,14 +503,15 @@ class Tickets:
                 if cmd not in ('pause','resume') or not timer:raise ValueError('Action chronomètre invalide pour un ticket.')
                 timers.operate(timer,cmd)
             self.save()
-        elif action=='wait':t['status']='en_attente';self.event(t['id']+' : en attente.')
+        elif action=='wait':
+            previous=t['status'];t['status']='en_attente';t.setdefault('workflow',[]).append(dict(date=now(),previous=previous,status='en_attente'));self.event(t['id']+' : en attente.')
         elif action=='severity':
             value=data.get('severity')
             if value not in ('faible','moderee','elevee','critique'):raise ValueError('Sévérité inconnue')
-            t['severity']=value;self.event(t['id']+' : sévérité mise à jour.')
+            t['severity']=value;t.pop('classification',None);self.event(t['id']+' : sévérité mise à jour.')
         elif action=='take':
             if t['kind']=='workspace' and t.get('stage')=='queued':ticket_arrivals.activate(self,t)
-            timers.autostart(t.get('timer'));t['status']='en_cours';t.setdefault('assigned_to','Technicien de la session');self.event(t['id']+' : pris en charge.')
+            previous=t['status'];timers.autostart(t.get('timer'));t['status']='en_cours';t.setdefault('workflow',[]).append(dict(date=now(),previous=previous,status='en_cours'));t.setdefault('assigned_to','Technicien de la session');self.event(t['id']+' : pris en charge.')
         elif action=='retry_service':
             if t['kind']!='service' or not self.desk:raise ValueError('Action réservée aux réseaux de tickets.')
             old=next(j for j in self.desk.g.jobs() if j['id']==t['job_id'])
@@ -592,7 +605,7 @@ def run():
                 n=int(self.headers.get('Content-Length','0'))
                 if not 0<=n<=8192:raise ValueError('Requete trop grande')
                 data=json.loads(self.rfile.read(n) or b'{}')
-                if self.path=='/action' and data.get('action') in ('take','wait','notes','followup','severity','timer'):
+                if self.path=='/action' and data.get('action') in ('take','wait','notes','followup','severity','timer','classify','task_add','task_update'):
                     with tickets.metadata_lock:
                         self.check_environment(data)
                         return self.send(200,tickets.action(data['id'],data['action'],data))

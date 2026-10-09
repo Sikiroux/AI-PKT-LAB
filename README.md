@@ -1,3 +1,7 @@
+# v0.52 — Centre de tickets et bureaux (blocs 0.51 + 0.52)
+
+Fil d’activité unifié, suivis publics / internes, tâches persistantes et qualification urgence × impact. Fenêtres harmonisées, barre des tâches, verrouillage conservant les applications et console de ping améliorée. Recettes et limites : [Traitement des tickets](docs/V051-TRAITEMENT-TICKETS.md) et [Bureaux et sessions](docs/V052-BUREAUX-ET-SESSIONS.md). À tester dans ton environnement Windows / Packet Tracer 9.
+
 # v0.50.8 — Impact FTP selon les activités métier
 
 Les incidents partagés concernent les employés dépendants du service. La fiche distingue estimation métier et preuve réseau ; les dépendances sont documentées. Détails : docs/V0508-IMPACT-METIER.md.
