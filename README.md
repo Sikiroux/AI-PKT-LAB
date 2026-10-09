@@ -1,3 +1,7 @@
+# v0.50.5 — Fenêtre de création d’entreprise
+
+Création dans une fenêtre centrée avec fond flouté, seed facultative et chargement. Message d’accueil adapté sans entreprise active. Voir [la note de version](docs/V0505-CREATION-ENTREPRISE.md). Rendu Windows à tester.
+
 # v0.50.4 — Accueil et sessions
 
 Accueil réorganisé depuis le nouvel export Figma : prochain ticket, état du site, raccourcis et entreprises sauvegardées. Voir [la note de version](docs/V0504-ACCUEIL-SESSIONS.md). Rendu Windows et Packet Tracer à tester.
