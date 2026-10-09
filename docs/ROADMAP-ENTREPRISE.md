@@ -56,6 +56,10 @@ Ces étapes restent à implémenter ; elles ne sont pas livrées par le nettoyag
 
 ## Principes
 
+### Premier incrément d'interface v0.48
+
+La file comparative et la recherche par demandeur/poste sont livrées ; la fiche complète s'affiche sous la file. Les règles de traitement restent inchangées. La refonte métier complète, le nommage et les topologies ne sont pas considérés comme terminés. Voir [le périmètre v0.48](V048-FILE-DES-TICKETS.md).
+
 Le scénario décrit une entreprise complète avec ou sans personnel IT interne. Le portable du technicien est distinct du personnel de l’entreprise. Tous les employés n’ont pas nécessairement un appareil Packet Tracer dédié ; le périmètre modélisé doit être explicite.
 
 La seed crée l’état initial, puis l’historique enregistré devient la vérité de la session. Une réparation, un nouvel employé ou une licence attribuée ne sont pas effacés par une régénération arbitraire. Les événements futurs utilisent leurs propres tirages reproductibles et leur ordre est sauvegardé.

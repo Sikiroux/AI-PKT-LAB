@@ -1,5 +1,9 @@
 # pkt_lab — Générateur de labs Packet Tracer (.pka)
 
+## v0.48 — file des tickets
+
+Table métier avec demandeur, poste, statut, sévérité et date ; recherche par identité et équipement ; fiche complète sous la file. Les sauvegardes et la validation restent inchangées. Voir [le périmètre et la recette](docs/V048-FILE-DES-TICKETS.md).
+
 ## v0.47.3 — recette et lisibilité des tickets
 
 Lancer toute la recette : `python tests/run_tests.py` (Python 3.10+ et Node.js). Les contrôles automatiques des tickets sont regroupés dans un volet pédagogique et l'application FTP propose une aide de connexion. Voir [le périmètre et les vérifications manuelles](docs/V0473-RECETTE-ET-CONTROLES.md). La refonte métier des tickets, le nommage et les topologies restent les prochains blocs.
