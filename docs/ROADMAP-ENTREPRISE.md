@@ -85,3 +85,7 @@ Différés : appareil définitivement HS, Packet Tracer complètement sans inter
 ## Complément v0.46.4
 
 Comptes et registre d’accès locaux de formation intégrés aux fiches et liés à la vue Ordinateurs de l’annuaire. Neuf incidents procéduraux d’accessoires externes proposés explicitement dans le catalogue Applications, avec clôture locale sans ping. Prochain bloc : mail et licences, puis documents de remise et arrivée d’employé complète. Une session locale avec un bureau sur place complet et les composants intégrés du portable restent à développer.
+
+### Documentation : premier incrément v0.48.2
+
+Répertoire factuel issu de l’environnement, nommage, domaine et serveur de fichiers accessibles dans Documentation. Le manuel reste disponible. Les politiques propres à chaque société, les procédures métier générées, les recherches contextuelles depuis un ticket et la gestion documentaire éditable restent à développer : ce premier incrément ne les remplace pas.

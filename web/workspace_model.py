@@ -15,6 +15,7 @@ import desktop_services
 import desktop_incidents
 import client_workspaces as clients
 import company_registry
+import company_documents
 import sim_inventory
 
 VERSION = 1
@@ -153,6 +154,7 @@ class Workspace:
             'client_serial':s['devices'].get('client',{}).get('serial'),
             'workstations': self.workstations(),
             'company_registry': company_registry.public(s),
+            'company_documents': company_documents.public(s),
             'directory_incident': directory_incidents.public_incident(s),
             'file_incident': file_incidents.public_incident(s),
             'dns_incident': dns_incidents.public_incident(s),

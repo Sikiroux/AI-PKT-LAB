@@ -37,9 +37,11 @@ ctx.fetch=async(url,options)=>{const req=JSON.parse(options.body||'{}');requests
  await byButton(root,'Prendre la main sur PC-01').onclick();assert.equal(requests.at(-1)[1].target_serial,'serial-a');assert(ctx.opened.includes('serial-a'));
  search.value='';search.oninput();await byButton(root,'TECH · tech').onclick();assert(!byButton(root,'Prendre la main sur TECH'));
  fail=true;await byButton(root,'Actualiser les fiches').onclick();assert(!byButton(root,'PC-01 · serial-a'));assert(find(root,e=>e.textContent==='Session indisponible'));fail=false;
+ fixture.company_documents=[{id:'company-resources',title:'Ressources de Entreprise test',category:'Entreprise',paragraphs:['PC-01 · adresse configurée : 10.0.0.2']}];await vm.runInContext("api('state')",ctx);
  const before=requests.length;vm.runInContext('documentationApp()',ctx);const docs=contents.at(-1);assert(find(docs,e=>e.textContent==='Repérer son environnement'));
  vm.runInContext("documentationApp('stock')",ctx);assert(find(docs,e=>e.tagName==='h2'&&e.textContent==='Préparer et remettre un matériel'));assert.equal(requests.length,before,'Documentation never probes PT');
  vm.runInContext("documentationApp('ticket-queue')",ctx);assert(find(docs,e=>e.tagName==='h2'&&e.textContent==='Comprendre la file des tickets'));assert.equal(requests.length,before);
+ assert(byButton(docs,'Ressources de Entreprise test'));await byButton(docs,'Ressources de Entreprise test').onclick();assert(find(docs,e=>e.textContent==='PC-01 · adresse configurée : 10.0.0.2'));assert.equal(requests.length,before,'Company documentation uses cached state, without probes');
  const query=find(docs,e=>e.tagName==='input');query.value='inexistant';query.oninput();assert(find(docs,e=>e.textContent==='Aucune procédure ne correspond à cette recherche.'));
  assert(requests.filter(([url])=>url.endsWith('/action')).length===1,'Reading cards must not trigger a connection');
  console.log('Workstation cards and documentation: target identity, search, technician distinction, stale-view clearing and read-only documentation OK');
