@@ -299,7 +299,8 @@ class Controller:
                     raise ValueError('Choisis un environnement.')
                 seed = self.workspace.state['seed']
                 ident = self.environments.data['active']
-                state = build(seed, self.workspace.path.parent / 'network', initial_fault=not self.workspace.state.get('arrival_queue_version'))
+                state = build(seed, self.workspace.path.parent / 'network', initial_fault=not self.workspace.state.get('arrival_queue_version'),
+                              presentation_version=(self.workspace.state.get('network_design') or {}).get('version', 0))
                 state['environment_id'] = ident
                 state['reset_id'] = secrets.token_hex(8)
                 ad.ensure(state)

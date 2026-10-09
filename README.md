@@ -1,5 +1,9 @@
 # pkt_lab — Générateur de labs Packet Tracer (.pka)
 
+## v0.48.1 — nommage et placement
+
+Les nouvelles entreprises utilisent des noms indépendants des personnes et un placement regroupé par branche, avec des variantes issues de la seed. Les anciennes sauvegardes gardent leur présentation, y compris après réinitialisation. Voir [le périmètre et la recette](docs/V0481-NOMS-ET-PLACEMENT.md). La taille du réseau et l'architecture restent inchangées.
+
 ## v0.48 — file des tickets
 
 Table métier avec demandeur, poste, statut, sévérité et date ; recherche par identité et équipement ; fiche complète sous la file. Les sauvegardes et la validation restent inchangées. Voir [le périmètre et la recette](docs/V048-FILE-DES-TICKETS.md).

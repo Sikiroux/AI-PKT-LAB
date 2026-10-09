@@ -56,6 +56,10 @@ Ces étapes restent à implémenter ; elles ne sont pas livrées par le nettoyag
 
 ## Principes
 
+### Incrément v0.48.1
+
+Noms indépendants des personnes et du préfixe de site pour les nouvelles entreprises ; placement logique par branche avec variantes déterministes. Compatibilité de présentation des anciennes sessions conservée. La diversité d'architecture, la taille des réseaux et les aménagements physiques restent à développer. Voir [le périmètre](V0481-NOMS-ET-PLACEMENT.md).
+
 ### Premier incrément d'interface v0.48
 
 La file comparative et la recherche par demandeur/poste sont livrées ; la fiche complète s'affiche sous la file. Les règles de traitement restent inchangées. La refonte métier complète, le nommage et les topologies ne sont pas considérés comme terminés. Voir [le périmètre v0.48](V048-FILE-DES-TICKETS.md).

@@ -212,7 +212,7 @@ class PrinterTopologyTests(unittest.TestCase):
         from pathlib import Path
         with tempfile.TemporaryDirectory() as folder, patch.object(workspace_network.ptexplorer,'ptfile_encode'):
             s=workspace_network.build('printer-topology',folder)
-            self.assertIn('printer',s['devices']);self.assertTrue(s['devices']['printer']['name'].endswith('-PRN-USR-01'))
+            self.assertIn('printer',s['devices']);self.assertEqual(s['devices']['printer']['name'],'PRN-USR-01')
             root=ET.parse(Path(folder)/'reference.xml').getroot()
             devices=root.findall('NETWORK/DEVICES/DEVICE')
             printer=next(d for d in devices if d.findtext('ENGINE/NAME')==s['devices']['printer']['name'])

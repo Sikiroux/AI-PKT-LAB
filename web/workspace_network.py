@@ -9,18 +9,27 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 import workshops
 import ptexplorer
 import technician_model
+import enterprise_design
 from lab_engine import organization
 from workspace_model import generate
 
 
-def build(seed, folder, initial_fault=True):
+def build(seed, folder, initial_fault=True, presentation_version=1):
+    if presentation_version not in (0, 1):
+        raise ValueError('Version de présentation inconnue.')
     state = generate(seed)
     folder = Path(folder)
     tree, topo = workshops.make_topology('enterprise_services', state['network_seed'], folder,
                                         state['address_family'], has_it=True, network_printer=True)
     root = tree.getroot()
-    names = organization.mapping(topo['devices'], state['site'])
-    names['PRN-OFFICE'] = state['site']+'-PRN-USR-01'
+    if presentation_version == 0:
+        names = organization.mapping(topo['devices'], state['site'])
+        names['PRN-OFFICE'] = state['site']+'-PRN-USR-01'
+    else:
+        design = enterprise_design.plan(seed, topo['devices'])
+        names = design['names']
+        enterprise_design.apply_positions(root, design['positions'])
+        state['network_design'] = design
     organization.rename_tree(root, names)
     # Les modèles clonés partagent parfois le numéro de série d'origine.
     # Attribuer une identité distincte et reproductible à chaque appareil.
@@ -33,7 +42,7 @@ def build(seed, folder, initial_fault=True):
     admin=next(d for d in root.findall('NETWORK/DEVICES/DEVICE') if d.findtext('ENGINE/NAME')==names['PC-ADMIN'])
     old=admin.find('ENGINE');catalogue=ET.parse(Path(__file__).resolve().parents[1]/'templates/packettracer/catalogue_source.xml').getroot()
     portable=copy.deepcopy(next(d.find('ENGINE') for d in catalogue.findall('.//DEVICE') if d.find('ENGINE/TYPE') is not None and d.find('ENGINE/TYPE').get('model')=='Laptop-PT'))
-    tech_name=state['site']+'-LT-TECH-01'
+    tech_name=state['site']+'-LT-TECH-01' if presentation_version == 0 else names['PC-ADMIN']
     for key in ('SERIALNUMBER','GATEWAY','DNS_SERVER'):
         value=old.findtext(key)
         if value is not None:workshops.put(portable,key,value)
