@@ -34,6 +34,8 @@ def ensure(state):
         ident = _id(state, 'employee', uid)
         user = users.get(uid, {})
         person = registry['people'].setdefault(ident, dict(id=ident, environment_id=env, account_id=uid))
+        staff=next((r for r in state.get('staff',[]) if r['display_name']==profile.get('requester')),{})
+        if staff:person.update(department=staff['department'],activity=staff['activity'])
         person.update(display_name=user.get('display_name', profile.get('requester') or uid),
                       username=user.get('username'), account_present=uid in users, represented=True)
     # Les rôles générés assurent un lien stable, même si l'appareil est renommé.
@@ -67,7 +69,7 @@ def public(state):
     registry = state.get('company_registry')
     if not registry:
         return None
-    return copy.deepcopy(registry) | dict(scope='represented_endpoints', complete_staff=False)
+    return copy.deepcopy(registry) | dict(scope='represented_endpoints', complete_staff=len(state.get('staff',[]))==30 and sum(bool(p.get('represented')) for p in registry['people'].values())==30)
 
 
 def link_tickets(state, tickets):

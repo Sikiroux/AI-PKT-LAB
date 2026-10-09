@@ -13,6 +13,7 @@ import dns_incidents
 import mixed_incidents
 import desktop_incidents
 import ticket_arrivals
+import enterprise_incidents
 import company_registry
 from workspace_routes import WorkspaceRoutes
 import timers
@@ -54,6 +55,9 @@ class Tickets:
         if interrupted:self.save()
     @metadata_locked
     def append_workspace_incident(self,state):
+        enterprise_incidents.recover(self,state)
+        for t in self.state['tickets']:
+            if t['id'] in state.get('live_incidents',{}):t['dialogue']=state['live_incidents'][t['id']]['ticket'].get('dialogue',[])
         incident=state.get('desktop_incident') or state.get('mixed_incident') or state.get('dns_incident') or state.get('file_incident') or state.get('directory_incident')
         company_registry.ensure(state)
         company_registry.link_tickets(state,self.state['tickets'])
@@ -345,6 +349,8 @@ class Tickets:
         t['checks']=result;t['complete']=all(c['status']=='valide' for c in result);t['checked']=now();t['manual_ssid']=False
         self.event(t['id']+' : verification effectuee.');return self.public()
     def workspace_action(self, t, action, data, resolving=False):
+        if t.get('live_incident') and action in ('verify','close'):
+            return self.live_workspace_action(t,action,resolving)
         if t['status']=='clos':raise ValueError('Ce ticket est clos.')
         if action=='notes':t['notes']=str(data.get('notes',''))[:4000]
         elif action in ('take','wait'):
@@ -390,6 +396,19 @@ class Tickets:
         self.save()
         return self.public()
 
+    def live_workspace_action(self,t,action,resolving=False):
+        if t['status']=='clos':raise ValueError('Ce ticket est clos.')
+        self.controller.observe(blocking=True,client_serial=t['target_serial'],accelerate=True)
+        s=self.controller.workspace.state
+        t['checks']=enterprise_incidents.checks(s,t,time.time())
+        t['complete']=all(row['status']=='valide' for row in t['checks']);t['checked']=now()
+        if action=='close':
+            if not t['complete']:self.save();raise ValueError('La fonction concernée reste indisponible.')
+            if t.get('timer') and not t['timer'].get('finished'):timers.operate(t['timer'],'finish')
+            self.finish_ticket(t,resolving)
+        s['live_incidents'][t['id']]['ticket']=copy.deepcopy(t)
+        self.controller.workspace.save();self.save();return self.public()
+
     def finish_ticket(self,t,resolving,manual=False):
         previous=t['status'];stamp=now()
         if resolving:
@@ -409,7 +428,7 @@ class Tickets:
         if not isinstance(reason,str) or not 5<=len(reason.strip())<=1000:raise ValueError('Explique la réouverture (5 à 1000 caractères).')
         if t['kind'] in ('incident','pc','wifi','site_service') and any(other['id']!=t['id'] and other['kind']==t['kind'] and other['status']!='clos' for other in self.state['tickets']):
             raise ValueError('Un autre ticket de cette famille utilise déjà le réseau.')
-        if t['kind']=='workspace':
+        if t['kind']=='workspace' and not t.get('live_incident'):
             if any(other['id']!=t['id'] and other['kind']=='workspace' and other['status']!='clos' and other.get('stage')!='queued' for other in self.state['tickets']):
                 raise ValueError('Une autre intervention utilise déjà cet environnement.')
             state=self.controller.workspace.state
@@ -423,6 +442,9 @@ class Tickets:
         t.update(status='en_cours',complete=False,checks=[])
         if t.get('timer'):
             t['timer']=timers.configure(t['timer'].get('limit',0)//60,t['timer'].get('mode','training'));timers.autostart(t['timer'])
+        if t.get('live_incident'):
+            self.controller.workspace.state['live_incidents'][t['id']]['ticket']=copy.deepcopy(t)
+            self.controller.workspace.save()
         self.event(t['id']+' : rouvert — '+reason.strip())
         return self.public()
 

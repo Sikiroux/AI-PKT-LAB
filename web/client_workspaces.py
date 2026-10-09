@@ -31,33 +31,35 @@ def ensure(s):
     if not first:return False
     changed=False
     if first not in profiles:profiles[first]=capture(s,first);changed=True
-    second=s.get('devices',{}).get('client2')
-    if second and second['serial'] not in profiles:
-        # Le moteur AD reste responsable de la création et des credentials de formation.
-        source=s['directory']['users'][s['directory_user_id']]
-        actor=dict(id='technician',environment_id=s['environment_id'],permissions=[sim_ad.CAPABILITY_USERS])
-        name='Alex '+s['site'];username='alex.'+s['site'].lower()
-        outcome=sim_ad.apply_operation(s['directory'],'create_user',dict(username=username,display_name=name,
-            ou_id=source['ou_id'],initial_password=sim_ad.TRAINING_PASSWORD,must_change_password=False),actor,time.time())
-        generated=outcome['result']['user_id'];s['directory']=outcome['directory']
-        # Initialisation procédurale uniquement : une création manuelle dans AD reste aléatoire.
-        uid='usr-'+hashlib.sha256((s['seed']+':client2-account:v1').encode()).hexdigest()[:16]
-        if uid in s['directory']['users']:raise ValueError('Collision d’identité du second poste.')
-        user=s['directory']['users'].pop(generated);user['id']=uid;s['directory']['users'][uid]=user
-        s['directory']['audit'][-1]['user_id']=uid
-        sim_ad.validate_directory(s['directory'])
-        record=copy.deepcopy(profiles[first]);record.update(device=copy.deepcopy(second),requester=name,user_id=uid)
-        record['local'].update(remote_service=True,remote_session=False,directory_auth=None,observation=None,network_observation=None)
-        record['endpoint']['local_files']={'Bienvenue.txt':'Poste de '+name+' — '+s['company']}
-        record['endpoint']['network_pending']=None
-        record['printing'].update(jobs=[],next_job=1);record['dns_cache']={};record['ftp_session']=None
-        record['dns_client']['name']=second['name']
-        profiles[second['serial']]=record;files_adapter.sync_catalog(s);changed=True
-        # Un poste témoin dispose de la lecture, sans modifier les groupes des autres comptes.
-        share=s['file_service']['shares'][s['documents_share_id']]
-        for layer in ('share_acl','folder_acl'):
-            for action in ('list','read'):
-                if uid not in share[layer][action]['user_ids']:share[layer][action]['user_ids'].append(uid)
+    remaining=[d for role,d in s.get('devices',{}).items() if role=='client2' or role.startswith('employee')]
+    for number,second in enumerate(remaining,2):
+      if second and second['serial'] not in profiles:
+          # Le moteur AD reste responsable de la création et des credentials de formation.
+          source=s['directory']['users'][s['directory_user_id']]
+          actor=dict(id='technician',environment_id=s['environment_id'],permissions=[sim_ad.CAPABILITY_USERS])
+          staff=(s.get('staff') or [])[number-1] if len(s.get('staff',[]))>=number else None
+          name=staff['display_name'] if staff else ('Alex '+s['site']);username=staff['username'] if staff else ('alex.'+s['site'].lower())
+          outcome=sim_ad.apply_operation(s['directory'],'create_user',dict(username=username,display_name=name,
+              ou_id=source['ou_id'],initial_password=sim_ad.TRAINING_PASSWORD,must_change_password=False),actor,time.time())
+          generated=outcome['result']['user_id'];s['directory']=outcome['directory']
+          # Initialisation procédurale uniquement : une création manuelle dans AD reste aléatoire.
+          uid='usr-'+hashlib.sha256((s['seed']+(':client2-account:v1' if number==2 else ':employee-account:v1:'+second['serial'])).encode()).hexdigest()[:16]
+          if uid in s['directory']['users']:raise ValueError('Collision d’identité du second poste.')
+          user=s['directory']['users'].pop(generated);user['id']=uid;s['directory']['users'][uid]=user
+          s['directory']['audit'][-1]['user_id']=uid
+          sim_ad.validate_directory(s['directory'])
+          record=copy.deepcopy(profiles[first]);record.update(device=copy.deepcopy(second),requester=name,user_id=uid)
+          record['local'].update(remote_service=True,remote_session=False,directory_auth=None,observation=None,network_observation=None)
+          record['endpoint']['local_files']={'Bienvenue.txt':'Poste de '+name+' — '+s['company']}
+          record['endpoint']['network_pending']=None
+          record['printing'].update(jobs=[],next_job=1);record['dns_cache']={};record['ftp_session']=None
+          record['dns_client']['name']=second['name']
+          profiles[second['serial']]=record;files_adapter.sync_catalog(s);changed=True
+          # Un poste témoin dispose de la lecture, sans modifier les groupes des autres comptes.
+          share=s['file_service']['shares'][s['documents_share_id']]
+          for layer in ('share_acl','folder_acl'):
+              for action in ('list','read'):
+                  if uid not in share[layer][action]['user_ids']:share[layer][action]['user_ids'].append(uid)
     return changed
 
 def sync_primary(s):

@@ -13,6 +13,10 @@ def receive(tickets,engine='varied',target='random',level=1,minutes=30,client_se
     if not s or s.get('environment_id')!=(tickets.state.get('site') or {}).get('environment_id'):raise ValueError('Entreprise active requise.')
     if engine not in ('varied','apps','mixed') or type(level) is not int or level not in (1,2,3):raise ValueError('Catalogue ou niveau inconnu.')
     if type(minutes) is not int or not 0<=minutes<=1440:raise ValueError('Durée invalide.')
+    if s.get('staff_size')==30:
+        import enterprise_incidents
+        chosen='random' if engine=='varied' else target
+        return enterprise_incidents.receive(tickets,chosen,minutes,client_serial,engine=engine)
     index=tickets.state.get('arrival_count',0)+1
     seed=hashlib.sha256((str(s['seed'])+':ticket-arrivals:v1:'+str(index)).encode()).hexdigest()
     rng=random.Random(seed)

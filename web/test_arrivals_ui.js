@@ -2,7 +2,7 @@ const fs=require('fs'),vm=require('vm'),assert=require('assert');
 const html=fs.readFileSync(__dirname+'/tickets.html','utf8');
 const start=html.indexOf("$('createEnterpriseTicket').onclick="),end=html.indexOf(";",html.indexOf("page('tickets')",start))+1;
 const dom={createEnterpriseTicket:{},newTicketEngine:{value:'apps'},newTicketTarget:{value:'random'},newTicketApp:{value:'peripherals'},newTicketLevel:{value:'2'},newTicketMinutes:{value:'15'},newTicketClient:{value:'PC-2'}};
-let calls=[];const ctx={$:id=>dom[id],state:{site:{environment_id:'env'}},act:async(path,data)=>calls.push({path,data}),page:()=>{}};
+let calls=[];const ctx={enterpriseLive:false,$:id=>dom[id],state:{site:{environment_id:'env'}},act:async(path,data)=>calls.push({path,data}),page:()=>{}};
 vm.createContext(ctx);vm.runInContext(html.slice(start,end),ctx);
 (async()=>{await dom.createEnterpriseTicket.onclick();assert.equal(calls[0].path,'/service-ticket');assert.equal(calls[0].data.target_client,'PC-2');assert.equal(calls[0].data.target,'peripherals');
  dom.newTicketEngine.value='mixed';dom.newTicketTarget.value='dns';await dom.createEnterpriseTicket.onclick();assert.equal(calls[1].path,'/service-ticket');assert.equal(calls[1].data.engine,'mixed');

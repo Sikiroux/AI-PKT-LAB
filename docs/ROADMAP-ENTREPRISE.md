@@ -97,3 +97,8 @@ Attribution au technicien de la session lors d’une prise en charge, historique
 ### Livraison regroupée v0.49 — confort et cycle des tickets
 
 Écran partagé actionnable : bureau intégré du technicien, connexion explicite au poste du ticket, liste des postes, redimensionnement, suivis et notes, chrono et export. Cycle Résolu / confirmation déclarée / Clos, réouverture avec invalidation des contrôles et archive du précédent chrono. La confirmation reste manuelle ; aucun dialogue IA n’est livré. L’attribution multi-techniciens, l’escalade, les tâches planifiées et l’agrandissement réel du réseau restent au backlog. Le numéro v0.49 remplace ici l’objectif historique de cette version : les événements d’entreprise ne sont pas livrés par ce bloc.
+
+
+### v0.50 — Effectif réel et incidents simultanés
+
+Livré sur les nouvelles entreprises : 30 employés, six services, 30 postes PT câblés, comptes distincts ; panne avant signalement, isolation par poste, regroupement FTP, impact métier et clôture ciblée. Voir [le périmètre](V050-ENTREPRISE-30-EMPLOYES.md). Les anciennes sauvegardes gardent leur effectif. À poursuivre : intégration des accessoires/déploiement au moteur simultané, dépendances métier et horaires, sessions persistantes, applications plus riches et nouvelles architectures de réseau.

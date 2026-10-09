@@ -1,3 +1,7 @@
+# v0.50 — Entreprise de 30 employés
+
+30 postes employés câblés, six services, comptes distincts, pannes avant signalement et interventions simultanées. Voir [le périmètre et la recette PT9](docs/V050-ENTREPRISE-30-EMPLOYES.md). Les anciennes entreprises restent compatibles.
+
 # v0.49.1 — Confort et arrivées
 
 Voir [la livraison et ses limites](docs/V0491-CONFORT-ET-ARRIVEES.md) : scrollbars, chargement du bureau, diversité des arrivées et séparation entre perte réseau et session utilisateur. La refonte des incidents simultanés reste à réaliser.

@@ -153,6 +153,7 @@ class Workspace:
             'environment_id': s.get('environment_id', 'legacy'),
             'client_serial':s['devices'].get('client',{}).get('serial'),
             'workstations': self.workstations(),
+            'workforce': __import__('enterprise_incidents').work_status(s),
             'company_registry': company_registry.public(s),
             'company_documents': company_documents.public(s),
             'directory_incident': directory_incidents.public_incident(s),

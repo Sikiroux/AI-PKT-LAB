@@ -107,8 +107,14 @@ class Controller:
             if 'directory' in self.workspace.state: ad.invalidate(self.workspace.state)
             self.workspace.save()
 
+    def _guard_historical_incident(self):
+        state=self.workspace.state or {}
+        if any(record.get('ticket',{}).get('status')!='clos' for record in state.get('live_incidents',{}).values()):
+            raise ValueError('Clôture les incidents simultanés avant de préparer un scénario historique ; les pannes en cours sont conservées.')
+
     def next_directory_incident(self):
         with self.lock:
+            self._guard_historical_incident()
             state = self.workspace.state
             if not state:
                 raise ValueError('Crée ou reprends un environnement.')
@@ -127,6 +133,7 @@ class Controller:
 
     def next_file_incident(self):
         with self.lock:
+            self._guard_historical_incident()
             s=self.workspace.state
             if not s:raise ValueError('Crée ou reprends un environnement.')
             now=time.time()
@@ -213,9 +220,17 @@ class Controller:
                 return
             self._observe_one(blocking=True,accelerate=accelerate)
             # One observation per simulated client; never share another PC's ping proof.
-            for serial in list(s.get('client_workspaces',{})):
-                if serial!=clients.primary_serial(s):
-                    with self.client_scope(serial):self._observe_one(blocking=True)
+            candidates=[serial for serial in s.get('client_workspaces',{}) if serial!=clients.primary_serial(s)]
+            if s.get('staff_size')==30:
+                # Priorité aux prises en main actives ; tour de fond borné pour ne pas
+                # bloquer le pont sur trente bureaux à chaque passage.
+                active=[serial for serial in candidates if s['client_workspaces'][serial]['local'].get('remote_session')]
+                cursor=s.get('monitor_cursor',0)
+                background=(candidates+ candidates)[cursor:cursor+2]
+                s['monitor_cursor']=(cursor+2)%max(1,len(candidates))
+                candidates=list(dict.fromkeys(active+background))
+            for serial in candidates:
+                with self.client_scope(serial):self._observe_one(blocking=True)
             self._read_state=copy.deepcopy(self.workspace.state)
         finally:self.lock.release()
 
@@ -300,7 +315,8 @@ class Controller:
                 seed = self.workspace.state['seed']
                 ident = self.environments.data['active']
                 state = build(seed, self.workspace.path.parent / 'network', initial_fault=not self.workspace.state.get('arrival_queue_version'),
-                              presentation_version=(self.workspace.state.get('network_design') or {}).get('version', 0))
+                              presentation_version=(self.workspace.state.get('network_design') or {}).get('version', 0),
+                              staff_size=self.workspace.state.get('staff_size',2))
                 state['environment_id'] = ident
                 state['reset_id'] = secrets.token_hex(8)
                 ad.ensure(state)
@@ -459,6 +475,7 @@ class Controller:
 
     def next_dns_incident(self):
         with self.lock:
+            self._guard_historical_incident()
             s=self.workspace.state
             if not s:raise ValueError('Crée un environnement.')
             now=time.time()
@@ -471,6 +488,7 @@ class Controller:
 
     def next_desktop_incident(self,target='random',minutes=30,client_serial=None,generation_seed=None):
         with self.lock:
+            self._guard_historical_incident()
             if client_serial:
                 import hashlib,random
                 state=self.workspace.state or {}
@@ -498,6 +516,7 @@ class Controller:
 
     def next_mixed_incident(self, level=1, target='random', minutes=30, include_network=True, generation_seed=None):
         with self.lock:
+            self._guard_historical_incident()
             s=self.workspace.state
             if not s or 'file_service' not in s:raise ValueError('Crée ou reprends un environnement complet.')
             if type(minutes) is not int or not 0<=minutes<=1440:raise ValueError('Durée : 0 à 1440 minutes.')
@@ -582,6 +601,12 @@ class Controller:
     def dialogue(self, data):
         with self.lock:
             if not self.workspace.state:raise ValueError('Aucun environnement.')
+            if data.get('ticket_id') in self.workspace.state.get('live_incidents',{}):
+                import enterprise_incidents
+                row=enterprise_incidents.dialogue(self.workspace.state,data['ticket_id'],data.get('question'))
+                self.workspace.save()
+                if self.on_change:self.on_change(self.workspace.state,self.workspace.path.parent)
+                return row
             row=(desktop_incidents.dialogue(self.workspace.state,data.get('ticket_id'),data.get('question')) if self.workspace.state.get('desktop_incident') else client_dialogue.ask(self.workspace.state,data.get('ticket_id'),data.get('question')))
             self.workspace.save()
             if self.on_change:self.on_change(self.workspace.state,self.workspace.path.parent)

@@ -11,7 +11,7 @@ def ensure(state):
     env = state.get('environment_id', 'legacy')
     devices = [dict(id=k, name=d['name'], role=k) for k,d in state['devices'].items()]
     uid = 'usr-' + hashlib.sha256((state['seed']+':requester').encode()).hexdigest()[:16]
-    requester = dict(id=uid, username=state['requester'].lower(), display_name=state['requester'], device_id='client')
+    requester = dict(id=uid, username=(state['staff'][0]['username'] if state.get('staff') else state['requester'].lower()), display_name=state['requester'], device_id='client')
     d = sim_ad.generate_directory(state['seed'], env, devices, requester, time.time())
     d['users'][uid]['enabled'] = state.get('account_enabled', True)
     group_ids = {}

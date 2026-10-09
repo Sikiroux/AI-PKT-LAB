@@ -10,17 +10,23 @@ import workshops
 import ptexplorer
 import technician_model
 import enterprise_design
+import enterprise_staff
 from lab_engine import organization
 from workspace_model import generate
 
 
-def build(seed, folder, initial_fault=True, presentation_version=1):
+def build(seed, folder, initial_fault=True, presentation_version=1, staff_size=30):
     if presentation_version not in (0, 1):
         raise ValueError('Version de présentation inconnue.')
     state = generate(seed)
+    if staff_size not in (2,30):raise ValueError('Effectif inconnu.')
+    thirty=presentation_version==1 and staff_size==30
+    if thirty:
+        state['staff']=enterprise_staff.generate(seed)
+        state['requester']=state['staff'][0]['display_name']
     folder = Path(folder)
     tree, topo = workshops.make_topology('enterprise_services', state['network_seed'], folder,
-                                        state['address_family'], has_it=True, network_printer=True)
+                                        state['address_family'], has_it=True, network_printer=True, employee_count=30 if thirty else 2, employee_layout='split' if thirty else 'single')
     root = tree.getroot()
     if presentation_version == 0:
         names = organization.mapping(topo['devices'], state['site'])
@@ -55,11 +61,15 @@ def build(seed, folder, initial_fault=True, presentation_version=1):
     organization.rename_tree(root,{names['PC-ADMIN']:tech_name})
     names['PC-ADMIN']=tech_name
     selected = {'client': 'PC-ALICE', 'technician': 'PC-ADMIN', 'server': 'SRV-FTP','printer':'PRN-OFFICE','client2':'PC-BOB'}
+    for number in range(3,31):
+        old=f'PC-CPT-{number:02d}'
+        if old in topo['devices']:selected['employee'+str(number)]=old
     for role, old in selected.items():
         engine = next(d.find('ENGINE') for d in root.findall('NETWORK/DEVICES/DEVICE')
                       if d.findtext('ENGINE/NAME') == names[old])
         state['devices'][role] = dict(id=role, name=names[old], ip=topo['devices'][old]['ip'],
                                       serial=engine.findtext('SERIALNUMBER'))
+    state['staff_size']=30 if thirty else 2
     state['organization_has_it']=bool(int(hashlib.sha256((state['seed']+':resident-it').encode()).hexdigest()[:2],16)%2)
     state['technician_locations']={}
     for key,old,host in [('office','SW-EMP','PC-ADMIN'),('server_room','SW-SRV','SRV-FTP'),('outside','SW-GUEST','PC-GUEST')]:

@@ -134,12 +134,13 @@ def make_topology(name, seed, folder, address_family=None, extra_web_server=Fals
         raise ValueError('Présence du poste IT : booléen requis.')
     if not has_it and name != 'enterprise_services':
         raise ValueError('Poste IT facultatif uniquement pour les sites de services entreprise.')
-    if type(employee_count) is not int or not 2 <= employee_count <= 6:
-        raise ValueError('Nombre de postes employés : entier de 2 à 6, hors poste IT.')
+    if type(employee_count) is not int or not (2 <= employee_count <= 6 or employee_count == 30):
+        raise ValueError('Nombre de postes employés : entier de 2 à 6 ou 30, hors poste IT.')
     if employee_count != 2 and name != 'enterprise_services':
         raise ValueError('La variation des postes concerne les sites de services entreprise.')
     if type(target_employee) is not int or not 1 <= target_employee <= employee_count:
         raise ValueError('Poste cible : numéro parmi les postes employés présents.')
+    if employee_count==30 and employee_layout!='split':raise ValueError('30 postes exigent deux commutateurs employés.')
     if employee_layout not in ('single','split'):
         raise ValueError('Répartition employés : single ou split.')
     if name != 'enterprise_services' and (target_employee != 1 or employee_layout != 'single'):
@@ -203,8 +204,10 @@ def make_topology(name, seed, folder, address_family=None, extra_web_server=Fals
             link('SW-EMP','FastEthernet0/9','PRN-OFFICE','FastEthernet0')
         for i in range(3,employee_count+1):
             n=f'PC-CPT-{i:02d}'
-            add_host(n,host('employees',21+i),host('employees',1),(100+(i-3)%2*200,720+(i-3)//2*180),dns_ip=infra)
-            link('SW-EMP2' if employee_layout=='split' and i%2==0 else 'SW-EMP',f'FastEthernet0/{i+1}',n,'FastEthernet0')
+            add_host(n,host('employees',100+i if employee_count==30 else 21+i),host('employees',1),(100+(i-3)%2*200,720+(i-3)//2*180),dns_ip=infra)
+            access_ports=[4,5,6,7,8,11,12,13,14,15,16,17,18,19,21,22,23]
+            port_number=access_ports[(i-3)//2] if employee_count==30 else i+1
+            link('SW-EMP2' if employee_layout=='split' and i%2==0 else 'SW-EMP',f'FastEthernet0/{port_number}',n,'FastEthernet0')
         if extra_employee:
             add_host('PC-NEW',host('employees',60),host('employees',1),(500,900),dns_ip=infra)
             link('SW-EMP','FastEthernet0/10','PC-NEW','FastEthernet0')
