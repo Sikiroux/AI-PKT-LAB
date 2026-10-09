@@ -115,3 +115,7 @@ La livraison v0.52 remplace les objectifs historiques 0.51 et 0.52 du tableau : 
 ### v0.54 — Navigation des applications
 
 Explorateur et Annuaire séparent navigation, sélection et fenêtres d’édition/propriétés. Les moteurs sont conservés. À poursuivre : imprimantes, client FTP, DNS, puis applications Services/événements avec des observations réellement produites par les moteurs. Voir V054-APPLICATIONS-BUREAU.md.
+
+### v0.55 — Imprimantes et FTP
+
+Galerie des imprimantes, files par équipement et propriétés par onglets ; client FTP avec connexion séparée et résultats réels du moteur. DNS, Services/événements, politiques issues de la seed et bilan restent à poursuivre. Voir V055-IMPRIMANTES-FTP.md.

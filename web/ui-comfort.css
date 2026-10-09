@@ -91,3 +91,17 @@ button:active:not(:disabled){filter:brightness(.94)}
 #root .explorer-file svg,#root .directory-person svg{width:20px;height:20px;flex-shrink:0;order:-1;color:#587cac}
 @container directory (max-width:680px){#root .directory-body{grid-template-columns:135px minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto}#root .directory-selection{grid-column:1/-1;max-height:130px}#root .directory-single{grid-template-rows:minmax(0,1fr)}#root .directory-single .directory-selection{grid-column:auto;max-height:none}}
 @container explorer (max-width:480px){#root .file-body{grid-template-columns:105px minmax(0,1fr)}#root .explorer-navigation{padding:6px}#root .file-list{padding:6px}}
+
+/* v0.55 — equipment gallery and transfer workspace */
+.printer-gallery{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px;margin:12px 0}
+.printer-card{padding:16px;border:1px solid var(--border,#d6deea);border-radius:12px;background:var(--surface,#fff);transition:border-color .15s,box-shadow .15s}
+.printer-card[aria-selected="true"]{border-color:#6584e7;box-shadow:0 0 0 2px #6584e722}
+.printer-card>button:first-child{display:flex;align-items:center;justify-content:space-between;width:100%;font-weight:650;margin-bottom:12px}
+.printer-card>button:first-child svg{width:32px;height:32px;flex-shrink:0}
+.printer-card>button{margin:4px 6px 4px 0}
+.ftp-connection-dialog{padding:16px;display:grid;gap:12px}
+.transfer-panels>section{min-width:0;border:1px solid var(--border,#d6deea);border-radius:10px;overflow:auto;padding:12px}
+.transfer-panels h2{font-size:14px;margin:0 0 10px}
+.transfer-attempts{margin-top:12px;font-size:12px}
+.service-app>details{margin:12px 0;border-top:1px solid var(--border,#d6deea);padding-top:10px}
+@media(prefers-reduced-motion:reduce){.printer-card{transition:none}}

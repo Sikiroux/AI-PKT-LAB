@@ -1,3 +1,7 @@
+# v0.55 — Imprimantes et client FTP
+
+Équipements, files d’attente et propriétés dans des fenêtres distinctes. Connexion FTP dédiée, listes locales/distantes, sélection stable et résultats des transferts. Les routes et moteurs existants sont conservés. Voir [la recette](docs/V055-IMPRIMANTES-FTP.md). Rendu Windows et contrôles Packet Tracer : recette manuelle à faire.
+
 # v0.54 — Explorateur et Annuaire : navigation et propriétés
 
 Sélection séparée de l’ouverture, éditeur de texte dans une fenêtre dédiée, menus contextuels, arborescence des OU et propriétés par onglets. Les moteurs et leurs vérifications restent inchangés. Voir [la recette et les limites](docs/V054-APPLICATIONS-BUREAU.md). Le rendu Windows / Packet Tracer 9 reste à tester.
