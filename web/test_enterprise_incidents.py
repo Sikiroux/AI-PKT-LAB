@@ -30,11 +30,43 @@ class LiveTests(unittest.TestCase):
   self.assertEqual({r['status'] for r in live.work_status(self.s)}, {'blocked','degraded'})
   with self.assertRaises(ValueError):live.receive(t,'dns',client_serial='second')
  def test_shared_ftp_signals_are_grouped(self):
-  t=self.tickets();live.receive(t,'ftp');first=t.state['tickets'][0]
+  t=self.tickets();self.s['staff']=[dict(display_name=p['requester'],department='Opérations',activity='Traiter les commandes clients',service_dependencies=['ftp']) for p in self.s['client_workspaces'].values()];live.receive(t,'ftp');first=t.state['tickets'][0]
   self.assertFalse(self.s['desktop_services']['ftp']['service_running'])
   live.receive(t,'ftp');self.assertEqual(len(t.state['tickets']),1)
   self.assertEqual(len(first['followups']),1);self.assertEqual(first['severity'],'critique')
   self.assertEqual(first['impact']['affected_count'],2)
+ def test_shared_ftp_affects_only_dependent_workflows(self):
+  t=self.tickets();profiles=self.s['client_workspaces']
+  self.s['staff']=[dict(display_name=p['requester'],department='Opérations' if serial=='second' else 'Accueil',activity='Activité métier',service_dependencies=['ftp'] if serial=='second' else ['files']) for serial,p in profiles.items()]
+  live.receive(t,'ftp');ticket=t.state['tickets'][0]
+  self.assertEqual(ticket['target_serial'],'second')
+  self.assertEqual(ticket['impact']['affected_serials'],['second'])
+  self.assertEqual(ticket['impact']['departments'],['Opérations'])
+  self.assertEqual(ticket['impact']['evidence'],'business_dependencies')
+  statuses={row['serial']:row['status'] for row in live.work_status(self.s)}
+  self.assertEqual(statuses['client'],'available');self.assertEqual(statuses['second'],'degraded')
+  self.s['desktop_services']['ftp']['service_running']=True
+  self.assertEqual({row['status'] for row in live.work_status(self.s)},{'available'})
+ def test_ftp_missing_roster_counts_only_reporter(self):
+  t=self.tickets();self.s.pop('staff',None)
+  live.receive(t,'ftp');ticket=t.state['tickets'][0]
+  self.assertEqual(ticket['impact']['affected_serials'],[ticket['target_serial']])
+  self.assertEqual(ticket['impact']['evidence'],'reported_workstation')
+ def test_ftp_cannot_inject_for_a_non_dependent_reporter(self):
+  t=self.tickets();self.s['staff']=[dict(display_name=p['requester'],department='Accueil',activity='Accueil',service_dependencies=[]) for p in self.s['client_workspaces'].values()]
+  before=copy.deepcopy(self.s)
+  with self.assertRaises(ValueError):live.receive(t,'ftp',client_serial='client')
+  self.assertEqual(self.s,before)
+ def test_old_open_ftp_scope_migrates_without_changing_target_or_notes(self):
+  t=self.tickets();self.s.pop('staff',None);live.receive(t,'ftp');ticket=t.state['tickets'][0]
+  target=ticket['target_serial'];ticket['notes']='Conserver mon diagnostic';ticket['impact'].pop('evidence')
+  ticket['impact']['affected_serials']=list(self.s['client_workspaces']);ticket['impact']['affected_count']=2
+  live.recover(t,self.s)
+  self.assertEqual(ticket['impact']['affected_count'],1);self.assertEqual(ticket['target_serial'],target)
+  self.assertEqual(ticket['notes'],'Conserver mon diagnostic')
+  self.assertEqual(self.s['live_incidents'][ticket['id']]['ticket']['impact'],ticket['impact'])
+  ticket['status']='clos';ticket['impact'].pop('evidence');ticket['impact']['affected_count']=2
+  live.recover(t,self.s);self.assertEqual(ticket['impact']['affected_count'],2)
  def test_checks_need_repair_on_same_station_and_fresh_proof(self):
   t=self.tickets();live.receive(t,'ad',client_serial='second');row=t.state['tickets'][0]
   with self.c.client_scope('second'):self.proofs(self.c.workspace.state)

@@ -14,7 +14,7 @@ def public(state):
     domain = (state.get('directory') or {}).get('domain') or {}
     dns_name = domain.get('dns_name') or 'non renseigné'
     documents_name = state.get('documents_dns_name') or 'non renseigné'
-    return [
+    docs = [
         article('resources', 'Ressources de ' + company, [
             'Ce répertoire couvre les appareils représentés dans cet environnement, pas tout le personnel ni tout le réseau d’une entreprise réelle.',
             *resources,
@@ -33,3 +33,15 @@ def public(state):
             'Relever le symptôme, le périmètre touché et le résultat des vérifications. Distinguer un contrôle inconnu d’un échec observé.',
             'Après une correction, retester l’action demandée sur le bon poste. Décrire l’intervention dans le ticket avant de demander sa vérification.',
             'Cette procédure est une consigne pédagogique du simulateur, pas une politique interne réelle inventée pour l’entreprise.'])]
+
+    if state.get('staff'):
+        import enterprise_staff
+        users,known=enterprise_staff.service_users(state,'ftp')
+        departments=sorted({p.get('department') for p in state['staff'] if p.get('department') and 'ftp' in p.get('service_dependencies',enterprise_staff.DEFAULT_DEPENDENCIES.get(p.get('department'),[]))})
+        docs.append(article('dependencies','Activités et dépendances des services',[
+            'Le dépôt FTP sert aux activités des services suivants : '+(', '.join(departments) or 'aucun service renseigné')+'.',
+            str(len(users))+' poste(s) représenté(s) utilisent ce dépôt dans leur activité métier.',
+            'Cette liste décrit le scénario de cette entreprise simulée. Elle ne constitue pas une règle générale pour toutes les entreprises.',
+            'Une dépendance métier ne donne aucun droit technique. Les comptes et permissions FTP restent à vérifier séparément.',
+            'L’impact du ticket est une estimation issue de ces dépendances, pas une vérification individuelle de tous les postes.']))
+    return docs

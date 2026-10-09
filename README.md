@@ -1,3 +1,7 @@
+# v0.50.8 — Impact FTP selon les activités métier
+
+Les incidents partagés concernent les employés dépendants du service. La fiche distingue estimation métier et preuve réseau ; les dépendances sont documentées. Détails : docs/V0508-IMPACT-METIER.md.
+
 # v0.50.7 — Sessions conservées pendant les contrôles indisponibles
 
 Reconnexion distante sans destruction des fenêtres sur preuve inconnue ; opérations AD sans logout général. Recette et limites : docs/V0507-SESSIONS.md.

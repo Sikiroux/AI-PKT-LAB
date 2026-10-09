@@ -17,6 +17,12 @@ class CompanyDocumentsTests(unittest.TestCase):
         self.assertEqual(state, before)
         self.assertEqual(docs, company_documents.public(state))
         self.assertEqual(len({d['id'] for d in docs}), len(docs))
+    def test_business_dependencies_are_documented_separately_from_permissions(self):
+        state={'staff':[dict(display_name='Employé',department='Opérations',service_dependencies=['ftp'])],
+               'client_workspaces':{'pc':{'requester':'Employé'}}}
+        text=str(company_documents.public(state))
+        self.assertIn('1 poste(s)',text);self.assertIn('Opérations',text)
+        self.assertIn('ne donne aucun droit technique',text)
     def test_legacy_and_empty_environment(self):
         docs = company_documents.public({})
         self.assertEqual(len(docs), 4)

@@ -9,6 +9,12 @@ class PopulationTests(unittest.TestCase):
   a=enterprise_staff.generate('staff');self.assertEqual(a,enterprise_staff.generate('staff'))
   self.assertEqual(len(a),30);self.assertEqual(len({r['username'] for r in a}),30)
   self.assertEqual({d:sum(r['department']==d for r in a) for d in enterprise_staff.DEPARTMENTS},dict.fromkeys(enterprise_staff.DEPARTMENTS,5))
+ def test_generated_ftp_dependencies_cover_ten_people_and_are_independent(self):
+  roster=enterprise_staff.generate('staff')
+  self.assertEqual(sum('ftp' in p['service_dependencies'] for p in roster),10)
+  self.assertEqual({p['department'] for p in roster if 'ftp' in p['service_dependencies']},{'Commercial','Opérations'})
+  roster[0]['service_dependencies'].append('custom')
+  self.assertNotIn('custom',roster[1]['service_dependencies'])
  def test_new_environment_has_thirty_connected_distinct_clients(self):
   with tempfile.TemporaryDirectory() as tmp:
    c=Controller(None,tmp);c.new('enterprise-thirty')

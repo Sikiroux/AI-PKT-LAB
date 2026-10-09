@@ -4,6 +4,7 @@ import hashlib
 import random
 import time
 import client_workspaces as clients
+import enterprise_staff
 import company_registry
 import desktop_services as ds
 import files_adapter
@@ -44,11 +45,20 @@ def receive(tickets,target='random',minutes=30,client_serial='random',engine='va
     if engine=='apps':options=[p for p in options if p[0] in ('printing','endpoint','ftp','peripherals')]
     elif engine=='mixed':options=[p for p in options if p[0] in ('ad','endpoint','dns')]
     if any(t.get('live_family')=='ftp' for t in opened):options=[p for p in options if p[0]!='ftp']
+    ftp_users,ftp_known=enterprise_staff.service_users(s,'ftp')
+    if ftp_known and not any(candidate in ftp_users for candidate in candidates):
+        if target=='ftp':raise ValueError('Aucun poste disponible ne dépend du dépôt FTP pour son activité métier.')
+        options=[p for p in options if p[0]!='ftp']
     if previous and target=='random':options=[p for p in options if p[0]!=previous.get('live_family')] or options
     if not options:raise ValueError('Cette famille est indisponible ou un incident partagé est déjà ouvert.')
     family=rng.choice(sorted({pair[0] for pair in options}))
     family,cause=rng.choice([pair for pair in options if pair[0]==family]);ident='INC-LIVE-'+str(index).zfill(5);created=time.time()
-    affected=list(s['client_workspaces']) if family=='ftp' else [serial]
+    if family=='ftp' and ftp_known:
+        eligible=[candidate for candidate in candidates if candidate in ftp_users]
+        if client_serial=='random' and previous:eligible=[candidate for candidate in eligible if candidate!=previous['target_serial']] or eligible
+        serial=rng.choice(eligible)
+    affected=ftp_users if family=='ftp' and ftp_known else [serial]
+    departments=sorted({person['department'] for person in s.get('staff',[]) if person.get('department') and any(s['client_workspaces'][item]['requester']==person.get('display_name') for item in affected)})
     with c.client_scope(serial):
         current=c.workspace.state
         if family=='peripherals':
@@ -94,7 +104,8 @@ def receive(tickets,target='random',minutes=30,client_serial='random',engine='va
     else:title,complaint=wording[family]
     impact=dict(affected_serials=affected,affected_count=len(affected),work_status='blocked' if family in ('ad','endpoint','dns','peripherals') else 'degraded',
                 activity=next((p['activity'] for p in s.get('staff',[]) if p['display_name']==profile['requester']),'Activité du poste'),
-                scope='company' if family=='ftp' else 'workstation')
+                scope='service_users' if family=='ftp' and ftp_known else 'workstation',departments=departments,
+                evidence='business_dependencies' if family=='ftp' and ftp_known else 'reported_workstation')
     ticket=dict(id=ident,kind='workspace',name=profile['device']['name'],target_serial=serial,requester=profile['requester'],
         title=title,description=profile['requester']+' : « '+complaint+' » Poste : '+profile['device']['name']+'.',
         status='nouveau',stage='prepared',workspace_goal='live',live_incident=True,live_family=family,impact=impact,
@@ -113,6 +124,14 @@ def recover(tickets,s):
     known={t['id'] for t in tickets.state['tickets']}
     for record in s.get('live_incidents',{}).values():
         if record['id'] not in known and record.get('ticket'):tickets.state['tickets'].append(copy.deepcopy(record['ticket']))
+        ticket=next((t for t in tickets.state['tickets'] if t['id']==record['id']),None)
+        if not ticket or record.get('family')!='ftp' or ticket.get('status')=='clos' or ticket.get('impact',{}).get('evidence'):continue
+        affected,registered=enterprise_staff.service_users(s,'ftp')
+        if not registered:affected=[ticket['target_serial']]
+        departments=sorted({p['department'] for p in s.get('staff',[]) if p.get('department') and any(s['client_workspaces'][serial]['requester']==p.get('display_name') for serial in affected)})
+        ticket.setdefault('impact',{}).update(affected_serials=affected,affected_count=len(affected),departments=departments,
+            scope='service_users' if registered else 'workstation',evidence='business_dependencies' if registered else 'reported_workstation')
+        record['ticket']['impact']=copy.deepcopy(ticket['impact'])
 
 def checks(s,t,at):
     record=s.get('live_incidents',{}).get(t['id'])
