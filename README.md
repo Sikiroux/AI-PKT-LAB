@@ -1,3 +1,7 @@
+# v0.50.1 — Accessoires simultanés
+
+Écran, clavier et souris rejoignent les incidents des entreprises à 30 employés : panne avant ticket, intervention locale, clôture sans ping. La fenêtre Équipement local présente trois cartes matériel. Voir [le périmètre et la recette](docs/V0501-ACCESSOIRES-SIMULTANES.md).
+
 # v0.50 — Entreprise de 30 employés
 
 30 postes employés câblés, six services, comptes distincts, pannes avant signalement et interventions simultanées. Voir [le périmètre et la recette PT9](docs/V050-ENTREPRISE-30-EMPLOYES.md). Les anciennes entreprises restent compatibles.

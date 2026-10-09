@@ -102,3 +102,8 @@ Attribution au technicien de la session lors d’une prise en charge, historique
 ### v0.50 — Effectif réel et incidents simultanés
 
 Livré sur les nouvelles entreprises : 30 employés, six services, 30 postes PT câblés, comptes distincts ; panne avant signalement, isolation par poste, regroupement FTP, impact métier et clôture ciblée. Voir [le périmètre](V050-ENTREPRISE-30-EMPLOYES.md). Les anciennes sauvegardes gardent leur effectif. À poursuivre : intégration des accessoires/déploiement au moteur simultané, dépendances métier et horaires, sessions persistantes, applications plus riches et nouvelles architectures de réseau.
+
+
+### v0.50.1 — Accessoires simultanés
+
+Les neuf causes d’accessoires locaux sont intégrées au registre simultané. La vérification ne dépend pas du réseau. La préparation/déploiement, les sessions durables et l’enrichissement des applications restent à poursuivre. Voir [la recette](V0501-ACCESSOIRES-SIMULTANES.md).

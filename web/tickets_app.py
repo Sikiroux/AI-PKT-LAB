@@ -398,7 +398,8 @@ class Tickets:
 
     def live_workspace_action(self,t,action,resolving=False):
         if t['status']=='clos':raise ValueError('Ce ticket est clos.')
-        self.controller.observe(blocking=True,client_serial=t['target_serial'],accelerate=True)
+        if t.get('live_family')!='peripherals':
+            self.controller.observe(blocking=True,client_serial=t['target_serial'],accelerate=True)
         s=self.controller.workspace.state
         t['checks']=enterprise_incidents.checks(s,t,time.time())
         t['complete']=all(row['status']=='valide' for row in t['checks']);t['checked']=now()

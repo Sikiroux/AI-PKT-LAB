@@ -9,10 +9,12 @@ import desktop_services as ds
 import files_adapter
 import timers
 import dns_adapter
+import sim_peripherals as hardware
+from peripheral_incidents import CAUSES as PERIPHERAL_CAUSES
 
 CATALOGUE=(('printing','queue_paused'),('printing','spooler_stopped'),('printing','offline_mode'),
            ('endpoint','mapped_drive_wrong'),('endpoint','documents_missing'),('ad','account_disabled'),
-           ('ftp','service_stopped'),('dns','resolver_wrong'))
+           ('ftp','service_stopped'),('dns','resolver_wrong'))+tuple(('peripherals',kind+':'+cause) for kind,cause in PERIPHERAL_CAUSES)
 def view(s,serial):
     return clients.project(s,serial)
 def receive(tickets,target='random',minutes=30,client_serial='random',engine='varied'):
@@ -39,16 +41,27 @@ def receive(tickets,target='random',minutes=30,client_serial='random',engine='va
     if not candidates:raise ValueError('Tous les postes sélectionnables ont déjà une intervention ouverte.')
     serial=rng.choice(candidates)
     options=[pair for pair in CATALOGUE if target=='random' or pair[0]==target or target=='files' and pair[0]=='endpoint']
-    if engine=='apps':options=[p for p in options if p[0] in ('printing','endpoint','ftp')]
+    if engine=='apps':options=[p for p in options if p[0] in ('printing','endpoint','ftp','peripherals')]
     elif engine=='mixed':options=[p for p in options if p[0] in ('ad','endpoint','dns')]
     if any(t.get('live_family')=='ftp' for t in opened):options=[p for p in options if p[0]!='ftp']
     if previous and target=='random':options=[p for p in options if p[0]!=previous.get('live_family')] or options
     if not options:raise ValueError('Cette famille est indisponible ou un incident partagé est déjà ouvert.')
-    family,cause=rng.choice(options);ident='INC-LIVE-'+str(index).zfill(5);created=time.time()
+    family=rng.choice(sorted({pair[0] for pair in options}))
+    family,cause=rng.choice([pair for pair in options if pair[0]==family]);ident='INC-LIVE-'+str(index).zfill(5);created=time.time()
     affected=list(s['client_workspaces']) if family=='ftp' else [serial]
     with c.client_scope(serial):
         current=c.workspace.state
-        if family=='printing':
+        if family=='peripherals':
+            hardware.ensure(current,[dict(serial=serial,remote_supported=True)])
+            if not all(check['available'] for check in hardware.evaluate(current['peripherals'],serial).values()):
+                raise ValueError('Rétablis les accessoires locaux du poste avant une nouvelle panne matérielle.')
+            kind,fault=cause.split(':')
+            item=next(i for i in current['peripherals']['items'].values() if i['station_serial']==serial and i['kind']==kind)
+            if fault=='absent':item['station_serial']=None
+            elif fault=='input':item['input']='DisplayPort'
+            else:item['connected' if fault=='connection' else fault]=False
+            current['peripherals']['revision']+=1
+        elif family=='printing':
             printing=current['desktop_services']['printing']
             if cause=='queue_paused':printing['queues']['office']['paused']=True
             elif cause=='offline_mode':printing['queues']['office']['use_offline']=True
@@ -74,8 +87,12 @@ def receive(tickets,target='random',minutes=30,client_serial='random',engine='va
              'ad':('Compte utilisateur indisponible','Mon compte est refusé et je ne peux plus accéder à mes outils.'),
              'dns':('Nom du service documentaire introuvable','Je ne retrouve plus mes dossiers avec leur adresse habituelle.'),
              'ftp':('Dépôt documentaire indisponible','Notre équipe ne peut plus se connecter au dépôt FTP.')}
-    title,complaint=wording[family]
-    impact=dict(affected_serials=affected,affected_count=len(affected),work_status='blocked' if family in ('ad','endpoint','dns') else 'degraded',
+    if family=='peripherals':
+        kind=cause.split(':')[0]
+        title=hardware.KINDS[kind]+' externe inutilisable'
+        complaint={'monitor':'Mon écran externe n’affiche plus mon poste.','keyboard':'Mon clavier externe ne me permet plus de saisir du texte.','mouse':'Ma souris externe ne répond plus.'}[kind]
+    else:title,complaint=wording[family]
+    impact=dict(affected_serials=affected,affected_count=len(affected),work_status='blocked' if family in ('ad','endpoint','dns','peripherals') else 'degraded',
                 activity=next((p['activity'] for p in s.get('staff',[]) if p['display_name']==profile['requester']),'Activité du poste'),
                 scope='company' if family=='ftp' else 'workstation')
     ticket=dict(id=ident,kind='workspace',name=profile['device']['name'],target_serial=serial,requester=profile['requester'],
@@ -100,6 +117,11 @@ def recover(tickets,s):
 def checks(s,t,at):
     record=s.get('live_incidents',{}).get(t['id'])
     if not record or record['target_serial']!=t['target_serial']:raise ValueError('Incident absent ou cible remplacée.')
+    if record['family']=='peripherals':
+        model=s.get('peripherals')
+        if not model or model['environment_id']!=s.get('environment_id','legacy'):
+            return [dict(label='Équipement local du poste',status='inconnu',detail='Équipement non disponible pour cet environnement.')]
+        return [dict(label=hardware.KINDS[kind]+' externe opérationnel',status='valide' if check['available'] else 'non satisfait',detail='État matériel simulé du poste identifié ; aucun contrôle réseau requis.') for kind,check in hardware.evaluate(model,t['target_serial']).items()]
     v=view(s,t['target_serial']);family=record['family']
     if family=='printing':
         result=ds.evaluate_print(v,'office',at);ok=result['allowed'];unknown=result['status']=='unknown'
@@ -153,7 +175,8 @@ def work_status(s):
             printing=s['desktop_services']['printing'] if primary else p['printing']
             dns=s['dns_service']['clients']['client'] if primary else p['dns_client']
             user=s['directory_user_id'] if primary else p['user_id']
-            if family=='ad':still=not s['directory']['users'][user]['enabled']
+            if family=='peripherals':still=not all(check['available'] for check in hardware.evaluate(s['peripherals'],serial).values())
+            elif family=='ad':still=not s['directory']['users'][user]['enabled']
             elif family=='ftp':still=not s['desktop_services']['ftp']['service_running']
             elif family=='dns':still=dns['dns_server_ip']!=s['devices']['server']['ip']
             elif family=='printing':still=not printing['spooler_running'] or printing['queues']['office']['paused'] or printing['queues']['office']['use_offline']
