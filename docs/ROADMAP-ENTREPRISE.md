@@ -111,3 +111,7 @@ Les neuf causes d’accessoires locaux sont intégrées au registre simultané. 
 ### v0.51 / v0.52 / v0.53 — Traitement et applications
 
 La livraison v0.52 remplace les objectifs historiques 0.51 et 0.52 du tableau : fil d’activité, tâches, priorité expliquée, fenêtres et verrouillage. v0.53 rend la documentation consultable par recherche et catégorie et corrige les anciennes consignes. Supervision/salle serveurs et bilan pédagogique restent au backlog ; ces numéros ne les déclarent pas livrés. Prochains blocs : applications de diagnostic plus fidèles, politiques d’entreprise issues de la seed, puis bilan des interventions.
+
+### v0.54 — Navigation des applications
+
+Explorateur et Annuaire séparent navigation, sélection et fenêtres d’édition/propriétés. Les moteurs sont conservés. À poursuivre : imprimantes, client FTP, DNS, puis applications Services/événements avec des observations réellement produites par les moteurs. Voir V054-APPLICATIONS-BUREAU.md.

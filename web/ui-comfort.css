@@ -50,3 +50,44 @@ button:active:not(:disabled){filter:brightness(.94)}
 #root .knowledge-badge{display:inline-block;background:#e8eefb;color:#29477e;border-radius:20px;padding:4px 10px;font-size:12px}
 #root .knowledge-layout .directory-person[aria-pressed="true"]{background:#e8eefb;border-left:3px solid #4b72cc}
 @media(max-width:620px){#root .knowledge-layout{grid-template-columns:1fr;grid-template-rows:minmax(100px,30%) minmax(0,1fr)}}
+/* v0.54: object-oriented explorer and directory consoles. */
+#root .file-browser{display:flex;flex-direction:column;height:100%;min-height:0;gap:10px}
+#root .file-body{display:grid;grid-template-columns:180px minmax(0,1fr);flex:1;min-height:0;overflow:hidden}
+#root .explorer-navigation{display:flex;flex-direction:column;gap:5px;background:#f1f5fb;border-right:1px solid #dce3ee;padding:12px}
+#root .explorer-navigation button{text-align:left;border:0;background:transparent}
+#root .explorer-navigation button:before{content:'▣';margin-right:8px;color:#5375a9}
+#root .file-list{overflow:auto;min-height:0;padding:12px}
+#root .explorer-file{background:transparent;border:0;text-align:left;padding:7px 9px;width:100%;color:#23354f}
+#root .explorer-file:before{content:'▤';color:#5375a9;margin-right:9px;font-size:18px}
+#root .file-list tr.selected{background:#e7effb}
+#root .explorer-status{font-size:12px;border-top:1px solid #dde4ee;padding-top:8px;color:#62728b}
+#root .file-editor{display:flex;flex-direction:column;height:100%;min-height:0;padding:12px;gap:8px}
+#root .file-editor textarea{flex:1;min-height:120px;resize:none;font-family:Consolas,monospace;background:#fff;padding:12px}
+#root .desktop-context-menu{position:fixed;z-index:100000;min-width:190px;padding:6px;background:#fff;border:1px solid #d2dbea;border-radius:9px;box-shadow:0 12px 28px #1c355533}
+#root .desktop-context-menu[hidden]{display:none}
+#root .desktop-context-menu button{display:block;width:100%;text-align:left;border:0;background:transparent}
+#root .desktop-context-menu button:hover{background:#e7effb}
+#root .directory-console{height:100%;display:flex;flex-direction:column;min-height:0;gap:8px}
+#root .directory-body{display:grid;grid-template-columns:180px minmax(220px,1fr) 210px;flex:1;min-height:0;overflow:hidden;gap:12px}
+#root .directory-tree{overflow:auto;padding:8px;background:#f1f5fb;border-right:1px solid #dce3ee}
+#root .directory-tree button{display:block;width:100%;text-align:left;border:0;background:transparent}
+#root .directory-tree button:before{content:'▣';color:#6b8bba;margin-right:7px}
+#root .directory-tree [aria-pressed=true],#root .directory-person[aria-pressed=true]{background:#e7effb}
+#root .directory-list{overflow:auto;min-height:0}
+#root .directory-selection{overflow:auto;min-height:0;padding:12px;background:#f6f8fc;border-radius:8px}
+#root .directory-person{display:block;width:100%;text-align:left;border:0;border-bottom:1px solid #ecf0f6;background:transparent;padding:9px}
+#root .directory-person:before{content:'●';font-size:10px;color:#6582b2;margin-right:9px}
+#root .directory-single{grid-template-columns:180px minmax(0,1fr)}
+#root .property-tabs{display:flex;flex-wrap:wrap;gap:4px;border-bottom:1px solid #dce3ee;padding-bottom:8px;margin-bottom:12px}
+#root .property-tabs button{background:#f1f5fb;border:1px solid #dce3ee;border-radius:5px;padding:7px 12px}
+#root .property-tabs [aria-pressed=true]{background:#e7effb;color:#284e89;border-color:#839eca}
+#root .directory-properties [hidden]{display:none}
+@media(max-width:760px){#root .directory-body{grid-template-columns:145px minmax(0,1fr)}#root .directory-selection{grid-column:1/-1;max-height:140px}#root .directory-single .directory-selection{grid-column:auto;max-height:none}#root .file-body{grid-template-columns:140px minmax(0,1fr)}}
+
+#root .file-browser{container-type:inline-size;container-name:explorer}
+#root .directory-console{container-type:inline-size;container-name:directory}
+#root .explorer-file,#root .directory-person{display:flex;align-items:center;gap:9px}
+#root .explorer-file:before,#root .directory-person:before{content:none}
+#root .explorer-file svg,#root .directory-person svg{width:20px;height:20px;flex-shrink:0;order:-1;color:#587cac}
+@container directory (max-width:680px){#root .directory-body{grid-template-columns:135px minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto}#root .directory-selection{grid-column:1/-1;max-height:130px}#root .directory-single{grid-template-rows:minmax(0,1fr)}#root .directory-single .directory-selection{grid-column:auto;max-height:none}}
+@container explorer (max-width:480px){#root .file-body{grid-template-columns:105px minmax(0,1fr)}#root .explorer-navigation{padding:6px}#root .file-list{padding:6px}}

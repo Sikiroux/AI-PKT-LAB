@@ -1,3 +1,7 @@
+# v0.54 — Explorateur et Annuaire : navigation et propriétés
+
+Sélection séparée de l’ouverture, éditeur de texte dans une fenêtre dédiée, menus contextuels, arborescence des OU et propriétés par onglets. Les moteurs et leurs vérifications restent inchangés. Voir [la recette et les limites](docs/V054-APPLICATIONS-BUREAU.md). Le rendu Windows / Packet Tracer 9 reste à tester.
+
 # v0.53 — Documentation et cohérence des consignes
 
 Recherche sans distinction d’accents, catégories, liste et lecture séparées, informations de l’entreprise distinguées des procédures. Correction du parcours des tickets simultanés et du coffre local dans l’aide. Voir [la recette](docs/V053-DOCUMENTATION.md). Rendu Windows à tester.
