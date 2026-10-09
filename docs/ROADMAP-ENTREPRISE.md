@@ -89,3 +89,7 @@ Comptes et registre d’accès locaux de formation intégrés aux fiches et lié
 ### Documentation : premier incrément v0.48.2
 
 Répertoire factuel issu de l’environnement, nommage, domaine et serveur de fichiers accessibles dans Documentation. Le manuel reste disponible. Les politiques propres à chaque société, les procédures métier générées, les recherches contextuelles depuis un ticket et la gestion documentaire éditable restent à développer : ce premier incrément ne les remplace pas.
+
+### Suivi métier : premier incrément v0.48.3
+
+Attribution au technicien de la session lors d’une prise en charge, historique de suivis et propositions de solution, export avec le compte rendu. Aucune proposition ne valide le réseau ou les droits. Le statut Résolu distinct de Clos, l’approbation du demandeur, la réouverture, les tâches planifiées et l’attribution multi-techniciens restent à définir et implémenter.

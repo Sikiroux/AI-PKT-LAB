@@ -389,8 +389,24 @@ class Tickets:
         self.save()
         return self.public()
 
+    @metadata_locked
+    def add_followup(self, t, data):
+        if t['status']=='clos':raise ValueError('Un ticket clos conserve son historique en lecture seule.')
+        kind=data.get('entry_kind','followup')
+        text=data.get('text')
+        if kind not in ('followup','solution'):raise ValueError('Type de suivi inconnu.')
+        if not isinstance(text,str) or not text.strip() or len(text)>2000:
+            raise ValueError('Le suivi doit contenir entre 1 et 2000 caractères.')
+        history=t.get('followups',[])
+        if len(history)>=100:raise ValueError('Ce ticket contient déjà 100 suivis ; utilise le compte rendu pour la synthèse.')
+        entry=dict(id=len(history)+1,date=now(),author='Technicien de la session',kind=kind,text=text.strip())
+        t.setdefault('followups',[]).append(entry)
+        self.event(t['id']+' : '+('proposition de solution ajoutée.' if kind=='solution' else 'suivi ajouté.'))
+        return self.public()
+
     def action(self,ident,action,data):
         t=self.get(ident)
+        if action=='followup':return self.add_followup(t,data)
         if t['kind']=='workspace' and action in ('verify','close'):
             return self.workspace_action(t,action,data)
         if t['status']=='clos':raise ValueError('Ce ticket est deja clos.')
@@ -411,7 +427,7 @@ class Tickets:
             t['severity']=value;self.event(t['id']+' : sévérité mise à jour.')
         elif action=='take':
             if t['kind']=='workspace' and t.get('stage')=='queued':ticket_arrivals.activate(self,t)
-            timers.autostart(t.get('timer'));t['status']='en_cours';self.event(t['id']+' : pris en charge.')
+            timers.autostart(t.get('timer'));t['status']='en_cours';t.setdefault('assigned_to','Technicien de la session');self.event(t['id']+' : pris en charge.')
         elif action=='retry_service':
             if t['kind']!='service' or not self.desk:raise ValueError('Action réservée aux réseaux de tickets.')
             old=next(j for j in self.desk.g.jobs() if j['id']==t['job_id'])
@@ -504,7 +520,7 @@ def run():
                 n=int(self.headers.get('Content-Length','0'))
                 if not 0<=n<=8192:raise ValueError('Requete trop grande')
                 data=json.loads(self.rfile.read(n) or b'{}')
-                if self.path=='/action' and data.get('action') in ('take','wait','notes','severity','timer'):
+                if self.path=='/action' and data.get('action') in ('take','wait','notes','followup','severity','timer'):
                     with tickets.metadata_lock:
                         self.check_environment(data)
                         return self.send(200,tickets.action(data['id'],data['action'],data))

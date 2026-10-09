@@ -1,5 +1,9 @@
 # pkt_lab — Générateur de labs Packet Tracer (.pka)
 
+## v0.48.3 — suivi des interventions
+
+Les tickets conservent des suivis datés et des propositions de solution, distincts du compte rendu modifiable. La prise en charge renseigne le technicien de la session. Ces informations sont exportées ; les contrôles de clôture restent obligatoires et inchangés. Voir [le périmètre et la recette](docs/V0483-SUIVI-TICKETS.md).
+
 ## v0.48.2 — documentation de l’entreprise
 
 L’application Documentation rassemble un répertoire des appareils enregistrés, les repères du domaine et du serveur de fichiers, et les procédures de formation. Les articles utilisent l’environnement courant, sans mot de passe ni cause cachée. Ils ne constituent pas une mesure réseau. Voir [le périmètre et la recette](docs/V0482-DOCUMENTATION-ENTREPRISE.md).
