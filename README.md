@@ -1,3 +1,7 @@
+# v0.50.6 — Fiche ticket et actions dédiées
+
+Trois onglets séparent les échanges, l’intervention et les contrôles pédagogiques. Les suivis, notes et actions de résolution utilisent une fenêtre centrée. Recette visuelle : docs/V0506-FICHE-TICKET.md.
+
 # v0.50.5 — Fenêtre de création d’entreprise
 
 Création dans une fenêtre centrée avec fond flouté, seed facultative et chargement. Message d’accueil adapté sans entreprise active. Voir [la note de version](docs/V0505-CREATION-ENTREPRISE.md). Rendu Windows à tester.

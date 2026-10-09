@@ -2,7 +2,7 @@
 const fs=require('fs'),vm=require('vm'),assert=require('assert');
 const html=fs.readFileSync(__dirname+'/tickets.html','utf8');
 const start=html.indexOf('if(t.checks.length){');
-const end=html.indexOf("\nrenderResolution(d,t);",start);
+const end=html.indexOf("\nrenderResolution(d,t,false);",start);
 assert(start>=0&&end>start);
 function el(tag,text,css){return {tag,text,css,children:[],append(...items){this.children.push(...items)}}}
 for(const complete of [false,true]){
