@@ -1,3 +1,7 @@
+# v0.50.3 — Détails visuels Figma
+
+Icônes issues de la maquette, bandeau compact, diagnostic en lignes et suppression du double défilement d’inventaire. Voir [le détail et la recette](docs/V0503-FIDELITE-FIGMA.md).
+
 # v0.50.2 — Parc et réseau, maquette Figma
 
 Quatre onglets, recherche d’équipements et cartes reliées aux observations du pont. Voir [la livraison et la recette](docs/V0502-PARC-FIGMA.md). Le rendu visuel reste à confirmer sur Windows.
