@@ -119,3 +119,7 @@ Explorateur et Annuaire séparent navigation, sélection et fenêtres d’éditi
 ### v0.55 — Imprimantes et FTP
 
 Galerie des imprimantes, files par équipement et propriétés par onglets ; client FTP avec connexion séparée et résultats réels du moteur. DNS, Services/événements, politiques issues de la seed et bilan restent à poursuivre. Voir V055-IMPRIMANTES-FTP.md.
+
+### v0.56 — Console DNS
+
+Zone interne, recherche et liste des enregistrements ; création/propriétés séparées. Les moteurs DNS et leurs limites restent identiques. À poursuivre : configuration réseau des postes et applications Services/événements, avec des états réellement produits par la simulation. Voir V056-CONSOLE-DNS.md.

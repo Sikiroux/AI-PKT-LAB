@@ -105,3 +105,10 @@ button:active:not(:disabled){filter:brightness(.94)}
 .transfer-attempts{margin-top:12px;font-size:12px}
 .service-app>details{margin:12px 0;border-top:1px solid var(--border,#d6deea);padding-top:10px}
 @media(prefers-reduced-motion:reduce){.printer-card{transition:none}}
+
+/* v0.56 — DNS zone browser */
+.dns-zone-workspace{display:grid;grid-template-columns:minmax(150px,24%) minmax(0,1fr);gap:16px}
+.dns-zone-tree{padding:12px;background:#f2f6fb;border:1px solid #dde6f0;border-radius:10px;overflow-wrap:anywhere}
+.dns-zone-tree button{width:100%;text-align:left;background:#e3edff;border:1px solid #aec5f1;color:#234678}
+.dns-zone-workspace>section{min-width:0;overflow:auto}
+@media(max-width:650px){.dns-zone-workspace{grid-template-columns:1fr}}

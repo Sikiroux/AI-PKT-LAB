@@ -1,3 +1,7 @@
+# v0.56 — Console DNS : zone et propriétés
+
+Zone interne visible, liste recherchable et propriétés/création dans des fenêtres dédiées. Sélection séparée de l’ouverture, cibles stables et refus sur état indisponible. Voir [la recette](docs/V056-CONSOLE-DNS.md). Rendu Windows et Packet Tracer : à vérifier manuellement.
+
 # v0.55 — Imprimantes et client FTP
 
 Équipements, files d’attente et propriétés dans des fenêtres distinctes. Connexion FTP dédiée, listes locales/distantes, sélection stable et résultats des transferts. Les routes et moteurs existants sont conservés. Voir [la recette](docs/V055-IMPRIMANTES-FTP.md). Rendu Windows et contrôles Packet Tracer : recette manuelle à faire.
