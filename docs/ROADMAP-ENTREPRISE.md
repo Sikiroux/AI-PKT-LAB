@@ -93,3 +93,7 @@ Répertoire factuel issu de l’environnement, nommage, domaine et serveur de fi
 ### Suivi métier : premier incrément v0.48.3
 
 Attribution au technicien de la session lors d’une prise en charge, historique de suivis et propositions de solution, export avec le compte rendu. Aucune proposition ne valide le réseau ou les droits. Le statut Résolu distinct de Clos, l’approbation du demandeur, la réouverture, les tâches planifiées et l’attribution multi-techniciens restent à définir et implémenter.
+
+### Livraison regroupée v0.49 — confort et cycle des tickets
+
+Écran partagé actionnable : bureau intégré du technicien, connexion explicite au poste du ticket, liste des postes, redimensionnement, suivis et notes, chrono et export. Cycle Résolu / confirmation déclarée / Clos, réouverture avec invalidation des contrôles et archive du précédent chrono. La confirmation reste manuelle ; aucun dialogue IA n’est livré. L’attribution multi-techniciens, l’escalade, les tâches planifiées et l’agrandissement réel du réseau restent au backlog. Le numéro v0.49 remplace ici l’objectif historique de cette version : les événements d’entreprise ne sont pas livrés par ce bloc.

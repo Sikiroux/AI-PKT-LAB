@@ -18,6 +18,7 @@ from workspace_routes import WorkspaceRoutes
 import timers
 import re
 import copy
+import uuid
 from functools import wraps
 
 def metadata_locked(fn):
@@ -343,7 +344,7 @@ class Tickets:
         if any(c['label']=='Equipement present' and c['status']=='valide' for c in result):result.append(self.engine.ping(t['name'],self.profile('server')))
         t['checks']=result;t['complete']=all(c['status']=='valide' for c in result);t['checked']=now();t['manual_ssid']=False
         self.event(t['id']+' : verification effectuee.');return self.public()
-    def workspace_action(self, t, action, data):
+    def workspace_action(self, t, action, data, resolving=False):
         if t['status']=='clos':raise ValueError('Ce ticket est clos.')
         if action=='notes':t['notes']=str(data.get('notes',''))[:4000]
         elif action in ('take','wait'):
@@ -383,10 +384,46 @@ class Tickets:
                 self.controller.workspace.save()
             if action=='close':
                 if not t['complete']:self.save();raise ValueError('Résultat demandé non rétabli.')
-                if t.get('timer') and t['timer'].get('started'):timers.operate(t['timer'],'finish')
-                t.update(status='clos',closed=now())
+                if t.get('timer') and t['timer'].get('started') and not t['timer'].get('finished'):timers.operate(t['timer'],'finish')
+                self.finish_ticket(t,resolving)
         else:raise ValueError('Action non prise en charge pour ce ticket.')
         self.save()
+        return self.public()
+
+    def finish_ticket(self,t,resolving,manual=False):
+        previous=t['status'];stamp=now()
+        if resolving:
+            solution=next((e['text'] for e in reversed(t.get('followups',[])) if e['kind']=='solution'),t.get('notes',''))
+            t['resolution']=dict(id=uuid.uuid4().hex,date=stamp,text=solution,manual=manual)
+            t.update(status='resolu',resolved=stamp)
+        else:
+            t.update(status='clos',closed=stamp)
+            if t.get('resolution'):t['resolution']['confirmation']=dict(date=stamp,declared_by='Technicien de la session')
+        t.setdefault('workflow',[]).append(dict(date=stamp,previous=previous,status=t['status']))
+        self.event(t['id']+(' : résolu ; confirmation du demandeur à déclarer.' if resolving else ' : clos'+(' sur déclaration manuelle des tests.' if manual else ' après contrôles.')))
+
+    @metadata_locked
+    def reopen(self,t,data):
+        if t['status'] not in ('resolu','clos'):raise ValueError('Seul un ticket résolu ou clos peut être rouvert.')
+        reason=data.get('reason')
+        if not isinstance(reason,str) or not 5<=len(reason.strip())<=1000:raise ValueError('Explique la réouverture (5 à 1000 caractères).')
+        if t['kind'] in ('incident','pc','wifi','site_service') and any(other['id']!=t['id'] and other['kind']==t['kind'] and other['status']!='clos' for other in self.state['tickets']):
+            raise ValueError('Un autre ticket de cette famille utilise déjà le réseau.')
+        if t['kind']=='workspace':
+            if any(other['id']!=t['id'] and other['kind']=='workspace' and other['status']!='clos' and other.get('stage')!='queued' for other in self.state['tickets']):
+                raise ValueError('Une autre intervention utilise déjà cet environnement.')
+            state=self.controller.workspace.state
+            active=state.get('desktop_incident') or state.get('mixed_incident') or state.get('dns_incident') or state.get('file_incident') or state.get('directory_incident') or {}
+            if t['id'].startswith(('INC-AD-','INC-FIC-','INC-DNS-','INC-MIX-','INC-APP-')) and active.get('id')!=t['id']:
+                raise ValueError('Le scénario de ce ticket a été remplacé ; sa réouverture est impossible.')
+            state['validated']=False;self.controller.workspace.save()
+        previous=t['status'];stamp=now()
+        t.setdefault('workflow',[]).append(dict(date=stamp,previous=previous,status='en_cours',reason=reason.strip(),resolution=copy.deepcopy(t.get('resolution')),timer=copy.deepcopy(t.get('timer'))))
+        for key in ('closed','resolved','resolution','checked'):t.pop(key,None)
+        t.update(status='en_cours',complete=False,checks=[])
+        if t.get('timer'):
+            t['timer']=timers.configure(t['timer'].get('limit',0)//60,t['timer'].get('mode','training'));timers.autostart(t['timer'])
+        self.event(t['id']+' : rouvert — '+reason.strip())
         return self.public()
 
     @metadata_locked
@@ -404,11 +441,22 @@ class Tickets:
         self.event(t['id']+' : '+('proposition de solution ajoutée.' if kind=='solution' else 'suivi ajouté.'))
         return self.public()
 
-    def action(self,ident,action,data):
+    def action(self,ident,action,data,resolving=False):
         t=self.get(ident)
+        if action=='reopen':return self.reopen(t,data)
+        if action=='resolve':
+            if t['status'] in ('clos','resolu'):raise ValueError('Ce ticket est déjà résolu ou clos.')
+            solution=next((e['text'] for e in reversed(t.get('followups',[])) if e['kind']=='solution'),t.get('notes',''))
+            if len(solution.strip())<20:raise ValueError('Enregistre une proposition de solution ou un compte rendu d’au moins 20 caractères.')
+            return self.action(ident,'close',data,resolving=True)
+        if t['status']=='resolu' and action not in ('close','verify','notes','followup','severity'):
+            raise ValueError('Confirme la résolution ou rouvre le ticket pour reprendre l’intervention.')
+        if action=='close' and t['status']=='resolu':
+            if data.get('confirmation') is not True or data.get('resolution_id')!=t.get('resolution',{}).get('id'):
+                raise ValueError('Déclare le retour favorable du demandeur pour la résolution actuelle.')
         if action=='followup':return self.add_followup(t,data)
         if t['kind']=='workspace' and action in ('verify','close'):
-            return self.workspace_action(t,action,data)
+            return self.workspace_action(t,action,data,resolving=resolving)
         if t['status']=='clos':raise ValueError('Ce ticket est deja clos.')
         if action=='timer':
             cmd=data.get('timer_action');timer=t.get('timer')
@@ -450,27 +498,27 @@ class Tickets:
             if t['kind']=='site_service':
                 site_services.verify(self,t)
                 if not t['configuration_complete'] or data.get('manual_tests') is not True or len(t['notes'].strip())<20:raise ValueError('Configuration rétablie, tests fonctionnels déclarés et compte rendu détaillé requis.')
-                if t.get('timer') and t['timer'].get('started'):timers.operate(t['timer'],'finish')
-                t.update(status='clos',closed=now(),manual_tests=True,complete=False);self.event(t['id']+' : clos avec configuration contrôlée et tests fonctionnels déclarés.');return self.public()
+                if t.get('timer') and t['timer'].get('started') and not t['timer'].get('finished'):timers.operate(t['timer'],'finish')
+                t.update(manual_tests=True,complete=False);self.finish_ticket(t,resolving,manual=True);return self.public()
             if t['kind']=='service':
                 if not self.desk:raise ValueError('Service de tickets indisponible.')
                 job=next(j for j in self.desk.g.jobs() if j['id']==t['job_id'])
                 if job['status']!='done':raise ValueError('Le réseau du ticket n’est pas prêt.')
                 if data.get('manual_tests') is not True or len(t['notes'].strip())<20:raise ValueError('Confirme les tests et enregistre un compte rendu précis avant de clôturer.')
-                if t.get('timer') and t['timer']['started']:timers.operate(t['timer'],'finish')
-                t.update(status='clos',closed=now(),manual_tests=True,complete=False,checked=now(),checks=[dict(label='Résultats déclarés par le technicien',status='inconnu',detail='Clôture manuelle, aucune validation automatique du service.')]);self.event(t['id']+' : clos sur déclaration manuelle des tests.');return self.public()
+                if t.get('timer') and t['timer']['started'] and not t['timer'].get('finished'):timers.operate(t['timer'],'finish')
+                t.update(manual_tests=True,complete=False,checked=now(),checks=[dict(label='Résultats déclarés par le technicien',status='inconnu',detail='Tests déclarés manuellement, aucune validation automatique du service.')]);self.finish_ticket(t,resolving,manual=True);return self.public()
             if t['kind']=='incident' and t['injection']['state'] not in ('applied','restored'):raise ValueError('Injection incertaine : retablis le test avant de cloturer.')
             # Re-read live state; a former successful check cannot close a broken network.
             self.verify(t)
             manual=t['kind']=='wifi' and data.get('manual_ssid') is True
             ok=t['complete'] or (manual and all(c['status']=='valide' or (c['label']=='SSID et point d acces attendus' and c['status']=='inconnu') for c in t['checks']))
             if not ok:raise ValueError('Cloture refusee : objectifs non satisfaits ou verification manuelle manquante.')
-            if t.get('timer') and t['timer'].get('started'):timers.operate(t['timer'],'finish')
+            if t.get('timer') and t['timer'].get('started') and not t['timer'].get('finished'):timers.operate(t['timer'],'finish')
             if t.get('injection',{}).get('kind')=='vlan_wrong':
                 try:t['vlan_cleanup']=vlan_faults.remove_unused(self.engine,t['injection'])
                 except Exception:t['vlan_cleanup']={'removed':False,'message':'Nettoyage du VLAN temporaire non confirmé ; VLAN conservé.'}
             final=self.engine.snapshot();self.guard(final);self.remember_inventory(final)
-            t['manual_ssid']=manual;t['status']='clos';t['closed']=now();self.event(t['id']+' : clos'+(' avec confirmation manuelle du SSID.' if manual else '.'))
+            t['manual_ssid']=manual;self.finish_ticket(t,resolving,manual=manual)
         else:raise ValueError('Action inconnue')
         return self.public()
 

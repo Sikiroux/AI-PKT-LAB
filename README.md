@@ -1,5 +1,9 @@
 # pkt_lab — Générateur de labs Packet Tracer (.pka)
 
+## v0.49 — espace d’intervention et cycle des tickets
+
+Écran partagé actionnable avec bureau intégré, panneau redimensionnable et connexion explicite au poste du ticket. Résolution vérifiée, confirmation déclarée du demandeur, clôture avec contrôles frais et réouverture tracée. Les anciennes sauvegardes restent compatibles. Voir [le périmètre, les limites et la recette](docs/V049-ESPACE-INTERVENTION.md).
+
 ## v0.48.3 — suivi des interventions
 
 Les tickets conservent des suivis datés et des propositions de solution, distincts du compte rendu modifiable. La prise en charge renseigne le technicien de la session. Ces informations sont exportées ; les contrôles de clôture restent obligatoires et inchangés. Voir [le périmètre et la recette](docs/V0483-SUIVI-TICKETS.md).
