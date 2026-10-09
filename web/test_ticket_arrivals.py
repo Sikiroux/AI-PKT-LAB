@@ -39,6 +39,21 @@ class ArrivalTests(unittest.TestCase):
    self.t.state['tickets']=[];self.t.state['arrival_count']=0;arrivals.receive(self.t)
    self.assertEqual(p,self.t.state['tickets'][0]['arrival_plan'])
   self.assertEqual(set(first),{x[1] for x in arrivals.VARIED})
+ def test_varied_arrivals_never_repeat_family_consecutively(self):
+  for _ in range(30):arrivals.receive(self.t)
+  plans=[t['arrival_plan'] for t in self.t.state['tickets']]
+  self.assertTrue(all(a['target']!=b['target'] for a,b in zip(plans,plans[1:])))
+ def test_application_arrivals_alternate_available_workstations(self):
+  self.s['client_workspaces']={serial:dict(device=dict(name=serial),requester=serial) for serial in ('client','other')}
+  for _ in range(12):arrivals.receive(self.t,'apps','printing')
+  plans=[t['arrival_plan'] for t in self.t.state['tickets']]
+  self.assertTrue(all(a['client_serial']!=b['client_serial'] for a,b in zip(plans,plans[1:])))
+ def test_varied_arrivals_alternate_available_workstations(self):
+  self.s['client_workspaces']={serial:dict(device=dict(name=serial),requester=serial) for serial in ('client','other')}
+  for _ in range(30):arrivals.receive(self.t)
+  plans=[t['arrival_plan'] for t in self.t.state['tickets']]
+  self.assertTrue(all(a['client_serial']!=b['client_serial'] for a,b in zip(plans,plans[1:])))
+  self.assertTrue(all(a['target']!=b['target'] for a,b in zip(plans,plans[1:])))
  def test_clock_cap_pause_and_no_catchup_burst(self):
   self.d.settings.update(active=True,next_at=100,minimum=1,maximum=1,max_open=2)
   self.d.tick(99);self.assertFalse(self.t.state['tickets'])

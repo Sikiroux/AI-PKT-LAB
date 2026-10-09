@@ -54,6 +54,13 @@ class IntegrationTests(unittest.TestCase):
         routes=WorkspaceRoutes(self.c,'t');h=Mock();h.path='/workspace/directory/login'
         for data in ({'password':sim_ad.TRAINING_PASSWORD},{'environment_id':'old','password':sim_ad.TRAINING_PASSWORD}):
             with self.assertRaises(ValueError):routes.post(h,data)
+    def test_transport_control_failure_keeps_employee_authentication(self):
+        self.login();s=self.c.workspace.state;auth=copy.deepcopy(s['directory_auth'])
+        self.c.observe(blocking=True)
+        self.assertFalse(s['remote_session'])
+        self.assertEqual(s['directory_auth'],auth)
+        self.assertFalse(evaluate(s,'read')['allowed'])
+
     def test_roundtrip_clears_authentication_preserves_directory(self):
         self.grant();self.login();s=self.c.workspace.state;self.c.workspace.save()
         w=Workspace(self.c.workspace.path)

@@ -268,7 +268,7 @@ class Controller:
             if self.workspace.state:
                 if not evaluate(self.workspace.state, 'remote')['allowed']:
                     self.workspace.state['remote_session'] = False
-                    if 'directory' in self.workspace.state: ad.invalidate(self.workspace.state)
+                    # Une rupture de transport ferme la prise en main, pas la session Windows simulée.
                 if (not all(row['status']=='valide' for row in desktop_incidents.checks(self.workspace.state,time.time())) if self.workspace.state.get('desktop_incident') else not evaluate(self.workspace.state, 'read')['allowed']):
                     self.workspace.state['validated'] = False
                 self.workspace.save()

@@ -16,15 +16,22 @@ def receive(tickets,engine='varied',target='random',level=1,minutes=30,client_se
     index=tickets.state.get('arrival_count',0)+1
     seed=hashlib.sha256((str(s['seed'])+':ticket-arrivals:v1:'+str(index)).encode()).hexdigest()
     rng=random.Random(seed)
-    if engine=='varied':selected,target=rng.choice(VARIED)
+    previous=next((t for t in reversed(tickets.state['tickets']) if t.get('arrival_plan')),None)
+    previous_plan=previous.get('arrival_plan',{}) if previous else {}
+    if engine=='varied':
+        choices=[x for x in VARIED if x[1]!=previous_plan.get('target')] or list(VARIED)
+        if len(s.get('client_workspaces',{}))>1 and previous_plan.get('client_serial')==s['devices']['client']['serial']:
+            choices=[x for x in choices if x[0]=='apps'] or choices
+        selected,target=rng.choice(choices)
     elif engine=='apps':
         if target not in ('random',*APP_TARGETS):raise ValueError('Application inconnue.')
-        selected='apps';target=rng.choice(APP_TARGETS) if target=='random' else target
+        selected='apps';target=rng.choice([x for x in APP_TARGETS if x!=previous_plan.get('target')] or list(APP_TARGETS)) if target=='random' else target
     else:
         if target not in ('random','ad','files','dns'):raise ValueError('Les arrivées multi-services concernent AD, fichiers et DNS. Les pannes réseau restent des interventions manuelles.')
         selected='mixed';target=rng.choice(('ad','files','dns')) if target=='random' else target
     candidates=sorted(s.get('client_workspaces',{})) or [s['devices']['client']['serial']]
-    serial=rng.choice(candidates) if selected=='apps' and client_serial=='random' else s['devices']['client']['serial'] if selected=='mixed' else client_serial
+    alternatives=[x for x in candidates if x!=previous_plan.get('client_serial')] or candidates
+    serial=rng.choice(alternatives) if selected=='apps' and client_serial=='random' else s['devices']['client']['serial'] if selected=='mixed' else client_serial
     if serial not in candidates:raise ValueError('Poste inconnu pour cette entreprise.')
     profile=s.get('client_workspaces',{}).get(serial)
     name=profile['device']['name'] if profile else s['devices']['client']['name']

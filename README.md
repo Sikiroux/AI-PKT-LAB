@@ -1,3 +1,7 @@
+# v0.49.1 — Confort et arrivées
+
+Voir [la livraison et ses limites](docs/V0491-CONFORT-ET-ARRIVEES.md) : scrollbars, chargement du bureau, diversité des arrivées et séparation entre perte réseau et session utilisateur. La refonte des incidents simultanés reste à réaliser.
+
 # pkt_lab — Générateur de labs Packet Tracer (.pka)
 
 ## v0.49 — espace d’intervention et cycle des tickets
