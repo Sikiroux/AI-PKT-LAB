@@ -184,3 +184,22 @@ def operation(s,app,op,payload):
         else:raise ValueError('Opération FTP inconnue.')
     else:raise ValueError('Application inconnue.')
     return dict(allowed=True,code='UPDATED')
+
+
+def inspection(s):
+    """Read-only projection of simulated services and the existing session journal."""
+    desktop=s.get('desktop_services',{})
+    def status(value):
+        if value is True or value=='running':return 'running'
+        if value is False or value=='stopped':return 'stopped'
+        return 'unknown'
+    services=[
+        dict(id='spooler',name='Spouleur d’impression',scope='Poste sélectionné',status=status(desktop.get('printing',{}).get('spooler_running'))),
+        dict(id='files',name='Partage de fichiers',scope='Serveur de fichiers',status=status(s.get('file_service',{}).get('service_status'))),
+        dict(id='dns',name='Serveur DNS',scope='Infrastructure',status=status(s.get('dns_service',{}).get('service_status'))),
+        dict(id='ftp',name='Serveur FTP',scope='Serveur de fichiers',status=status(desktop.get('ftp',{}).get('service_running'))),
+        dict(id='directory',name='Annuaire',scope='Infrastructure',status=status(s.get('directory_service'))),
+    ]
+    events=[dict(at=e.get('at'),text=e.get('text','')) for e in s.get('events',[])[-100:] if isinstance(e,dict)]
+    return dict(environment_id=s.get('environment_id'),services=services,events=events,
+                evidence='simulation_state',journal_scope='session',limit=100)

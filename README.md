@@ -1,3 +1,7 @@
+# v0.59 — Chantier regroupé services et interfaces (0.58 + 0.59)
+
+Console de services et journal de session issus des moteurs ; propriétés de quotas/capacité séparées ; raccordement et VPN dans des fenêtres dédiées ; parc connecté, réserve et historique séparés. Documentation intégrée et roadmap réorganisée. Voir [le périmètre et la recette](docs/V059-SERVICES-ET-CONSOLES.md). Rendu Windows/PT9 à vérifier.
+
 # v0.57 — Paramètres du poste
 
 Listes séparées des actions, propriétés du lecteur Z: et gestion des applications dans des fenêtres dédiées. Confirmation de désinstallation et suppression des données périmées après une lecture refusée. Voir [la recette](docs/V057-PARAMETRES-POSTE.md). Rendu Windows / Packet Tracer : à tester.

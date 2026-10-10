@@ -19,6 +19,13 @@ def handle(c,path,data):
         if not s or not ds.ensure(s) and 'desktop_services' not in s:raise ValueError('Poste non disponible.')
         now=time.time();app,action=path.split('/',1);payload=data.get('payload',{})
         if not isinstance(payload,dict):raise ValueError('Paramètres invalides.')
+        if app=='inspection':
+            if action!='state':raise ValueError('Inspection en lecture seule.')
+            source=data.get('source','client')
+            if source=='technician':admin(s,now)
+            elif source=='client':remote(s)
+            else:raise ValueError('Source inconnue.')
+            return ds.inspection(s)
         if app=='deployment':
             d=s['desktop_services'].get('deployment')
             if action not in ('state','operation'):raise ValueError('Action de déploiement inconnue.')

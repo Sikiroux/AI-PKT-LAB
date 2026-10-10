@@ -1,129 +1,41 @@
-# Roadmap prévisionnelle — entreprise persistante
+# Roadmap actuelle — entreprise persistante
 
-Les numéros ci-dessous sont des objectifs, pas des promesses de fonctionnalités livrées. Les moteurs AD, fichiers, DNS, impression, FTP et déploiement existent déjà ; les prochaines étapes les rendent cohérents et plus fidèles dans l’interface. Une version intermédiaire peut remplacer plusieurs petits incréments.
+État livré : v0.59, chantier regroupé 0.58–0.59. Les numéros futurs sont prévisionnels. Les anciennes correspondances 0.44–0.52 sont remplacées par ce tableau ; les guides de version conservent l’historique exact.
 
-## Livraison regroupée v0.43
+## Livré
 
-- Correctifs après v0.41 : processus ICMP réellement disponible et icônes OS.js.
-- Diagnostics : identité, preuves datées, prérequis distincts et export limité.
-- Ticket épinglé facultatif et ouverture du bureau distant en grand.
-- Pas de nouvelle migration de sauvegarde dans cette livraison.
+| Bloc | Portée réelle |
+|---|---|
+| Réseau et services | Pont Packet Tracer, AD, fichiers, DNS, impression, FTP et déploiement simulés. Contrôle discret via Packet Tracer ouvert, pas moteur indépendant sans interface. |
+| Entreprise v0.50 | 30 employés et six services dans les nouvelles entreprises, postes câblés, incidents avant signalement, incidents simultanés et impact métier. Les anciennes sauvegardes gardent leur effectif. |
+| Tickets v0.49–0.52 | Liste, écran partagé facultatif, suivis, tâches, priorité, propositions de solution, distinction Résolu/Clos et réouverture. Confirmation du demandeur déclarative. |
+| Parc et accessoires | Stock, préparation liée à l’atelier, remise/restitution, accessoires et incidents locaux. La remise ne remplace pas encore un poste connecté dans PT. |
+| Bureaux v0.53–0.57 | Documentation recherchable, Explorateur/Annuaire, imprimantes/FTP, DNS et propriétés du poste ; formulaires séparés des listes pour les blocs refondus. |
+| Services et interfaces v0.59 | Lecture des cinq états de service, journal existant limité à 100 événements, outils associés, fenêtres de quotas/capacité et raccordement/VPN, trois vues du parc. [Recette et limites](V059-SERVICES-ET-CONSOLES.md). |
 
-## Livraison v0.44
+Les interfaces sont partielles. Le journal de session n’est pas un Observateur d’événements Windows complet. Les moteurs ne reproduisent pas toutes les fonctions des services réels. Recette visuelle Windows/PT9 requise avant de déclarer l’ergonomie validée.
 
-Référentiel des personnes représentées, comptes, appareils et tickets ; identifiants logiques reproductibles et portée par environnement. Le personnel complet et l’historique de remplacement matériel restent à étendre. Voir [le contrat et les limites](V044-REFERENTIEL.md).
+## Suite, par priorité
 
-## Livraison v0.45
-
-Console d’annuaire : utilisateurs, groupes, ordinateurs, OU, historique, stratégie et refus des modifications périmées. Messagerie et licences restent au bloc v0.47. Voir [le périmètre](V045-ANNUAIRE-CONSOLES.md).
-
-## Livraison v0.46
-
-Premier cycle de réserve/remise/restitution et consultation du parc commun. La préparation est déclarative ; le lien avec le déploiement visuel et le remplacement des postes connectés restent à développer. Voir [le périmètre](V046-PARC-STOCK.md).
-
-## Livraison v0.46.1
-
-L’atelier visuel est lié à un article du stock ; la remise exige son bilan réussi. La restitution démarre un nouveau cycle protégé contre les anciennes fenêtres. Le remplacement du poste connecté reste à réaliser. Voir [le périmètre](V0461-STOCK-DEPLOIEMENT.md).
-
-## Livraison v0.46.2
-
-Fiches des postes et six procédures intégrées au bureau. Le coffre d’accès locaux, les périphériques et leurs interventions sont les prochains blocs avant l’extension des services. Voir [le périmètre](V0462-FICHES-DOCUMENTATION.md).
-
-## Suite envisagée
-
-### Priorité revue après la recette v0.47.2
-
-Avant mail et licences : fiabiliser la recette, puis retravailler les tickets et le placement. Les numéros ci-dessous sont des objectifs historiques à replanifier, pas un inventaire des versions livrées.
-
-1. Tickets : liste filtrable, fiche structurée, suivi et solution ; contrôles pédagogiques séparés. La fiche épinglée actuelle reste en lecture seule.
-2. Demandes contextualisées : auteur et bénéficiaire distincts, impact, service, échéance et résultat attendu. La documentation actuelle explique le simulateur ; la base de connaissances propre à l'entreprise reste à générer.
-3. Nommage indépendant des personnes : nom technique stable, affectation et localisation séparées. Ne pas renommer les sauvegardes existantes automatiquement.
-4. Placement compact par zone : branches lisibles, marge pour les libellés, limitation des croisements et variantes. Augmenter ensuite la taille et la diversité réelle des réseaux.
-
-Ces étapes restent à implémenter ; elles ne sont pas livrées par le nettoyage.
-
-| Version | Objectif | Critère de sortie |
+| Version envisagée | Objectif | Critère de sortie |
 |---|---|---|
-| 0.44 | Référentiel procédural commun | Un employé, son compte, son matériel et ses tickets partagent des identifiants stables. Même seed et même version de génération : même état initial. |
-| 0.45 | Affiner les applications d’administration | Affiner la console d’annuaire et les liens des fiches utilisateurs. Définir les références réelles et limites de fidélité. |
-| 0.46 | Parc matériel et préparation | Premier cycle stock/remise/restitution livré ; association au déploiement visuel et remplacement réseau encore à faire. |
-| 0.47 | Mail, licences et documents | Comptes mail et conventions, places disponibles, documents de remise et validation des résultats attendus. |
-| 0.48 | Arrivée d’employé complète | Préparer compte, accès, mail, licences, poste, documents et livraison à partir d’une demande procédurale. |
-| 0.49 | Événements d’entreprise | Arrivées, mobilités et départs produisent des demandes cohérentes ; incidents collectifs regroupés ; pause et fréquence réglables. |
-| 0.50 | Conversations | Dialogue scénarisé fiable, puis modèle local facultatif. Le client décrit seulement ce qu’il sait ; la clôture dépend du moteur. |
-| 0.51 | Supervision et salle serveurs | Observations PT et services simulés distingués ; métriques reliées à l’activité et aux incidents, sans valeurs décoratives présentées comme mesures. |
-| 0.52 | Formation | Difficultés, procédures internes, aide facultative, bilan des interventions, parcours de départ et changement de service. |
+| 0.59.x | Recette et hotfixes | Blocages, ciblage, sauvegardes, scroll et preuves réseau corrigés avec reproduction et test ciblé. |
+| 0.60 | Documentation d’entreprise | Politiques d’accès et procédures propres à la société issues de la seed ; distinction manuel du simulateur / procédures métier. |
+| 0.61 | Mail et licences | Comptes, conventions, attribution de places disponibles et incidents cohérents. |
+| 0.62 | Arrivée d’employé | Compte, accès, mail, licences, matériel préparé, documents et remise vérifiables. |
+| 0.63 | Vie d’entreprise | Mobilités/départs, horaires, demandes et impacts métier ; architectures réseau réellement plus diverses. |
+| 0.64 | Conversations | Dialogue scénarisé enrichi, modèle local facultatif ; le client ne décrit que ce qu’il sait. |
+| 0.65 | Bilan pédagogique | Compétences, explications et portfolio d’interventions exportable. |
+
+À approfondir transversalement : interfaces des permissions et comptes FTP, détails par article du parc, diagnostics par service, événements structurés par équipement, type de démarrage/dépendances de service, supervision/salle serveurs avec métriques reliées à la simulation. La livraison 0.59 amorce ces outils ; elle ne clôt pas ces objectifs.
 
 ## Principes
 
-### Incrément v0.48.1
+- La seed crée l’état initial ; l’historique sauvegardé gouverne ensuite la session. Même seed et version de génération : même état initial.
+- Personne, compte et appareil ont des identifiants stables. Affectation et emplacement sont séparés du nom technique.
+- Le moteur produit les symptômes et vérifie les résultats. Un LLM ne répare pas le réseau, n’accorde pas de droits et ne valide pas un ticket.
+- Une preuve inconnue n’est pas un échec observé ; un ping ne prouve ni SMB, ni FTP, ni l’identité.
+- Les employés modélisés, appareils représentés et éléments administratifs doivent être distingués.
+- Tests automatisés et recette réelle PT restent distincts. Suites requises avant commit, sauvegarde avant migration.
 
-Noms indépendants des personnes et du préfixe de site pour les nouvelles entreprises ; placement logique par branche avec variantes déterministes. Compatibilité de présentation des anciennes sessions conservée. La diversité d'architecture, la taille des réseaux et les aménagements physiques restent à développer. Voir [le périmètre](V0481-NOMS-ET-PLACEMENT.md).
-
-### Premier incrément d'interface v0.48
-
-La file comparative et la recherche par demandeur/poste sont livrées ; la fiche complète s'affiche sous la file. Les règles de traitement restent inchangées. La refonte métier complète, le nommage et les topologies ne sont pas considérés comme terminés. Voir [le périmètre v0.48](V048-FILE-DES-TICKETS.md).
-
-Le scénario décrit une entreprise complète avec ou sans personnel IT interne. Le portable du technicien est distinct du personnel de l’entreprise. Tous les employés n’ont pas nécessairement un appareil Packet Tracer dédié ; le périmètre modélisé doit être explicite.
-
-La seed crée l’état initial, puis l’historique enregistré devient la vérité de la session. Une réparation, un nouvel employé ou une licence attribuée ne sont pas effacés par une régénération arbitraire. Les événements futurs utilisent leurs propres tirages reproductibles et leur ordre est sauvegardé.
-
-Le moteur vérifie les résultats ; un LLM ne peut pas créer une réparation, accorder des droits ou valider un ticket. Les symptômes proviennent des états réels de la simulation.
-
-Les demandes de service et changements planifiés complètent les incidents. La préparation d’un nouveau poste doit être associée à un employé et à un matériel identifié, pas seulement à une case « terminé ».
-
-## Hotfixes
-
-Corriger en priorité les blocages, erreurs de preuve, pertes de sauvegarde et fenêtres inutilisables. Chaque correction significative a une reproduction et un test ciblé. Sauvegarder avant migration. Exécuter les suites requises avant commit ; distinguer tests automatisés et validation réelle dans PT.
-
-Différés : appareil définitivement HS, Packet Tracer complètement sans interface, appels IA, terminal IOS web complet. Le contrôle discret utilise Packet Tracer ouvert et son IPC : ce n’est pas un moteur PT headless indépendant.
-
-## Complément v0.46.3
-
-Équipement local livré pour les postes simulés : accessoires identifiés, branchement, entrée vidéo, aperçu local, remplacement, stock d’accessoires et historique. Les effets restent indépendants de RDP et du réseau. À poursuivre : coffre des accès locaux, demandes procédurales liées aux accessoires, puis mail/licences et parcours d’arrivée.
-
-## Complément v0.46.4
-
-Comptes et registre d’accès locaux de formation intégrés aux fiches et liés à la vue Ordinateurs de l’annuaire. Neuf incidents procéduraux d’accessoires externes proposés explicitement dans le catalogue Applications, avec clôture locale sans ping. Prochain bloc : mail et licences, puis documents de remise et arrivée d’employé complète. Une session locale avec un bureau sur place complet et les composants intégrés du portable restent à développer.
-
-### Documentation : premier incrément v0.48.2
-
-Répertoire factuel issu de l’environnement, nommage, domaine et serveur de fichiers accessibles dans Documentation. Le manuel reste disponible. Les politiques propres à chaque société, les procédures métier générées, les recherches contextuelles depuis un ticket et la gestion documentaire éditable restent à développer : ce premier incrément ne les remplace pas.
-
-### Suivi métier : premier incrément v0.48.3
-
-Attribution au technicien de la session lors d’une prise en charge, historique de suivis et propositions de solution, export avec le compte rendu. Aucune proposition ne valide le réseau ou les droits. Le statut Résolu distinct de Clos, l’approbation du demandeur, la réouverture, les tâches planifiées et l’attribution multi-techniciens restent à définir et implémenter.
-
-### Livraison regroupée v0.49 — confort et cycle des tickets
-
-Écran partagé actionnable : bureau intégré du technicien, connexion explicite au poste du ticket, liste des postes, redimensionnement, suivis et notes, chrono et export. Cycle Résolu / confirmation déclarée / Clos, réouverture avec invalidation des contrôles et archive du précédent chrono. La confirmation reste manuelle ; aucun dialogue IA n’est livré. L’attribution multi-techniciens, l’escalade, les tâches planifiées et l’agrandissement réel du réseau restent au backlog. Le numéro v0.49 remplace ici l’objectif historique de cette version : les événements d’entreprise ne sont pas livrés par ce bloc.
-
-
-### v0.50 — Effectif réel et incidents simultanés
-
-Livré sur les nouvelles entreprises : 30 employés, six services, 30 postes PT câblés, comptes distincts ; panne avant signalement, isolation par poste, regroupement FTP, impact métier et clôture ciblée. Voir [le périmètre](V050-ENTREPRISE-30-EMPLOYES.md). Les anciennes sauvegardes gardent leur effectif. À poursuivre : intégration des accessoires/déploiement au moteur simultané, dépendances métier et horaires, sessions persistantes, applications plus riches et nouvelles architectures de réseau.
-
-
-### v0.50.1 — Accessoires simultanés
-
-Les neuf causes d’accessoires locaux sont intégrées au registre simultané. La vérification ne dépend pas du réseau. La préparation/déploiement, les sessions durables et l’enrichissement des applications restent à poursuivre. Voir [la recette](V0501-ACCESSOIRES-SIMULTANES.md).
-
-### v0.51 / v0.52 / v0.53 — Traitement et applications
-
-La livraison v0.52 remplace les objectifs historiques 0.51 et 0.52 du tableau : fil d’activité, tâches, priorité expliquée, fenêtres et verrouillage. v0.53 rend la documentation consultable par recherche et catégorie et corrige les anciennes consignes. Supervision/salle serveurs et bilan pédagogique restent au backlog ; ces numéros ne les déclarent pas livrés. Prochains blocs : applications de diagnostic plus fidèles, politiques d’entreprise issues de la seed, puis bilan des interventions.
-
-### v0.54 — Navigation des applications
-
-Explorateur et Annuaire séparent navigation, sélection et fenêtres d’édition/propriétés. Les moteurs sont conservés. À poursuivre : imprimantes, client FTP, DNS, puis applications Services/événements avec des observations réellement produites par les moteurs. Voir V054-APPLICATIONS-BUREAU.md.
-
-### v0.55 — Imprimantes et FTP
-
-Galerie des imprimantes, files par équipement et propriétés par onglets ; client FTP avec connexion séparée et résultats réels du moteur. DNS, Services/événements, politiques issues de la seed et bilan restent à poursuivre. Voir V055-IMPRIMANTES-FTP.md.
-
-### v0.56 — Console DNS
-
-Zone interne, recherche et liste des enregistrements ; création/propriétés séparées. Les moteurs DNS et leurs limites restent identiques. À poursuivre : configuration réseau des postes et applications Services/événements, avec des états réellement produits par la simulation. Voir V056-CONSOLE-DNS.md.
-
-### v0.57 — Paramètres du poste
-
-Gestion des applications et propriétés du lecteur Z: séparées de la navigation principale ; refus des modifications après une lecture indisponible. Les interfaces réseau restent des observations Packet Tracer. Services/événements et enrichissement des diagnostics restent à poursuivre. Voir V057-PARAMETRES-POSTE.md.
+Différés : appareil définitivement HS, Packet Tracer entièrement sans interface, appels IA et terminal IOS web complet.
