@@ -50,6 +50,7 @@ def ensure(state):
         employee = _id(state, 'employee', uid) if uid else None
         asset.update(serial=serial, name=device['name'], ip=device.get('ip'), represented=True,
                      employee_id=employee, owner_kind='technician' if role == 'technician' else 'employee' if employee else 'infrastructure')
+    __import__('sim_corporate').sync_people(state)
     return before != registry
 
 

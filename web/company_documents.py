@@ -44,4 +44,22 @@ def public(state):
             'Cette liste décrit le scénario de cette entreprise simulée. Elle ne constitue pas une règle générale pour toutes les entreprises.',
             'Une dépendance métier ne donne aucun droit technique. Les comptes et permissions FTP restent à vérifier séparément.',
             'L’impact du ticket est une estimation issue de ces dépendances, pas une vérification individuelle de tous les postes.']))
+    if state.get('corporate'):
+        p=state['corporate']['policy']
+        docs.extend([
+            article('policy-access','Politique des accès de '+company,[
+                'Politique du scénario simulé : validation par '+p['approval']+'.',
+                'Attribuer uniquement les groupes demandés pour la fonction. Une licence ne donne aucun droit aux dossiers partagés.',
+                'Les comptes restent personnels ; le nom du matériel reste indépendant de son utilisateur.']),
+            article('policy-mail','Convention de messagerie et licences',[
+                'Domaine pédagogique interne : '+p['domain']+'. Aucun message ne sort du simulateur.',
+                'Convention recommandée : '+p['naming']+' ; en cas d’homonyme, ajouter un numéro. Adresse lors de la création : identifiant AD en minuscules @ domaine. Renommer un compte ne renomme pas automatiquement sa boîte.',
+                'Messagerie et Bureautique : attribuer une place du catalogue, sans dépasser sa capacité.',
+                'Les contenus des boîtes sont conservés dans la sauvegarde locale. Politique de scénario : '+str(p['retention_days'])+' jours ; aucune purge automatique implémentée.']),
+            article('onboarding','Procédure d’arrivée d’un employé',[
+                'Préavis prévu : '+str(p['notice_days'])+' jours. Enregistrer le service, le responsable, la date et les groupes demandés dans Arrivées et services.',
+                'Créer le compte dans Annuaire. Effectuer la première connexion et le changement de mot de passe demandé avant l’utilisation des services.',
+                'Attribuer les licences, créer la boîte et envoyer le document d’accueil ; tester un échange depuis la boîte.',
+                'Préparer le portable de réserve dans l’atelier du Parc, puis enregistrer sa remise à l’arrivant. Cette remise reste administrative et ne crée pas un appareil Packet Tracer.',
+                'Le centre de tickets relit les moteurs pour vérifier la demande. Un groupe AD ne prouve pas les droits SMB ; la connexion du nouveau poste reste hors de ce scénario.'])])
     return docs

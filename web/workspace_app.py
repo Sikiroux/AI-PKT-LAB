@@ -76,6 +76,11 @@ class Controller:
         if technician_model.ensure(state):workspace.save()
         if state and desktop_services.ensure(state):workspace.save()
         if clients.ensure(state):workspace.save()
+        if state and state.get('directory') and not state.get('corporate'):
+            backup=workspace.path.with_suffix('.before-corporate.json')
+            if workspace.path.exists() and not backup.exists():backup.write_bytes(workspace.path.read_bytes())
+            import sim_corporate
+            if sim_corporate.ensure(state):workspace.save()
         if company_registry.ensure(state):workspace.save()
 
     def new(self, seed):
@@ -90,6 +95,7 @@ class Controller:
             technician_model.ensure(state)
             desktop_services.ensure(state)
             clients.ensure(state)
+            __import__('sim_corporate').ensure(state)
             candidate = Workspace(path)
             candidate.state = state
             candidate.save()

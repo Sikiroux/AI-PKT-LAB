@@ -1,3 +1,7 @@
+# v0.62 — Documentation métier, mail, licences et arrivées (0.60–0.62)
+
+Politiques propres à l’entreprise, console Arrivées et services, échanges mail internes simulés, catalogue de licences et demandes liées au centre de tickets. Les contrôles relisent les moteurs AD, mail, licences et déploiement du stock. Voir [le guide et la recette](docs/V062-ARRIVEES-ET-SERVICES.md). Aucun SMTP externe ni ajout automatique de PC Packet Tracer. Rendu Windows/PT9 à vérifier.
+
 # v0.59 — Chantier regroupé services et interfaces (0.58 + 0.59)
 
 Console de services et journal de session issus des moteurs ; propriétés de quotas/capacité séparées ; raccordement et VPN dans des fenêtres dédiées ; parc connecté, réserve et historique séparés. Documentation intégrée et roadmap réorganisée. Voir [le périmètre et la recette](docs/V059-SERVICES-ET-CONSOLES.md). Rendu Windows/PT9 à vérifier.

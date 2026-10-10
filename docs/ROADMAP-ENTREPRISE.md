@@ -1,6 +1,6 @@
 # Roadmap actuelle — entreprise persistante
 
-État livré : v0.59, chantier regroupé 0.58–0.59. Les numéros futurs sont prévisionnels. Les anciennes correspondances 0.44–0.52 sont remplacées par ce tableau ; les guides de version conservent l’historique exact.
+État livré : v0.62, chantier regroupé 0.60–0.62. Les numéros futurs sont prévisionnels. Les anciennes correspondances 0.44–0.52 sont remplacées par ce tableau ; les guides de version conservent l’historique exact.
 
 ## Livré
 
@@ -12,6 +12,7 @@
 | Parc et accessoires | Stock, préparation liée à l’atelier, remise/restitution, accessoires et incidents locaux. La remise ne remplace pas encore un poste connecté dans PT. |
 | Bureaux v0.53–0.57 | Documentation recherchable, Explorateur/Annuaire, imprimantes/FTP, DNS et propriétés du poste ; formulaires séparés des listes pour les blocs refondus. |
 | Services et interfaces v0.59 | Lecture des cinq états de service, journal existant limité à 100 événements, outils associés, fenêtres de quotas/capacité et raccordement/VPN, trois vues du parc. [Recette et limites](V059-SERVICES-ET-CONSOLES.md). |
+| Entreprise et arrivées v0.62 | Politiques seed persistées, mail interne et licences administrés, demandes d’arrivée dans Tickets, première connexion de formation, contrôles des moteurs AD/mail/stock. Pas de SMTP réel, ni nouveau PC connecté. [Recette](V062-ARRIVEES-ET-SERVICES.md). |
 
 Les interfaces sont partielles. Le journal de session n’est pas un Observateur d’événements Windows complet. Les moteurs ne reproduisent pas toutes les fonctions des services réels. Recette visuelle Windows/PT9 requise avant de déclarer l’ergonomie validée.
 
@@ -19,10 +20,7 @@ Les interfaces sont partielles. Le journal de session n’est pas un Observateur
 
 | Version envisagée | Objectif | Critère de sortie |
 |---|---|---|
-| 0.59.x | Recette et hotfixes | Blocages, ciblage, sauvegardes, scroll et preuves réseau corrigés avec reproduction et test ciblé. |
-| 0.60 | Documentation d’entreprise | Politiques d’accès et procédures propres à la société issues de la seed ; distinction manuel du simulateur / procédures métier. |
-| 0.61 | Mail et licences | Comptes, conventions, attribution de places disponibles et incidents cohérents. |
-| 0.62 | Arrivée d’employé | Compte, accès, mail, licences, matériel préparé, documents et remise vérifiables. |
+| 0.62.x | Recette et hotfixes | Blocages, ciblage, sauvegardes, scroll et preuves réseau corrigés avec reproduction et test ciblé. |
 | 0.63 | Vie d’entreprise | Mobilités/départs, horaires, demandes et impacts métier ; architectures réseau réellement plus diverses. |
 | 0.64 | Conversations | Dialogue scénarisé enrichi, modèle local facultatif ; le client ne décrit que ce qu’il sait. |
 | 0.65 | Bilan pédagogique | Compétences, explications et portfolio d’interventions exportable. |
@@ -39,3 +37,5 @@ Les interfaces sont partielles. Le journal de session n’est pas un Observateur
 - Tests automatisés et recette réelle PT restent distincts. Suites requises avant commit, sauvegarde avant migration.
 
 Différés : appareil définitivement HS, Packet Tracer entièrement sans interface, appels IA et terminal IOS web complet.
+
+À prolonger après v0.62 : boîte personnelle depuis le bureau client avec identité authentifiée, incidents mail procéduraux, quotas éditables, demandes de plusieurs groupes dans l’interface, validation du responsable, achats/extension du stock et raccordement PT du poste remis. Le changement de mot de passe d’arrivée est un essai depuis la console du technicien, pas une nouvelle session Windows.

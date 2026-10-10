@@ -200,6 +200,8 @@ def inspection(s):
         dict(id='ftp',name='Serveur FTP',scope='Serveur de fichiers',status=status(desktop.get('ftp',{}).get('service_running'))),
         dict(id='directory',name='Annuaire',scope='Infrastructure',status=status(s.get('directory_service'))),
     ]
+    if s.get('corporate'):
+        services.append(dict(id='mail',name='Messagerie interne',scope='Entreprise',status=status(s['corporate'].get('mail_running'))))
     events=[dict(at=e.get('at'),text=e.get('text','')) for e in s.get('events',[])[-100:] if isinstance(e,dict)]
     return dict(environment_id=s.get('environment_id'),services=services,events=events,
                 evidence='simulation_state',journal_scope='session',limit=100)

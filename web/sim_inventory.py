@@ -36,7 +36,7 @@ def operate(state,request,now):
         registry=state.get('company_registry') or {}
         if registry.get('environment_id')!=inventory['environment_id']:raise ValueError('Référentiel de cette entreprise requis.')
         person=registry.get('people',{}).get(request.get('employee_id'))
-        if not person or not person.get('represented') or not person.get('account_present'):raise ValueError('Employé représenté inconnu.')
+        if not person or not (person.get('represented') or person.get('administrative_arrival')) or not person.get('account_present'):raise ValueError('Employé représenté inconnu.')
         if item['status']!='stock' or not (item.get('deployment') and sim_deployment.evaluate(item['deployment'])['passed']):raise ValueError('Matériel disponible et préparé requis.')
         item.update(status='assigned',employee_id=person['id'])
     elif operation=='return':

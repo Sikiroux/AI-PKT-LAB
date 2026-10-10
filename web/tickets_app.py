@@ -62,6 +62,7 @@ class Tickets:
         incident=state.get('desktop_incident') or state.get('mixed_incident') or state.get('dns_incident') or state.get('file_incident') or state.get('directory_incident')
         company_registry.ensure(state)
         company_registry.link_tickets(state,self.state['tickets'])
+        self.append_arrivals(state)
         if not incident:
             self.save();return
         existing=next((t for t in self.state['tickets'] if t['id']==incident['id']),None)
@@ -71,6 +72,11 @@ class Tickets:
         self.state['tickets'].append(dict(id=incident['id'],kind='workspace',name=incident.get('station',incident.get('target_name',state['devices']['client']['name'])),target_serial=incident.get('target_serial',state['devices']['client'].get('serial')),title=incident['title'],description=incident['description'],workspace_goal=incident['goal'],status='nouveau',severity='elevee' if incident.get('level',1)>1 else 'moderee',created=now(),checks=[],complete=False,notes='',dialogue=incident.get('dialogue',[]),timer=timers.configure(incident.get('timer_minutes',30),'training')))
         company_registry.link_tickets(state,self.state['tickets'])
         self.event(incident['id']+' : nouvelle intervention sur l’environnement actif.')
+
+    def append_arrivals(self,state):
+        for r in state.get('corporate',{}).get('requests',{}).values():
+            if any(t['id']==r['id'] for t in self.state['tickets']):continue
+            self.state['tickets'].append(dict(id=r['id'],kind='onboarding',environment_id=state['environment_id'],employee_id=r['employee_id'],name=r['display_name'],title='Arrivée · '+r['display_name'],description=r['display_name']+' rejoint '+r['department']+' le '+r['start_date']+'. Responsable : '+r['manager']+'. Prépare son compte '+r['username']+', groupes, licences, boîte mail, lettre d’accueil et matériel. Ouvre Arrivées et services sur le bureau du technicien. La remise est administrative ; aucun nouveau PC PT n’est créé.',status='nouveau',severity='moderee',created=now(),checks=[],complete=False,notes='',timer=timers.configure(30,'training')))
 
     @metadata_locked
     def bind_environment(self, state, folder, generator, controller):
@@ -490,6 +496,23 @@ class Tickets:
             if data.get('confirmation') is not True or data.get('resolution_id')!=t.get('resolution',{}).get('id'):
                 raise ValueError('Déclare le retour favorable du demandeur pour la résolution actuelle.')
         if action=='followup':return self.add_followup(t,data)
+        if t['kind']=='onboarding' and action in ('verify','close'):
+            if t['status']=='clos':raise ValueError('Ticket clos.')
+            import sim_corporate
+            s=self.controller.workspace.state
+            if s.get('environment_id')!=t.get('environment_id'):raise ValueError('Demande d’une autre entreprise.')
+            with self.controller.lock:
+                import desktop_controller
+                desktop_controller.admin(s,time.time())
+                evaluation=sim_corporate.evaluate(s,t['id'],time.time())
+                t.update(checks=evaluation['checks'],complete=evaluation['passed'],checked=now())
+                self.save()
+                if action=='close':
+                    if not t['complete']:raise ValueError('La préparation est incomplète ; consulte les contrôles du ticket.')
+                    if len(t.get('notes','').strip())<20 and not any(e['kind']=='solution' and len(e['text'].strip())>=20 for e in t.get('followups',[])):raise ValueError('Compte rendu de préparation requis (20 caractères).')
+                    if t.get('timer') and t['timer'].get('started') and not t['timer'].get('finished'):timers.operate(t['timer'],'finish')
+                    self.finish_ticket(t,resolving)
+                return self.public()
         if t['kind']=='workspace' and action in ('verify','close'):
             return self.workspace_action(t,action,data,resolving=resolving)
         if t['status']=='clos':raise ValueError('Ce ticket est deja clos.')
@@ -627,7 +650,7 @@ def run():
                 if self.path=='/action':
                     with workspace.lock:
                         self.check_environment(data)
-                        if tickets.get(data['id'])['kind']=='workspace':
+                        if tickets.get(data['id'])['kind'] in ('workspace','onboarding'):
                             return self.send(200,tickets.action(data['id'],data['action'],data))
                 with workspace.lock, engine.lock:
                     if self.path!='/register':self.check_environment(data)

@@ -19,6 +19,31 @@ def handle(c,path,data):
         if not s or not ds.ensure(s) and 'desktop_services' not in s:raise ValueError('Poste non disponible.')
         now=time.time();app,action=path.split('/',1);payload=data.get('payload',{})
         if not isinstance(payload,dict):raise ValueError('Paramètres invalides.')
+        if app=='corporate':
+            if s.get('_client_view') or data.get('client_serial'):raise ValueError('Ouvre ces services depuis le bureau du technicien.')
+            admin(s,now)
+            import sim_corporate
+            if sim_corporate.ensure(s):c.workspace.save()
+            if action=='state':
+                result=sim_corporate.public(s)
+                result['evaluations']={ident:sim_corporate.evaluate(s,ident,now) for ident in s['corporate']['requests']}
+                return result
+            if action!='operation':raise ValueError('Action inconnue.')
+            if data.get('operation')=='first-login':
+                if type(data.get('expected_revision')) is not int or data['expected_revision']!=s['corporate']['revision']:raise ValueError('Services modifiés. Actualise.')
+                if not any(r['username']==payload.get('username') for r in s['corporate']['requests'].values()):raise ValueError('Compte d’arrivée requis.')
+                import sim_ad
+                outcome=sim_ad.change_password(s['directory'],payload.get('username'),payload.get('old_password'),payload.get('new_password'),ad.context(s,'technician',now),now)
+                s['directory']=outcome['directory'];s['corporate']['revision']+=1
+                c.workspace.event('Première connexion d’arrivée : '+outcome['result']['code'])
+                if outcome['result']['code']!='OK':raise ValueError(outcome['result']['code'])
+                return dict(result={'code':'OK'})
+            work,result=sim_corporate.operate(s,data.get('operation'),payload,data.get('expected_revision'),now)
+            # Commit sous le verrou existant, après validation de toute l’opération.
+            s['corporate']=work['corporate'];sim_corporate.sync_people(s)
+            c.workspace.event('Services entreprise : '+str(data.get('operation')))
+            if c.on_change:c.on_change(s,c.workspace.path.parent)
+            return dict(result=result)
         if app=='inspection':
             if action!='state':raise ValueError('Inspection en lecture seule.')
             source=data.get('source','client')
