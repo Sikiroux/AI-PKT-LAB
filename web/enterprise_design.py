@@ -1,4 +1,5 @@
 """Présentation des nouvelles entreprises, indépendante des tirages de pannes."""
+import math
 import hashlib
 import random
 from lab_engine import organization
@@ -36,16 +37,24 @@ def plan(seed, device_names):
         for index, name in enumerate(members):
             positions[name] = (centers[zone] + round((index - (len(members)-1)/2) * 140), 620)
     if 'PC-CPT-30' in names:
-        positions['R1']=(1950,250)
-        positions.update({'SW-EMP':(950,600),'SW-EMP2':(950,1650),'SW-SRV':(2750,600),'SW-GUEST':(2750,1650)})
-        members=['PC-ALICE','PC-BOB']+[f'PC-CPT-{i:02d}' for i in range(3,31)]
-        for index,name in enumerate(members):
-            group=index//5;positions[name]=(400+(index%5)*250,850+group*330)
-        for index,name in enumerate(('SRV-INFRA','SRV-WEB','SRV-FTP','SRV-MAIL')):
-            positions[name]=(2450+(index%2)*420,950+(index//2)*330)
-        positions.update({'PC-ADMIN':(1850,600),'PRN-OFFICE':(1850,1050),'PC-GUEST':(2750,1950)})
-        if rng.choice((False,True)):positions={name:(3900-x,y) for name,(x,y) in positions.items()}
-    return dict(version=1, convention=convention, zones=zones, names=names,
+        # [pkt_lab] Each switch owns a radial fan: straight PT links do not
+        # cross another switch's clients. Radius includes label clearance;
+        # these are conservative logical units, not measured PT icon pixels.
+        positions = {'R1': (1120, 130), 'SW-EMP': (480, 640),
+                     'SW-EMP2': (1300, 640), 'SW-SRV': (1920, 340),
+                     'SW-GUEST': (1920, 920), 'PC-GUEST': (1920, 1120),
+                     'PC-ADMIN': (480, 1120), 'PRN-OFFICE': (680, 1120)}
+        members = ['PC-ALICE', 'PC-BOB'] + [f'PC-CPT-{i:02d}' for i in range(3, 31)]
+        for parity, center in enumerate((480, 1300)):
+            clients = members[parity::2]
+            for index, name in enumerate(clients):
+                angle = -math.pi / 2 + index * 2 * math.pi / len(clients)
+                positions[name] = (round(center + 340 * math.cos(angle)),
+                                   round(640 + 340 * math.sin(angle)))
+        for index, name in enumerate(('SRV-INFRA', 'SRV-WEB', 'SRV-FTP', 'SRV-MAIL')):
+            positions[name] = (1740 + index * 120, 590)
+    positions = {name: point for name, point in positions.items() if name in names}
+    return dict(version=2, convention=convention, zones=zones, names=names,
                 positions=positions, canvas_limit=3900)
 
 

@@ -1,3 +1,7 @@
+# v0.62.3 — Topologie compacte et icônes de fenêtre
+
+Les nouvelles entreprises de 30 postes regroupent les clients autour de leur switch réel, avec une étendue réduite et des marges pour les libellés. Les icônes de titre utilisent directement les SVG du bureau. [Changements et recette PT9](docs/V0623-TOPOLOGIE-LISIBLE.md). Les sauvegardes existantes ne sont pas réagencées. Placement et rendu réel à tester dans Packet Tracer.
+
 # v0.62.2 — Barre de titre alignée et bureau rapproché de la maquette
 
 Correctif visuel des titres/contrôles OS.js et reprise du fond, de la grille centrée et de l’en-tête de la maquette. Voir [la recette du correctif](docs/V0622-ALIGNEMENT-FENETRES.md).

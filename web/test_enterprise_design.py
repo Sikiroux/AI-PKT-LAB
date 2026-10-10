@@ -28,6 +28,28 @@ class DesignTests(unittest.TestCase):
         self.assertEqual({p['convention'] for p in plans}, {'department', 'inventory'})
         self.assertGreater(len({tuple(p['zones']) for p in plans}), 1)
 
+    def test_large_layout_compact_and_labels_separated(self):
+        names = NAMES + ('SW-EMP2',) + tuple(f'PC-CPT-{i:02d}' for i in range(3, 31))
+        for seed in range(30):
+            points = design.plan(seed, names)['positions']
+            self.assertEqual(set(points), set(names))
+            self.assertLessEqual(max(x for x, y in points.values()) - min(x for x, y in points.values()), 2000)
+            self.assertLessEqual(max(y for x, y in points.values()) - min(y for x, y in points.values()), 1000)
+            items = list(points.items())
+            for index, (name, (x, y)) in enumerate(items):
+                for other, (ox, oy) in items[index+1:]:
+                    self.assertTrue(abs(x-ox) >= 110 or abs(y-oy) >= 80, (name, other))
+
+    def test_large_clients_stay_with_their_actual_access_switch(self):
+        names = NAMES + ('SW-EMP2',) + tuple(f'PC-CPT-{i:02d}' for i in range(3, 31))
+        points = design.plan('ownership', names)['positions']
+        for number in range(1, 31):
+            name = 'PC-ALICE' if number == 1 else 'PC-BOB' if number == 2 else f'PC-CPT-{number:02d}'
+            own = points['SW-EMP' if number % 2 else 'SW-EMP2']
+            other = points['SW-EMP2' if number % 2 else 'SW-EMP']
+            distance = lambda center: sum((a-b)**2 for a, b in zip(points[name], center))
+            self.assertLess(distance(own), distance(other))
+
     def test_no_person_or_site_in_names(self):
         for i in range(30):
             p = design.plan(str(i), NAMES)

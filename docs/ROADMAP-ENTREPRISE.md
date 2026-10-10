@@ -39,3 +39,8 @@ Les interfaces sont partielles. Le journal de session n’est pas un Observateur
 Différés : appareil définitivement HS, Packet Tracer entièrement sans interface, appels IA et terminal IOS web complet.
 
 À prolonger après v0.62 : boîte personnelle depuis le bureau client avec identité authentifiée, incidents mail procéduraux, quotas éditables, demandes de plusieurs groupes dans l’interface, validation du responsable, achats/extension du stock et raccordement PT du poste remis. Le changement de mot de passe d’arrivée est un essai depuis la console du technicien, pas une nouvelle session Windows.
+
+
+## Correctif prioritaire v0.62.3
+
+Livré dans le générateur : disposition compacte des 30 postes en deux groupes correspondant aux switches réels, icônes SVG natives dans les barres de titre. Recette PT9 à effectuer avant de qualifier le placement de validé. Les réseaux déjà sauvegardés restent inchangés. La roadmap 0.63–0.65 reste en place.
