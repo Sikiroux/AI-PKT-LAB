@@ -1,6 +1,6 @@
 # Roadmap actuelle — entreprise persistante
 
-État livré : v0.62, chantier regroupé 0.60–0.62. Les numéros futurs sont prévisionnels. Les anciennes correspondances 0.44–0.52 sont remplacées par ce tableau ; les guides de version conservent l’historique exact.
+État livré : v0.62.1, première passe du bureau et de l’annuaire après le chantier 0.60–0.62. Les numéros futurs sont prévisionnels. Les anciennes correspondances 0.44–0.52 sont remplacées par ce tableau ; les guides de version conservent l’historique exact.
 
 ## Livré
 

@@ -609,6 +609,7 @@ def run():
             if workspace_routes.get(self):return
             if self.path=='/':return self.send(200,(ROOT/'tickets.html').read_text(encoding='utf-8').replace('__UI_TOKEN__',token),'text/html')
             if self.path=='/ui-comfort.css':return self.send(200,(ROOT/'ui-comfort.css').read_text(encoding='utf-8'),'text/css')
+            if self.path=='/desktop-theme.css':return self.send(200,(ROOT/'desktop-theme.css').read_text(encoding='utf-8'),'text/css')
             if self.path=='/generator':return self.send(200,{'catalogue':generator.catalogue,'jobs':generator.jobs()})
             if self.path.startswith('/lab-file?'):
                 try:

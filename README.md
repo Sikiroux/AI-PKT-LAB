@@ -1,4 +1,6 @@
-# v0.62 — Documentation métier, mail, licences et arrivées (0.60–0.62)
+# v0.62.1 — Bureau technique et annuaire plus lisibles
+
+Première passe de la refonte du bureau inspirée de la maquette : barre des tâches intégrée, fenêtres harmonisées et annuaire avec liste structurée et résumé des propriétés réelles. Voir [les changements et la recette](docs/V0621-BUREAU-ANNUAIRE.md).
 
 Politiques propres à l’entreprise, console Arrivées et services, échanges mail internes simulés, catalogue de licences et demandes liées au centre de tickets. Les contrôles relisent les moteurs AD, mail, licences et déploiement du stock. Voir [le guide et la recette](docs/V062-ARRIVEES-ET-SERVICES.md). Aucun SMTP externe ni ajout automatique de PC Packet Tracer. Rendu Windows/PT9 à vérifier.
 
