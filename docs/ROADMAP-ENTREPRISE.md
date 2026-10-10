@@ -123,3 +123,7 @@ Galerie des imprimantes, files par équipement et propriétés par onglets ; cli
 ### v0.56 — Console DNS
 
 Zone interne, recherche et liste des enregistrements ; création/propriétés séparées. Les moteurs DNS et leurs limites restent identiques. À poursuivre : configuration réseau des postes et applications Services/événements, avec des états réellement produits par la simulation. Voir V056-CONSOLE-DNS.md.
+
+### v0.57 — Paramètres du poste
+
+Gestion des applications et propriétés du lecteur Z: séparées de la navigation principale ; refus des modifications après une lecture indisponible. Les interfaces réseau restent des observations Packet Tracer. Services/événements et enrichissement des diagnostics restent à poursuivre. Voir V057-PARAMETRES-POSTE.md.

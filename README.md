@@ -1,3 +1,7 @@
+# v0.57 — Paramètres du poste
+
+Listes séparées des actions, propriétés du lecteur Z: et gestion des applications dans des fenêtres dédiées. Confirmation de désinstallation et suppression des données périmées après une lecture refusée. Voir [la recette](docs/V057-PARAMETRES-POSTE.md). Rendu Windows / Packet Tracer : à tester.
+
 # v0.56 — Console DNS : zone et propriétés
 
 Zone interne visible, liste recherchable et propriétés/création dans des fenêtres dédiées. Sélection séparée de l’ouverture, cibles stables et refus sur état indisponible. Voir [la recette](docs/V056-CONSOLE-DNS.md). Rendu Windows et Packet Tracer : à vérifier manuellement.
