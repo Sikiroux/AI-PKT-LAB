@@ -1,4 +1,6 @@
-# v0.62.1 — Bureau technique et annuaire plus lisibles
+# v0.62.2 — Barre de titre alignée et bureau rapproché de la maquette
+
+Correctif visuel des titres/contrôles OS.js et reprise du fond, de la grille centrée et de l’en-tête de la maquette. Voir [la recette du correctif](docs/V0622-ALIGNEMENT-FENETRES.md).
 
 Première passe de la refonte du bureau inspirée de la maquette : barre des tâches intégrée, fenêtres harmonisées et annuaire avec liste structurée et résumé des propriétés réelles. Voir [les changements et la recette](docs/V0621-BUREAU-ANNUAIRE.md).
 

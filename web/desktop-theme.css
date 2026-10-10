@@ -25,3 +25,28 @@ body{background:radial-gradient(ellipse at 55% 20%,#245866 0,#153b48 45%,#102932
 #root .directory-console>pre:empty{display:none}
 
 #bar #tasks button svg{order:-1;width:20px;height:20px;flex-shrink:0}#status::before{content:'NETOPS LAB';font-weight:700;letter-spacing:1.4px;margin-right:20px;color:#c4e6ee}
+/* Alignement OS.js : les div internes et les glyphes partagent la même ligne. */
+#root .osjs-window-header{display:flex;flex-direction:row;align-items:center;flex:0 0 48px;min-height:48px;height:48px!important;padding:0 0 0 15px;gap:0;background:linear-gradient(#fff,#f1f5f7)}
+#root .osjs-window-header>.osjs-window-title{display:flex;align-items:center;min-width:0;height:100%;line-height:1.2;padding:0 8px;font-size:13px;font-weight:600}
+#root .osjs-window-header>.osjs-window-icon{display:flex;align-items:center;justify-content:center;height:100%;flex:0 0 28px}
+#root .osjs-window-header>.osjs-window-button{display:flex;align-items:center;justify-content:center;flex:0 0 40px;width:40px!important;height:48px;min-height:48px;padding:0;margin:0;border-radius:0;line-height:1;font-size:17px}
+#root .osjs-window-header>.osjs-window-button>div{display:none}
+#root .osjs-window-header>.osjs-window-button::after{display:block;line-height:1}
+body{background:radial-gradient(circle at 44% 32%,rgba(33,137,150,.2),transparent 35%),linear-gradient(145deg,#0d3448 0%,#0a2638 58%,#071e2d 100%)}
+body::before{content:'';position:absolute;inset:0;opacity:.18;pointer-events:none;background-image:linear-gradient(#ffffff06 1px,transparent 1px),linear-gradient(90deg,#ffffff06 1px,transparent 1px);background-size:32px 32px;mask-image:linear-gradient(to bottom,black,transparent 75%)}
+#status{height:50px;padding:0 22px;display:flex;align-items:center;background:#051824d1;border-bottom:1px solid #ffffff14;backdrop-filter:blur(18px);box-shadow:0 8px 24px #0000001a;color:#a9bec9;font-size:12px}
+#status::before{content:'NetOps Lab';color:#dbe9ef;letter-spacing:-.2px;font-size:15px;font-weight:700;margin-right:24px}
+#desktopIcons{top:72px;left:50%;right:auto;transform:translateX(-50%);width:min(1051px,calc(100vw - 44px));display:grid;grid-template-columns:repeat(10,minmax(68px,88px));justify-content:center;gap:14px 19px;max-height:calc(100vh - 150px)}
+#desktopIcons button{min-height:91px;padding:5px 3px;gap:7px;border-radius:10px;cursor:default}.desktop-symbol{width:51px;height:51px;border-radius:14px;background:linear-gradient(145deg,#eff9fb,#c9e3e9);border:1px solid #ffffffa6;box-shadow:0 8px 18px #000b1538,inset 0 1px #ffffffcc;color:#18536d}.desktop-label{font-size:12px;font-weight:600;color:#e9f3f7}
+#desktopIcons button:hover,#desktopIcons button:focus-visible{background:#85d1d814;border-color:#a4e3e71f}
+#bar{background:#051824eb;border-top:1px solid #ffffff14;backdrop-filter:blur(18px)}
+@media(max-width:1050px){#desktopIcons{grid-template-columns:repeat(8,minmax(68px,88px));gap:12px}#status{font-size:11px}}
+@media(max-width:750px){#desktopIcons{grid-template-columns:repeat(5,minmax(55px,88px));gap:10px}#status{overflow:hidden;white-space:nowrap}#status::before{font-size:13px;margin-right:12px}}
+
+#desktopTopbar{position:absolute;top:0;left:0;right:0;height:50px;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:20px;padding:0 22px;box-sizing:border-box;background:#051824d1;color:#dbe9ef;border-bottom:1px solid #ffffff14;backdrop-filter:blur(18px);box-shadow:0 8px 24px #0000001a}
+.desktop-brand{display:flex;align-items:center;gap:10px;flex-shrink:0;font-size:15px;letter-spacing:-.2px}.desktop-brand-mark{width:29px;height:29px;display:grid;place-items:center;border:1px solid #90e8eb2e;border-radius:8px;background:#3bc2c724;color:#b4eef0}.desktop-brand-mark svg{width:19px;height:19px}.desktop-environment{margin-left:7px;padding:4px 8px;color:#77bdc5;font-size:10px;letter-spacing:1px;border:1px solid #77bdc533;border-radius:5px}
+#desktopTopbar #status{position:static;min-height:0;height:auto;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0;background:transparent;border:0;box-shadow:none;backdrop-filter:none;font-size:12px;letter-spacing:0;color:#a9bec9}
+#desktopTopbar #status::before{content:none}
+@media(max-width:750px){#desktopTopbar{padding:0 14px;gap:12px}.desktop-environment{display:none}.desktop-brand{font-size:13px}.desktop-brand-mark{width:24px;height:24px}}
+
+#root .osjs-window-header>.osjs-window-icon>div{width:27px;height:27px;background-color:#e5f4f4;background-size:19px;border-radius:7px}
