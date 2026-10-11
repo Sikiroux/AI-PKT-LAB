@@ -1,6 +1,6 @@
 # Roadmap actuelle — entreprise persistante
 
-État livré : v0.65. Les correctifs issus des audits ont commencé : catalogue, observations et surveillance bornée. Le comportement réel dans Packet Tracer 9 reste à valider. Les blocs suivants nécessitent le cadrage du modèle commun avant toute extension du moteur d'entreprise.
+État livré : v0.66. Les correctifs issus des audits ont commencé : catalogue, observations et surveillance bornée. Le comportement réel dans Packet Tracer 9 reste à valider. Les blocs suivants nécessitent le cadrage du modèle commun avant toute extension du moteur d'entreprise.
 
 ## Livré
 
@@ -25,6 +25,8 @@ Les interfaces sont partielles. Le journal de session n’est pas un Observateur
 - v0.64 : première découverte différée des pannes locales périodiques ; réévaluation avant signalement et suppression des demandes devenues inutiles. Horloge métier, activités détaillées et événements physiques restent à développer.
 
 - v0.65 : dialogue contextualisé des incidents simultanés, questions par famille, ressource et essais datés. Dialogue libre/LLM, scénarios historiques et salariés autonomes restent hors de ce bloc.
+
+- v0.66 : preuves réseau communes et ciblées, sessions utilisateur liées au compte/poste, VPN préservé lors des observations inconnues. Bloc ciblé ; recette réelle et cohérence des autres dépendances restent nécessaires.
 
 ## Suite issue des deux audits
 

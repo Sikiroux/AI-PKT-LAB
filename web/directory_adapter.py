@@ -1,9 +1,10 @@
 """Annuaire imbriqué dans la session ; observations et acteur fournis par le serveur."""
 import hashlib
+import json
 import time
 import sim_ad
 
-TTL = 45
+from network_proofs import TTL, proof
 
 def ensure(state):
     if not state or 'directory' in state or not all(k in state.get('devices', {}) for k in ('client','server','technician')):
@@ -29,23 +30,16 @@ def ensure(state):
 
 def context(state, source='client', now=None):
     now = time.time() if now is None else now
-    observation = state.get('observation') or {}
     key = 'directory' if source == 'technician' else 'share'
-    probe = observation.get('probes',{}).get(key, {})
-    # A legacy aggregate observation is insufficient for this source-target pair.
-    expected = state['devices'][source]['name']
-    target = state['devices']['server']['ip']
-    valid = probe.get('source_device') == expected and probe.get('target') == target
-    network = dict(status=probe.get('status','unknown') if valid else 'unknown', observed_at=probe.get('at',0), valid_until=probe.get('at',0)+TTL, evidence='icmp_proxy')
+    network = proof(state,key,source,state['devices']['server']['ip'],now)
     if source=='technician':
         import technician_model
         policy=technician_model.policy(state,now)
         if not policy['allowed']:network['status']=policy['status']
-    auth = state.get('directory_auth') or {}
-    if auth.get('environment_id') != state.get('environment_id','legacy') or auth.get('source_device_id') != source or now > auth.get('expires_at',0):auth={}
+    auth = authentication(state,source,now)
     return dict(environment_id=state.get('environment_id','legacy'), source_device_id=source, target_device_id='server', network=network,
                 directory_service='running' if state.get('directory_service',True) else 'stopped',
-                resource_service='running' if state['share_service'] else 'stopped', authentication=auth)
+                resource_service=state['file_service']['service_status'] if 'file_service' in state else 'running' if state['share_service'] else 'stopped', authentication=auth)
 
 
 def access(state, action, now):
@@ -66,3 +60,34 @@ def invalidate(state, all_clients=False):
         for profile in state.get('client_workspaces',{}).values():profile['local']['directory_auth']=None
     state['directory_auth'] = None
     state['validated'] = False
+
+
+def account_stamp(user):
+    # Révision d'identité privée : groupes et expiration des observations exclus.
+    fields={key:user.get(key) for key in ('id','username','enabled','credential','must_change_password')}
+    return hashlib.sha256(json.dumps(fields,sort_keys=True).encode()).hexdigest()
+
+def authentication(state,source,now):
+    auth=state.get('directory_auth') or {};uid=state.get('directory_user_id')
+    user=state.get('directory',{}).get('users',{}).get(uid)
+    if not user or not user['enabled'] or auth.get('user_id')!=uid or auth.get('status')!='authenticated':return {}
+    if auth.get('environment_id')!=state.get('environment_id','legacy') or auth.get('source_device_id')!=source:return {}
+    if auth.get('kind')=='windows_logon':
+        device=state['devices'][source]
+        if auth.get('station_serial')!=device.get('serial') or auth.get('account_stamp')!=account_stamp(user):return {}
+    elif now>=auth.get('expires_at',0):return {}
+    return auth
+
+def open_session(state,now):
+    user=state['directory']['users'][state['directory_user_id']]
+    return dict(kind='windows_logon',user_id=user['id'],status='authenticated',
+                environment_id=state.get('environment_id','legacy'),source_device_id='client',
+                station_serial=state['devices']['client'].get('serial'),issued_at=now,account_stamp=account_stamp(user))
+
+
+def revoke_changed_sessions(state,before,after):
+    old=before.get('users',{});new=after.get('users',{})
+    changed={uid for uid in set(old)|set(new) if uid not in old or uid not in new or account_stamp(old[uid])!=account_stamp(new[uid])}
+    if state.get('directory_user_id') in changed:state['directory_auth']=None
+    for profile in state.get('client_workspaces',{}).values():
+        if profile.get('user_id') in changed:profile['local']['directory_auth']=None

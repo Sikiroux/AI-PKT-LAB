@@ -29,9 +29,8 @@ def public(s):
     return d
 
 def network(s,key,source,target,now):
-    p=(s.get('observation') or {}).get('probes',{}).get(key,{})
-    valid=p.get('source_device')==s['devices'][source]['name'] and p.get('target')==target and 0<=now-p.get('at',0)<=ad.TTL
-    return p.get('status','unknown') if valid and p.get('status') in ('passed','failed') else 'unknown'
+    from network_proofs import proof
+    return proof(s,key,source,target,now)['status']
 
 def chain(stages):
     nodes=[];blocked=False;code='OK';status='passed'

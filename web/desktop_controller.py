@@ -7,7 +7,10 @@ from workspace_model import evaluate
 
 
 def remote(s):
-    if not s.get('remote_session') or not evaluate(s,'remote')['allowed']:raise ValueError('Reconnecte le bureau client après vérification réseau.')
+    if not s.get('remote_session'):raise ValueError('Ouvre une session distante sur ce poste.')
+    result=evaluate(s,'remote')
+    if not result['allowed']:
+        raise ValueError('Le bureau et la session utilisateur sont conservés. '+('Contrôle réseau récent requis pour cette action.' if result['status']=='unknown' else 'Accès distant indisponible selon le dernier contrôle.'))
 
 def admin(s,now):
     n=ad.context(s,'technician',now)['network']

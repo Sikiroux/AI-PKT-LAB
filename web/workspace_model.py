@@ -19,7 +19,7 @@ import company_documents
 import sim_inventory
 
 VERSION = 1
-TTL = 45
+from network_proofs import TTL, proof
 
 
 def generate(seed):
@@ -58,9 +58,13 @@ def evaluate(state, action, at=None):
         return ad.access(state, action, at)
     observation = state.get('observation') or {}
     observation = observation.get('probes', {}).get('remote' if action == 'remote' else 'share', observation)
-    fresh = (observation.get('status') in ('passed', 'failed') and
+    fresh = (type(observation.get('at',0)) in (int,float) and observation.get('status') in ('passed', 'failed') and
              0 <= at - observation.get('at', 0) <= TTL)
     net = observation['status'] if fresh else 'unknown'
+    if state.get('devices'):
+        source='technician' if action=='remote' else 'client'
+        target_role='client' if action=='remote' else 'server'
+        net=proof(state,'remote' if action=='remote' else 'share',source,state['devices'].get(target_role,{}).get('ip'),at)['status']
     policy = technician_model.policy(state, at) if action == 'remote' else None
     checks = [('service', 'Service de prise en main' if action == 'remote' else 'Service de partage',
                state['remote_service'] if action == 'remote' else state['share_service']),

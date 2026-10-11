@@ -4,6 +4,7 @@ import hmac
 import time
 import directory_adapter as ad
 import sim_ad
+from network_proofs import proof
 
 LOCATIONS={'office':'Bureau utilisateurs','server_room':'Salle serveurs','outside':'Télétravail (réseau extérieur simulé)'}
 
@@ -26,11 +27,10 @@ def policy(s,now=None):
     if t['location']!='outside':return dict(allowed=True,status='passed',reason='Intervention sur site ; connectivité PT à vérifier.')
     vpn=t['vpn']
     if not (vpn['connected'] and now<vpn['expires_at'] and vpn['service_enabled'] and vpn['account_enabled'] and vpn['profile_valid']):return dict(allowed=False,status='failed',reason='VPN du technicien non connecté ou profil refusé.')
-    p=(s.get('observation') or {}).get('probes',{}).get('vpn_gateway',{})
     profile=s.get('technician_locations',{}).get('outside',{})
-    fresh=p.get('source_device')==s['devices']['technician']['name'] and p.get('target')==profile.get('gateway') and 0<=now-p.get('at',0)<=ad.TTL
-    if not fresh or p.get('status') not in ('passed','failed'):return dict(allowed=False,status='unknown',reason='Accessibilité du point d’entrée VPN non vérifiée récemment.')
-    return dict(allowed=p['status']=='passed',status=p['status'],reason='VPN simulé ; transport réel contrôlé par ICMP dans PT.')
+    observed=proof(s,'vpn_gateway','technician',profile.get('gateway'),now)
+    if observed['status']=='unknown':return dict(allowed=False,status='unknown',reason='Accessibilité du point d’entrée VPN non vérifiée récemment.')
+    return dict(allowed=observed['status']=='passed',status=observed['status'],reason='VPN simulé ; transport réel contrôlé par ICMP dans PT.')
 
 def vpn(s,action,password='',now=None):
     now=time.time() if now is None else now;ensure(s);t=s['technician_session'];v=t['vpn']
@@ -47,4 +47,6 @@ def vpn(s,action,password='',now=None):
 def public(s):
     t=s.get('technician_session')
     if not t:return None
-    return dict(location=t['location'],connection=t['connection'],pending=copy.deepcopy(t.get('pending')),vpn_connected=policy(s)['allowed'] and t['location']=='outside',vpn_expires_at=t['vpn']['expires_at'],access=policy(s),locations=copy.deepcopy(s.get('technician_locations',{})),history=copy.deepcopy(t['history'][-20:]))
+    now=time.time();access=policy(s,now);v=t['vpn']
+    connected=t['location']=='outside' and t['connection']=='wired' and not t.get('pending') and v['connected'] and now<v['expires_at'] and v['service_enabled'] and v['account_enabled'] and v['profile_valid']
+    return dict(location=t['location'],connection=t['connection'],pending=copy.deepcopy(t.get('pending')),vpn_connected=bool(connected),vpn_access_status=access['status'],vpn_expires_at=v['expires_at'],access=access,locations=copy.deepcopy(s.get('technician_locations',{})),history=copy.deepcopy(t['history'][-20:]))

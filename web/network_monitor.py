@@ -32,6 +32,10 @@ def public_status(state, now):
     stamp = current.get('at', 0)
     fresh = bool(stamp) and 0 <= now - stamp <= TTL
     status = current.get('status', 'unknown') if fresh else 'unknown'
+    devices=state.get('devices',{})
+    if devices.get('technician',{}).get('name') and devices.get('client',{}).get('ip'):
+        from network_proofs import proof
+        status=proof(state,'remote','technician',devices['client']['ip'],now)['status']
     reason = ('expired' if stamp and not fresh else
               'transport' if status == 'unknown' and current.get('detail') else
               'unverified' if status == 'unknown' else 'observed')

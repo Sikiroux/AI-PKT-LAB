@@ -235,8 +235,9 @@ class Controller:
                     self._observe_one(blocking=True, accelerate=accelerate if blocking else False)
                     observed = self.workspace.state
                     probe = copy.deepcopy((observed.get('observation') or {}).get('probes', {}).get('directory'))
+                    vpn_probe = copy.deepcopy((observed.get('observation') or {}).get('probes', {}).get('vpn_gateway'))
                 if probe:
-                    self._share_directory_probe(s, probe)
+                    self._share_directory_probe(s, probe, vpn_probe)
             else:
                 self._observe_one(blocking=True, accelerate=accelerate)
                 self._share_directory_probe(s)
@@ -256,26 +257,20 @@ class Controller:
         finally:
             self.lock.release()
 
-    def _share_directory_probe(self, state, probe=None):
-        # Cette preuve concerne le même technicien et le même serveur pour tous
-        # les bureaux. Les preuves client→serveur et technicien→client restent locales.
-        probe = probe or (state.get('observation') or {}).get('probes', {}).get('directory')
-        if not probe:
-            return
-        expected_source = state['devices']['technician']['name']
-        expected_target = state['devices']['server']['ip']
-        if probe.get('source_device') != expected_source or probe.get('target') != expected_target:
-            return
-        observation = state.setdefault('observation', None)
-        if observation is None:
-            observation = state['observation'] = dict(at=0, status='unknown', probes={})
-        observation.setdefault('probes', {})['directory'] = copy.deepcopy(probe)
-        for profile in state.get('client_workspaces', {}).values():
-            local = profile['local']
-            observation = local.setdefault('observation', None)
-            if observation is None:
-                observation = local['observation'] = dict(at=0, status='unknown', probes={})
-            observation.setdefault('probes', {})['directory'] = copy.deepcopy(probe)
+    def _share_directory_probe(self, state, probe=None, vpn_probe=None):
+        # Seulement les deux trajets communs technicien→serveur/passerelle VPN.
+        observed=(state.get('observation') or {}).get('probes',{})
+        candidates={'directory':probe or observed.get('directory'), 'vpn_gateway':vpn_probe or observed.get('vpn_gateway')}
+        targets={'directory':state.get('devices',{}).get('server',{}).get('ip'),
+                 'vpn_gateway':state.get('technician_locations',{}).get('outside',{}).get('gateway')}
+        for key,item in candidates.items():
+            if not item or not targets[key]:continue
+            if item.get('source_device')!=state['devices']['technician']['name'] or item.get('target')!=targets[key]:continue
+            for holder in [state]+[p['local'] for p in state.get('client_workspaces',{}).values()]:
+                observation=holder.get('observation')
+                if observation is None:observation=holder['observation']=dict(at=0,status='unknown',probes={})
+                existing=observation.setdefault('probes',{}).get(key,{})
+                if existing.get('at',0)<=item.get('at',0):observation['probes'][key]=copy.deepcopy(item)
 
     def _observe_one(self, blocking=False, accelerate=False):
         # Ne jamais attendre le pont si une action utilisateur l'utilise déjà.
@@ -311,7 +306,6 @@ class Controller:
                 if outside and (s.get('technician_session') or {}).get('location')=='outside':
                     ping=self.engine.quiet_pings([(found['technician']['name'],outside['gateway'])],accelerate=accelerate)[0] if batch is not None else self.engine.ping(found['technician']['name'],outside['gateway'])
                     probes['vpn_gateway']=dict(at=time.time(),source='Packet Tracer',status={'valide':'passed','non satisfait':'failed'}.get(ping['status'],'unknown'),detail=ping.get('detail',''),source_device=found['technician']['name'],target=outside['gateway'])
-            if s.get('technician_session',{}).get('location')=='outside' and probes.get('vpn_gateway',{}).get('status')!='passed':s['technician_session']['vpn'].update(connected=False,expires_at=0)
             statuses = [p['status'] for p in probes.values()]
             status = 'passed' if all(x == 'passed' for x in statuses) else 'unknown' if 'unknown' in statuses else 'failed'
             s['observation'] = dict(at=time.time(), status=status, source='Packet Tracer', probes=probes)
@@ -444,18 +438,18 @@ class Controller:
                     return {'directory':sim_ad.public_directory(s['directory']), 'requester_id':s['directory_user_id'], 'resource':s['directory_resource'], 'administration':directory_console.public_context(s)}
                 directory_console.check_revision(s['directory'], data)
                 outcome = sim_ad.apply_operation(s['directory'], data.get('operation'), data.get('payload',{}), ad.actor(s), now)
+                ad.revoke_changed_sessions(s,s['directory'],outcome['directory'])
                 s['directory'] = outcome['directory']
                 files_adapter.sync_catalog(s)
-                # Les opérations administratives ne ferment pas les sessions Windows.
-                # Les accès suivants réévaluent l’état du compte et les droits.
+                # Les droits de groupe sont réévalués sans fermer la connexion.
+                # Les changements d’identité révoquent les sessions concernées.
                 s['validated'] = False
                 self.workspace.event('Annuaire : '+str(data.get('operation')))
                 return {'result':outcome['result']}
             if action not in ('login','change-password','logout'):raise ValueError('Action annuaire inconnue.')
             if action == 'logout':
                 ad.invalidate(s);self.workspace.save();return {'result':{'code':'LOGGED_OUT','allowed':False}}
-            if not s['remote_session'] or not evaluate(s,'remote')['allowed']:
-                self.workspace.save();raise ValueError('Ouvre une session distante connectée avant l’authentification utilisateur.')
+            desktop_controller.remote(s)
             # Ce bureau représente le demandeur du ticket ; le navigateur ne choisit pas son identité.
             username = s['directory']['users'][s['directory_user_id']]['username']
             if action == 'login':
@@ -464,7 +458,7 @@ class Controller:
                 outcome = sim_ad.change_password(s['directory'], username, data.get('old_password',''), data.get('new_password',''), ad.context(s,now=now), now)
             s['directory'] = outcome['directory'];ad.invalidate(s)
             if outcome['result']['allowed']:
-                s['directory_auth'] = dict(user_id=s['directory_user_id'],status='authenticated',environment_id=s.get('environment_id','legacy'),source_device_id='client',expires_at=now+1800)
+                s['directory_auth'] = ad.open_session(s,now)
             self.workspace.event('Connexion utilisateur : '+outcome['result']['code'])
             return {'result':outcome['result']}
 
@@ -486,8 +480,7 @@ class Controller:
                 self.workspace.event('Partages : '+str(data.get('operation')))
                 return {'result':outcome['result']}
             if action!='action':raise ValueError('Action de fichiers inconnue.')
-            if not s['remote_session'] or not evaluate(s,'remote')['allowed']:
-                self.workspace.save();raise ValueError('Reconnecte le poste distant.')
+            desktop_controller.remote(s)
             if s.get('desktop_services') and 'documents' not in s['desktop_services']['endpoint']['applications']:return dict(result={'allowed':False,'code':'APPLICATION_MISSING'},revision=s['file_service']['revision'])
             req=data.get('request',{})
             outcome=sim_files.perform_file_action(s['file_service'],req,files_adapter.context(s,now),now)
@@ -514,7 +507,7 @@ class Controller:
                 outcome=sim_dns.apply_operation(s['dns_service'],data.get('operation'),data.get('payload',{}),actor,now)
                 s['validated']=False
             elif action in ('resolve','flush'):
-                if source=='client' and (not s['remote_session'] or not evaluate(s,'remote')['allowed']):raise ValueError('Reconnecte le poste distant.')
+                if source=='client':desktop_controller.remote(s)
                 if action=='resolve':outcome=sim_dns.resolve(s['dns_service'],source,data.get('query',{}),dns_adapter.context(s,source,now),now)
                 else:outcome=sim_dns.flush_cache(s['dns_service'],dns_adapter.actor(s,source),source,now)
             else:raise ValueError('Action DNS inconnue.')

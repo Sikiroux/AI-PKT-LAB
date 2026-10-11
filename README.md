@@ -1,3 +1,9 @@
+# v0.66 — Services et sessions cohérents
+
+Les nouvelles sessions utilisateur restent ouvertes pendant l’utilisation du logiciel ; leur état ne dépend plus de l’expiration d’une preuve réseau. Les preuves ICMP des applications vérifient la même paire source/cible. Les observations inconnues ne détruisent plus le VPN, et ses preuves communes sont partagées entre bureaux. [Détails et recette Windows/PT9](docs/V066-SERVICES-SESSIONS.md).
+
+Les actions réseau exigent toujours un contrôle récent. Le comportement réel et l’indisponibilité intermittente de l’annuaire restent à vérifier dans Packet Tracer.
+
 # v0.65 — Dialogue client contextualisé
 
 Les incidents des grandes entreprises proposent des questions adaptées au problème. Le demandeur précise le poste et la ressource, conserve son récit initial et décrit ses essais datés. Les retests ne réparent rien et distinguent connexion réseau, résolution DNS et accès aux fichiers. [Portée et limites](docs/V065-DIALOGUES-CLIENT.md).

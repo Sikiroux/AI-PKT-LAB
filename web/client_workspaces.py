@@ -92,7 +92,9 @@ def merge(s,view,serial):
     security_fields=('credential','enabled','locked_until','password_expires_at','must_change_password','username')
     changed_users={uid for uid in set(old_users)|set(new_users) if any(old_users.get(uid,{}).get(k)!=new_users.get(uid,{}).get(k) for k in security_fields)}
     ftp_changed=any(s['desktop_services']['ftp'].get(k)!=view['desktop_services']['ftp'].get(k) for k in ('accounts','service_running','control_allowed','data_allowed'))
-    record=capture(view,serial);s['client_workspaces'][serial]=record
+    record=capture(view,serial)
+    if record.get('user_id') in changed_users:record['local']['directory_auth']=None
+    s['client_workspaces'][serial]=record
     if s.get('directory_user_id') in changed_users:s['directory_auth']=None
     for key,profile in s['client_workspaces'].items():
         if key!=serial and profile.get('user_id') in changed_users:profile['local']['directory_auth']=None

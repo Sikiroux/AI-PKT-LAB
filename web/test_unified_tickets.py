@@ -43,6 +43,8 @@ class UnifiedTickets(unittest.TestCase):
         s=self.state('a');self.bind(s)
         with self.assertRaises(ValueError):self.t.action('INC-1000','close',{})
         s.update(read_allowed=True,observation={'at':time.time(),'status':'passed'})
+        with self.assertRaises(ValueError):self.t.action('INC-1000','close',{})
+        s['observation']['probes']={'share':dict(at=time.time(),status='passed',source_device=s['devices']['client']['name'],target=s['devices']['server']['ip'])}
         self.t.action('INC-1000','close',{})
         self.assertEqual(self.t.state['tickets'][0]['status'],'clos')
         self.controller.observe.assert_called_with(blocking=True)

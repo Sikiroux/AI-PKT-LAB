@@ -52,10 +52,10 @@ class WorkstationsTests(unittest.TestCase):
     def test_expired_cached_proof_never_authorizes_remote(self):
         with tempfile.TemporaryDirectory() as tmp:
             c=Controller(None,tmp);c.workspace.state=self.state()
-            c.workspace.state['observation']=dict(at=100,status='passed')
+            c.workspace.state['observation']=dict(at=100,status='passed',probes={'remote':dict(at=100,status='passed',source_device='LT-TECH',target='192.168.1.20')})
             with patch('workspace_model.time.time',return_value=101):
                 self.assertTrue(c.public_snapshot()['checks']['remote']['allowed'])
-            c._read_state['observation']['at']=time.time()-100
+            c._read_state['observation']['probes']['remote']['at']=time.time()-100
             result=[]
             with c.lock:
                 t=threading.Thread(target=lambda:result.append(c.public_snapshot()));t.start();t.join(1)
