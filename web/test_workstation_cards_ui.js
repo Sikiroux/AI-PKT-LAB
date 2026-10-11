@@ -28,7 +28,7 @@ const byButton=(root,text)=>find(root,e=>e.tagName==='button'&&e.textContent===t
 let fail=false;
 fixture.company='Entreprise test';fixture.workstations=[{name:'PC-01',serial:'serial-a',ip:'10.0.0.2',user:'Mina',remote_supported:true,role:'client',status:'unknown',employee_id:'employee'},{name:'PC-02',serial:'serial-b',user:'Paul',remote_supported:true,role:'client',status:'passed'},{name:'TECH',serial:'tech',role:'technician',remote_supported:false,status:'unknown'}];
 fixture.company_registry={people:{employee:{username:'mina'}}};
-ctx.window={open:(url)=>{ctx.opened=url}};
+ctx.window={open:(url)=>{ctx.opened=url;return {location:{replace:next=>ctx.opened=next},close:()=>{}}}};
 ctx.fetch=async(url,options)=>{const req=JSON.parse(options.body||'{}');requests.push([url,req]);if(fail)return{ok:false,json:async()=>({error:'Session indisponible'})};return{ok:true,json:async()=>fixture}};
 (async()=>{
  vm.runInContext('workstationCards()',ctx);await tick();const root=contents[0];

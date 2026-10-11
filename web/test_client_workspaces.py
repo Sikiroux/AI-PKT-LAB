@@ -121,6 +121,28 @@ class ClientWorkspacesTests(unittest.TestCase):
         self.assertEqual(self.s['desktop_services']['ftp']['sessions'],{})
         self.assertIsNone(self.s['client_workspaces']['second']['ftp_session'])
 
+    def test_audit_only_directory_changes_keep_other_user_session(self):
+        auth=dict(user_id=self.s['directory_user_id'],status='authenticated')
+        self.s['directory_auth']=copy.deepcopy(auth)
+        with self.scope():
+            self.c.workspace.state['directory']['audit'].append(dict(operation='login',code='OK'))
+            self.c.workspace.state['directory']['revision']+=1
+        self.assertEqual(self.s['directory_auth'],auth)
+
+    def test_public_cache_stays_canonical_during_secondary_scope(self):
+        primary=self.s['devices']['client']['serial']
+        with self.scope():
+            snapshot=self.c.public_snapshot()
+            self.assertEqual(snapshot['client_serial'],primary)
+            second=self.c.public_snapshot('second')
+            self.assertEqual(second['client_serial'],'second')
+            self.assertGreaterEqual(len(snapshot['workstations']),2)
+
+    def test_primary_scope_publishes_fresh_session_snapshot(self):
+        with self.c.client_scope(None):
+            self.s['remote_session']=True
+        self.assertTrue(self.c._read_state['remote_session'])
+
     def test_password_admin_invalidates_other_client_auth(self):
         self.prove_second();self.post('directory/operation',dict(operation='reset_password',payload=dict(user_id=self.s['directory_user_id'])))
         self.assertIsNone(self.s['directory_auth'])

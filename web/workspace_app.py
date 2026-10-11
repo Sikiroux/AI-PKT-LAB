@@ -186,7 +186,7 @@ class Controller:
         acquired = self.lock.acquire(blocking=False)
         try:
             if acquired:
-                self._read_state = copy.deepcopy(self.workspace.state)
+                self._read_state = copy.deepcopy((getattr(self,'_canonical_workspace',None) or self.workspace).state)
             state = getattr(self, '_read_state', None)
             active = self.workspace.state
             if not state or not active or state.get('environment_id') != active.get('environment_id'):
@@ -202,7 +202,9 @@ class Controller:
         with self.lock:
             original=self.workspace;s=original.state
             if not serial or serial==clients.primary_serial(s or {}):
-                yield;return
+                try:yield
+                finally:self._read_state=copy.deepcopy(original.state)
+                return
             clients.ensure(s);clients.sync_primary(s)
             projected=Workspace.__new__(Workspace);projected.path=original.path;projected.state=clients.project(s,serial)
             def save():
@@ -248,7 +250,7 @@ class Controller:
             s = self.workspace.state
             if not s:
                 return
-            self._read_state = copy.deepcopy(s)
+            self._read_state = copy.deepcopy((getattr(self,'_canonical_workspace',None) or self.workspace).state)
             with self.engine.lock:
                 snapshot=self.engine.snapshot();found = self.identities(snapshot)
                 s['observed_workstations'] = [copy.deepcopy(d) for d in snapshot.get('devices', []) if d.get('model') in ('PC-PT','Laptop-PT')]
@@ -287,13 +289,11 @@ class Controller:
             s['observation'] = dict(at=time.time(), status='unknown', source='Packet Tracer', detail=str(e))
         finally:
             if self.workspace.state:
-                if evaluate(self.workspace.state, 'remote')['status'] == 'failed':
-                    self.workspace.state['remote_session'] = False
-                    # Une rupture de transport ferme la prise en main, pas la session Windows simulée.
+                # Transport failures suspend actions; only explicit disconnect closes the desktop.
                 if (not all(row['status']=='valide' for row in desktop_incidents.checks(self.workspace.state,time.time())) if self.workspace.state.get('desktop_incident') else not evaluate(self.workspace.state, 'read')['allowed']):
                     self.workspace.state['validated'] = False
                 self.workspace.save()
-            self._read_state = copy.deepcopy(self.workspace.state)
+            self._read_state = copy.deepcopy((getattr(self,'_canonical_workspace',None) or self.workspace).state)
             self.lock.release()
 
     def ping(self, target, source='client'):
@@ -399,7 +399,9 @@ class Controller:
                 ctx = ad.context(s, 'technician', now)
                 n = ctx['network']
                 if n['status'] != 'passed' or not n['observed_at'] <= now <= n['valid_until'] or ctx['directory_service'] != 'running':
-                    raise ValueError('Annuaire inaccessible depuis le technicien. Vérifie le réseau maintenant.')
+                    if ctx['directory_service'] != 'running':raise ValueError('Service d’annuaire arrêté.')
+                    if n['status']=='failed':raise ValueError('Liaison du technicien vers l’annuaire en échec selon le dernier contrôle.')
+                    raise ValueError('Liaison de l’annuaire non vérifiée récemment ; contrôle réseau à renouveler.')
                 if action == 'state':
                     return {'directory':sim_ad.public_directory(s['directory']), 'requester_id':s['directory_user_id'], 'resource':s['directory_resource'], 'administration':directory_console.public_context(s)}
                 directory_console.check_revision(s['directory'], data)
@@ -447,7 +449,6 @@ class Controller:
                 return {'result':outcome['result']}
             if action!='action':raise ValueError('Action de fichiers inconnue.')
             if not s['remote_session'] or not evaluate(s,'remote')['allowed']:
-                if evaluate(s,'remote')['status']=='failed':s['remote_session']=False
                 self.workspace.save();raise ValueError('Reconnecte le poste distant.')
             if s.get('desktop_services') and 'documents' not in s['desktop_services']['endpoint']['applications']:return dict(result={'allowed':False,'code':'APPLICATION_MISSING'},revision=s['file_service']['revision'])
             req=data.get('request',{})

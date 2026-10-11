@@ -144,6 +144,10 @@ class Workspace:
                              remote_supported=False, status='unknown'))
         for row in rows:
             row.update(company_registry.links(s, row.get('serial')))
+            person=(s.get('company_registry') or {}).get('people',{}).get(row.get('employee_id'))
+            if person:
+                row['user']=person['display_name']
+                row['username']=person.get('username')
         return rows
 
     def public(self):
@@ -201,8 +205,7 @@ class Workspace:
             s['remote_session'] = True
         elif action in ('read', 'write'):
             if not s['remote_session'] or not evaluate(s, 'remote')['allowed']:
-                if evaluate(s, 'remote')['status'] == 'failed':s['remote_session'] = False
-                raise ValueError('Reconnecte la session distante après vérification réseau.')
+                raise ValueError('Accès distant non disponible pour cette action. Vérifie le réseau ; le bureau et la session utilisateur sont conservés.')
             if not evaluate(s, action)['allowed']:
                 raise ValueError('Accès au partage refusé ou connectivité inconnue.')
             if action == 'write' and 'Test.txt' not in s['files']:

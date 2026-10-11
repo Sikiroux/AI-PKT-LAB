@@ -1,3 +1,7 @@
+# v0.62.4 — Sessions et accès distant stabilisés
+
+Cache d’entreprise conservé pendant les contrôles, sessions indépendantes entre employés, bureau distant conservé lors d’une interruption et raccourci Accès distant rétabli. La fenêtre de session masque la connexion quand le compte est authentifié. [Détails et recette](docs/V0624-SESSIONS-STABLES.md). Comportement réel avec PT9 à tester.
+
 # v0.62.3 — Topologie compacte et icônes de fenêtre
 
 Les nouvelles entreprises de 30 postes regroupent les clients autour de leur switch réel, avec une étendue réduite et des marges pour les libellés. Les icônes de titre utilisent directement les SVG du bureau. [Changements et recette PT9](docs/V0623-TOPOLOGIE-LISIBLE.md). Les sauvegardes existantes ne sont pas réagencées. Placement et rendu réel à tester dans Packet Tracer.

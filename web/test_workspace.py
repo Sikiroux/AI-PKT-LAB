@@ -42,13 +42,13 @@ class ModelTests(unittest.TestCase):
             with self.assertRaises(ValueError):w.action('read')
             self.assertTrue(w.state['remote_session'])
 
-    def test_failed_remote_read_closes_transport(self):
+    def test_failed_remote_read_refuses_action_but_preserves_transport(self):
         with tempfile.TemporaryDirectory() as folder:
             w=Workspace(Path(folder)/'session.json');w.state=generate('abc')
             w.state['remote_session']=True
             w.state['observation']={'probes':{'remote':dict(at=time.time(),status='failed')}}
             with self.assertRaises(ValueError):w.action('read')
-            self.assertFalse(w.state['remote_session'])
+            self.assertTrue(w.state['remote_session'])
 
     def test_seed_and_separate_draws(self):
         self.assertEqual(generate('abc'), generate('abc'))
