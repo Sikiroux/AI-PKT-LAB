@@ -13,7 +13,8 @@ import files_adapter
 INCIDENT_KEYS=('desktop_incident','mixed_incident','directory_incident','file_incident','dns_incident')
 LOCAL_KEYS=('remote_service','remote_session','directory_auth','observation','network_observation','last_known_observation')
 SHARED_KEYS=('directory','directory_resource','directory_service','file_service','dns_service',
-             'desktop_services','events','desktop_incident_count','validated','peripherals','local_access')
+             'desktop_services','events','desktop_incident_count','validated','peripherals','local_access',
+             'live_incidents','live_incident_count')
 
 def primary_serial(s):return s.get('devices',{}).get('client',{}).get('serial')
 

@@ -118,3 +118,51 @@ class LiveTests(unittest.TestCase):
   for method in (self.c.next_directory_incident,self.c.next_file_incident,self.c.next_dns_incident,self.c.next_desktop_incident,self.c.next_mixed_incident):
    with self.assertRaises(ValueError):method()
   self.assertEqual(before,self.s);self.c.observe.assert_not_called()
+
+
+class IncidentCheckpointTests(unittest.TestCase):
+ proofs=fixtures.ClientWorkspacesTests.proofs
+ setUp=fixtures.ClientWorkspacesTests.setUp
+ tickets=LiveTests.tickets
+ def test_first_persisted_mutation_already_contains_recoverable_ticket(self):
+  import json
+  from unittest.mock import patch
+  t=self.tickets();original=self.c.workspace.save;saved=[]
+  def save():
+   original()
+   saved.append(json.loads(self.c.workspace.path.read_text()))
+  with patch.object(self.c.workspace,'save',side_effect=save):live.receive(t,'ad',client_serial='second')
+  affected=self.s['client_workspaces']['second']['user_id']
+  broken=[s for s in saved if not s['directory']['users'][affected]['enabled']]
+  self.assertTrue(broken)
+  for state in broken:
+   record=state['live_incidents']['INC-LIVE-00001']
+   self.assertEqual(record['ticket']['target_serial'],'second')
+   self.assertEqual(state['live_incident_count'],1)
+
+ def test_ticket_store_failure_can_recover_without_mutating_again(self):
+  from unittest.mock import patch
+  t=self.tickets()
+  with patch.object(t,'event',side_effect=OSError('ticket store unavailable')):
+   with self.assertRaises(OSError):live.receive(t,'ad',client_serial='second')
+  before=copy.deepcopy(self.s['directory']);t.state['tickets']=[]
+  live.recover(t,self.s);live.recover(t,self.s)
+  self.assertEqual(len(t.state['tickets']),1)
+  self.assertEqual(self.s['directory'],before)
+  self.assertEqual(self.s['live_incident_count'],1)
+
+ def test_when_uses_reported_time_and_legacy_does_not_invent_it(self):
+  t=self.tickets();live.receive(t,'ad',client_serial='second');record=next(iter(self.s['live_incidents'].values()))
+  answer=live.dialogue(self.s,record['id'],'when')['answer']
+  self.assertIn('constaté à',answer);self.assertIn('ne sais pas',answer)
+  record.pop('reported_at')
+  self.assertIn('pas noté',live.dialogue(self.s,record['id'],'when')['answer'])
+
+ def test_documents_messages_distinguish_local_application_and_remote_share(self):
+  from unittest.mock import patch
+  for cause,expected in [('mapped_drive_wrong','dossier partagé'),('documents_missing','application Documents')]:
+   self.setUp();t=self.tickets()
+   with patch.object(live,'CATALOGUE',(('endpoint',cause),)):live.receive(t,'endpoint',client_serial='second')
+   ticket=t.state['tickets'][0]
+   self.assertIn(expected,ticket['description']);self.assertIn('fichiers locaux restent accessibles',ticket['description'])
+   self.assertNotIn(cause,str(ticket))

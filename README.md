@@ -1,3 +1,9 @@
+# v0.63.1 — Signalements récupérables et symptômes précis
+
+Pour les incidents simultanés des entreprises de trente employés, la mutation locale et son ticket récupérable sont sauvegardés ensemble. Une perte de la file de tickets ne laisse plus une mutation enregistrée sans signalement. Les demandes Documents distinguent partage réseau et application locale ; le dialogue indique une heure de constatation réelle plutôt qu’une formule générique. [Détails et limites](docs/V0631-SIGNALEMENTS.md).
+
+Il s’agit du premier correctif de préparation de la v0.64, pas encore du moteur de vie d’entreprise ni d’un nouveau catalogue de pannes Packet Tracer.
+
 # v0.63 — Réseau d’entreprise V2
 
 Les nouvelles entreprises de trente employés ont cinq VLAN, des trunks 802.1Q et un routage inter-VLAN explicite. Les adresses des postes et les ports du portable technicien restent cohérents avec leur réseau. Pools DHCP et relais configurés ; les postes restent **statiques**, le suivi des baux dynamiques étant encore à développer. [Plan et recette PT9](docs/V063-RESEAU-V2.md).

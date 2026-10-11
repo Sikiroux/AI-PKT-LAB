@@ -59,6 +59,34 @@ def receive(tickets,target='random',minutes=30,client_serial='random',engine='va
         serial=rng.choice(eligible)
     affected=ftp_users if family=='ftp' and ftp_known else [serial]
     departments=sorted({person['department'] for person in s.get('staff',[]) if person.get('department') and any(s['client_workspaces'][item]['requester']==person.get('display_name') for item in affected)})
+    profile=s['client_workspaces'][serial]
+    wording={'printing':('Impression bloquée','Je ne peux plus imprimer les documents nécessaires à mon activité.'),
+             'endpoint':('Dossiers de travail inaccessibles','Je ne peux plus ouvrir mes dossiers depuis ce poste.'),
+             'ad':('Compte utilisateur indisponible','Mon compte est refusé et je ne peux plus accéder à mes outils.'),
+             'dns':('Nom du service documentaire introuvable','Je ne retrouve plus mes dossiers avec leur adresse habituelle.'),
+             'ftp':('Dépôt documentaire indisponible','Notre équipe ne peut plus se connecter au dépôt FTP.')}
+    if family=='peripherals':
+        kind=cause.split(':')[0]
+        title=hardware.KINDS[kind]+' externe inutilisable'
+        complaint={'monitor':'Mon écran externe n’affiche plus mon poste.','keyboard':'Mon clavier externe ne me permet plus de saisir du texte.','mouse':'Ma souris externe ne répond plus.'}[kind]
+    else:title,complaint=wording[family]
+    if family=='endpoint':
+        if cause=='mapped_drive_wrong':
+            title='Lecteur réseau Documents inaccessible'
+            complaint='Le lecteur réseau Documents de mon poste ne donne plus accès au dossier partagé. Mes fichiers locaux restent accessibles.'
+        else:
+            title='Application Documents absente du poste'
+            complaint='Je ne trouve plus l’application Documents sur mon poste pour ouvrir le partage. Mes fichiers locaux restent accessibles.'
+    impact=dict(affected_serials=affected,affected_count=len(affected),work_status='blocked' if family in ('ad','endpoint','dns','peripherals') else 'degraded',
+                activity=next((p['activity'] for p in s.get('staff',[]) if p['display_name']==profile['requester']),'Activité du poste'),
+                scope='service_users' if family=='ftp' and ftp_known else 'workstation',departments=departments,
+                evidence='business_dependencies' if family=='ftp' and ftp_known else 'reported_workstation')
+    ticket=dict(id=ident,kind='workspace',name=profile['device']['name'],target_serial=serial,requester=profile['requester'],
+        title=title,description=profile['requester']+' : « '+complaint+' » Poste : '+profile['device']['name']+'.',
+        status='nouveau',stage='prepared',workspace_goal='live',live_incident=True,live_family=family,impact=impact,
+        severity='critique' if len(affected)>1 else 'elevee' if impact['work_status']=='blocked' else 'moderee',
+        created=time.strftime('%Y-%m-%d %H:%M:%S'),checks=[],complete=False,notes='',dialogue=[],timer=timers.configure(minutes,'training'))
+    ticket['request_context']=dict(requester=profile['requester'],station=profile['device']['name'],serial=serial,company=s['company'],complaint=complaint,urgency_label='Activité bloquée' if impact['work_status']=='blocked' else 'Activité perturbée',priority_reason=impact['activity'])
     with c.client_scope(serial):
         current=c.workspace.state
         if family=='peripherals':
@@ -89,32 +117,17 @@ def receive(tickets,target='random',minutes=30,client_serial='random',engine='va
         else:
             current['desktop_services']['ftp']['service_running']=False
             current['desktop_services']['ftp']['sessions']={}
+        applied=time.time()
+        timers.autostart(ticket['timer'])
+        ticket['created']=time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(applied))
+        ticket['incident_context']=dict(occurred_at=applied,applied_at=applied,reported_at=applied,
+                                       resource_kind=family,resource=('Application Documents locale' if cause=='documents_missing' else 'Documents (partage réseau)') if family=='endpoint' else family)
+        current.setdefault('live_incidents',{})[ident]=dict(id=ident,target_serial=serial,family=family,
+            cause=cause,created=created,applied_at=applied,reported_at=applied,
+            lifecycle='reported',ticket=copy.deepcopy(ticket))
+        current['live_incident_count']=index
         c.workspace.save()
     s=c.workspace.state
-    profile=s['client_workspaces'][serial]
-    wording={'printing':('Impression bloquée','Je ne peux plus imprimer les documents nécessaires à mon activité.'),
-             'endpoint':('Dossiers de travail inaccessibles','Je ne peux plus ouvrir mes dossiers depuis ce poste.'),
-             'ad':('Compte utilisateur indisponible','Mon compte est refusé et je ne peux plus accéder à mes outils.'),
-             'dns':('Nom du service documentaire introuvable','Je ne retrouve plus mes dossiers avec leur adresse habituelle.'),
-             'ftp':('Dépôt documentaire indisponible','Notre équipe ne peut plus se connecter au dépôt FTP.')}
-    if family=='peripherals':
-        kind=cause.split(':')[0]
-        title=hardware.KINDS[kind]+' externe inutilisable'
-        complaint={'monitor':'Mon écran externe n’affiche plus mon poste.','keyboard':'Mon clavier externe ne me permet plus de saisir du texte.','mouse':'Ma souris externe ne répond plus.'}[kind]
-    else:title,complaint=wording[family]
-    impact=dict(affected_serials=affected,affected_count=len(affected),work_status='blocked' if family in ('ad','endpoint','dns','peripherals') else 'degraded',
-                activity=next((p['activity'] for p in s.get('staff',[]) if p['display_name']==profile['requester']),'Activité du poste'),
-                scope='service_users' if family=='ftp' and ftp_known else 'workstation',departments=departments,
-                evidence='business_dependencies' if family=='ftp' and ftp_known else 'reported_workstation')
-    ticket=dict(id=ident,kind='workspace',name=profile['device']['name'],target_serial=serial,requester=profile['requester'],
-        title=title,description=profile['requester']+' : « '+complaint+' » Poste : '+profile['device']['name']+'.',
-        status='nouveau',stage='prepared',workspace_goal='live',live_incident=True,live_family=family,impact=impact,
-        severity='critique' if len(affected)>1 else 'elevee' if impact['work_status']=='blocked' else 'moderee',
-        created=time.strftime('%Y-%m-%d %H:%M:%S'),checks=[],complete=False,notes='',dialogue=[],timer=timers.configure(minutes,'training'))
-    ticket['request_context']=dict(requester=profile['requester'],station=profile['device']['name'],serial=serial,company=s['company'],complaint=complaint,urgency_label='Activité bloquée' if impact['work_status']=='blocked' else 'Activité perturbée',priority_reason=impact['activity'])
-    timers.autostart(ticket['timer'])
-    s.setdefault('live_incidents',{})[ident]=dict(id=ident,target_serial=serial,family=family,cause=cause,created=created,ticket=copy.deepcopy(ticket))
-    s['live_incident_count']=index;c.workspace.save()
     tickets.state['tickets'].append(ticket)
     company_registry.ensure(s);company_registry.link_tickets(s,tickets.state['tickets'])
     s['live_incidents'][ident]['ticket']=copy.deepcopy(ticket);c.workspace.save()
@@ -171,7 +184,9 @@ def dialogue(s,ident,question):
     if not record:raise ValueError('Incident inconnu.')
     v=view(s,record['target_serial']);ticket=record['ticket'];at=time.time()
     if question=='scope':answer='Je travaille sur '+v['devices']['client']['name']+'. '+ticket['impact']['activity']+'.'
-    elif question=='when':answer='Le problème a commencé avant mon signalement.'
+    elif question=='when':
+        stamp=record.get('reported_at')
+        answer=('Je l’ai constaté à '+time.strftime('%H:%M:%S',time.localtime(stamp))+', au moment de mon signalement. Je ne sais pas si le problème avait commencé plus tôt.') if stamp else 'Je n’avais pas noté l’heure à mon signalement ; je ne peux pas préciser quand le problème a commencé.'
     elif question=='login':answer='Le compte est refusé.' if not v['directory']['users'][v['directory_user_id']]['enabled'] else 'Mon compte est actif ; cela ne confirme pas mon accès aux fichiers.'
     elif question=='network':
         observation=v.get('observation') or {}
