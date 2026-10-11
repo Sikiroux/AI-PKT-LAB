@@ -11,6 +11,7 @@ import ptexplorer
 import technician_model
 import enterprise_design
 import enterprise_staff
+import enterprise_network_v2
 from lab_engine import organization
 from workspace_model import generate
 
@@ -28,6 +29,10 @@ def build(seed, folder, initial_fault=True, presentation_version=1, staff_size=3
     tree, topo = workshops.make_topology('enterprise_services', state['network_seed'], folder,
                                         state['address_family'], has_it=True, network_printer=True, employee_count=30 if thirty else 2, employee_layout='split' if thirty else 'single')
     root = tree.getroot()
+    if thirty:
+        state['network_architecture'] = enterprise_network_v2.apply(root, topo)
+        ET.indent(tree, space=' ')
+        tree.write(folder / 'baseline.xml', encoding='utf-8', short_empty_elements=False)
     if presentation_version == 0:
         names = organization.mapping(topo['devices'], state['site'])
         names['PRN-OFFICE'] = state['site']+'-PRN-USR-01'

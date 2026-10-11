@@ -1,3 +1,9 @@
+# v0.63 — Réseau d’entreprise V2
+
+Les nouvelles entreprises de trente employés ont cinq VLAN, des trunks 802.1Q et un routage inter-VLAN explicite. Les adresses des postes et les ports du portable technicien restent cohérents avec leur réseau. Pools DHCP et relais configurés ; les postes restent **statiques**, le suivi des baux dynamiques étant encore à développer. [Plan et recette PT9](docs/V063-RESEAU-V2.md).
+
+Ce nouveau socle est **à tester dans Packet Tracer 9**. Les sauvegardes existantes et les petits sites ne sont pas migrés. La version ne rajoute ni Wi-Fi ni nouveaux incidents ; ces blocs restent au programme.
+
 # v0.62.8 — Placement commun des entreprises et ateliers
 
 Les trente postes sont disposés en blocs compacts autour de leur switch, avec une zone serveurs distincte. Les ateliers « services d’entreprise » emploient aussi ce placement dans les réseaux initial, de référence et tous les instantanés des PKA. Les anciens labs classiques conservent leur disposition. [Recette et limites](docs/V0628-PLACEMENT-COMMUN.md).
