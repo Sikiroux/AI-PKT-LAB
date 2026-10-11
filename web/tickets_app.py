@@ -15,6 +15,7 @@ import desktop_incidents
 import ticket_arrivals
 import enterprise_incidents
 import company_registry
+from app_shutdown import prepare_shutdown
 from workspace_routes import WorkspaceRoutes
 import timers
 import ticket_processing
@@ -629,6 +630,12 @@ def run():
                 n=int(self.headers.get('Content-Length','0'))
                 if not 0<=n<=8192:raise ValueError('Requete trop grande')
                 data=json.loads(self.rfile.read(n) or b'{}')
+                if self.path=='/quit':
+                    if any(job.get('status')=='running' for job in generator.jobs()):raise ValueError('Attends la fin de la génération du lab avant de quitter.')
+                    result=prepare_shutdown(workspace,tickets,stop_arrivals)
+                    self.send(200,result)
+                    threading.Thread(target=server.shutdown,daemon=True).start()
+                    return
                 if self.path=='/action' and data.get('action') in ('take','wait','notes','followup','severity','timer','classify','task_add','task_update'):
                     with tickets.metadata_lock:
                         self.check_environment(data)
