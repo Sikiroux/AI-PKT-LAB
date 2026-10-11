@@ -220,40 +220,56 @@ class Controller:
                     self._read_state=copy.deepcopy(original.state)
 
     def observe(self, blocking=False, client_serial=None, accelerate=False):
-        if not self.lock.acquire(blocking=blocking):return
+        if not self.lock.acquire(blocking=blocking):
+            return
+        started = time.monotonic()
         try:
-            s=self.workspace.state
-            if not s:return
-            if client_serial:
-                with self.client_scope(client_serial):self._observe_one(blocking=True,accelerate=accelerate)
+            s = self.workspace.state
+            if not s:
                 return
-            self._observe_one(blocking=True,accelerate=accelerate)
-            self._share_directory_probe(s)
-            # One observation per simulated client; never share another PC's ping proof.
-            candidates=[serial for serial in s.get('client_workspaces',{}) if serial!=clients.primary_serial(s)]
-            if s.get('staff_size')==30:
-                # Priorité aux prises en main actives ; tour de fond borné pour ne pas
-                # bloquer le pont sur trente bureaux à chaque passage.
-                active=[serial for serial in candidates if s['client_workspaces'][serial]['local'].get('remote_session')]
-                cursor=s.get('monitor_cursor',0)
-                background=(candidates+ candidates)[cursor:cursor+2]
-                s['monitor_cursor']=(cursor+2)%max(1,len(candidates))
-                candidates=list(dict.fromkeys(active+background))
-            for serial in candidates:
-                with self.client_scope(serial):self._observe_one(blocking=True)
-            self._read_state=copy.deepcopy(self.workspace.state)
-        finally:self.lock.release()
+            if not blocking and not client_serial and s.get('staff_size') == 30:
+                import network_monitor
+                client_serial = network_monitor.select_target(s)
+            if client_serial:
+                with self.client_scope(client_serial):
+                    self._observe_one(blocking=True, accelerate=accelerate if blocking else False)
+                    observed = self.workspace.state
+                    probe = copy.deepcopy((observed.get('observation') or {}).get('probes', {}).get('directory'))
+                if probe:
+                    self._share_directory_probe(s, probe)
+            else:
+                self._observe_one(blocking=True, accelerate=accelerate)
+                self._share_directory_probe(s)
+                # Compatibilité des petits environnements : les contrôles explicites
+                # restent complets ; le parc de trente postes est traité à la demande.
+                if s.get('staff_size') != 30:
+                    for serial in s.get('client_workspaces', {}):
+                        if serial != clients.primary_serial(s):
+                            with self.client_scope(serial):
+                                self._observe_one(blocking=True)
+            s['monitoring'] = dict(at=time.time(), duration_seconds=round(time.monotonic()-started, 3),
+                                   target_serial=client_serial or clients.primary_serial(s),
+                                   mode='explicit' if blocking else 'periodic',
+                                   accelerated=bool(blocking and accelerate))
+            self.workspace.save()
+            self._read_state = copy.deepcopy(self.workspace.state)
+        finally:
+            self.lock.release()
 
-    def _share_directory_probe(self, state):
+    def _share_directory_probe(self, state, probe=None):
         # Cette preuve concerne le même technicien et le même serveur pour tous
         # les bureaux. Les preuves client→serveur et technicien→client restent locales.
-        probe = (state.get('observation') or {}).get('probes', {}).get('directory')
+        probe = probe or (state.get('observation') or {}).get('probes', {}).get('directory')
         if not probe:
             return
         expected_source = state['devices']['technician']['name']
         expected_target = state['devices']['server']['ip']
         if probe.get('source_device') != expected_source or probe.get('target') != expected_target:
             return
+        observation = state.setdefault('observation', None)
+        if observation is None:
+            observation = state['observation'] = dict(at=0, status='unknown', probes={})
+        observation.setdefault('probes', {})['directory'] = copy.deepcopy(probe)
         for profile in state.get('client_workspaces', {}).values():
             local = profile['local']
             observation = local.setdefault('observation', None)

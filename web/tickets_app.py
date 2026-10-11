@@ -601,7 +601,7 @@ def run():
     def workspace_loop():
         while not stop_arrivals.is_set():
             workspace.observe()
-            stop_arrivals.wait(10)
+            stop_arrivals.wait(1)
     threading.Thread(target=workspace_loop,daemon=True).start()
     class Handler(BaseHTTPRequestHandler):
         def send(self,code,data,ctype='application/json'):

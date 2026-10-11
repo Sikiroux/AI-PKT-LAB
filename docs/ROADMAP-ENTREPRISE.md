@@ -1,6 +1,6 @@
 # Roadmap actuelle — entreprise persistante
 
-État livré : v0.62.5, correctif des barres de titre et rapprochement visuel de la maquette après la première passe du bureau et de l’annuaire. Les numéros futurs sont prévisionnels. Les anciennes correspondances 0.44–0.52 sont remplacées par ce tableau ; les guides de version conservent l’historique exact.
+État livré : v0.62.7. Les correctifs issus des audits ont commencé : catalogue, observations et surveillance bornée. Le comportement réel dans Packet Tracer 9 reste à valider. Les blocs suivants nécessitent le cadrage du modèle commun avant toute extension du moteur d'entreprise.
 
 ## Livré
 

@@ -177,6 +177,8 @@ class Workspace:
             'documents_share_id': s.get('documents_share_id'),
             'checks': {a: evaluate(s, a) for a in ('remote', 'read', 'write')},
             'directory_login': ({'username': s['directory']['users'][s['directory_user_id']]['username'], 'authenticated': bool(ad.context(s)['authentication'])} if 'directory' in s else None),
+            'monitoring': s.get('monitoring'),
+            'network_health': __import__('network_monitor').public_status(s, time.time()),
             'last_known_observation': s.get('last_known_observation'),
             'observation': s['observation'], 'events': s['events'][-30:]}
 

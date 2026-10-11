@@ -1,4 +1,12 @@
-# v0.62.6 — Correctifs issus des audits
+# v0.62.7 — Surveillance réseau et continuité du bureau
+
+Surveillance bornée à un poste par passage pour les entreprises de trente employés, alternance entre sessions actives et reste du parc, contrôle explicite ciblé avec fast-forward. Une preuve périmée ou un pont indisponible conserve le bureau avec un bandeau ; les actions réseau restent soumises à une preuve récente. [Guide et recette](docs/V0627-SURVEILLANCE-RESEAU.md). Validation réelle dans Packet Tracer 9 à effectuer.
+
+## v0.62.6 — Correctifs issus des audits
+
+Catalogue des labs, dialogue réseau, preuve commune d'annuaire et journalisation corrigés. [Détails](docs/V0626-CORRECTIFS-AUDIT.md).
+
+## v0.62.5 — Indices utiles et arrêt du logiciel
 
 Les indices progressifs précisent les outils et les tests selon AD, DNS, fichiers, impression, FTP, accessoires ou arrivée d’un employé. Quitter enregistre les données puis arrête le serveur ; le lanceur Windows ne reste plus sur pause après un arrêt normal. [Guide et limites](docs/V0625-AIDES-ET-ARRET.md).
 
