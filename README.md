@@ -1,3 +1,7 @@
+# v0.69 — Aides, réponses et bilan des interventions
+
+Indices consultables et mémorisés, correction volontaire des incidents actuels, bilan factuel et export HTML imprimable. Consulter une correction ne répare rien et ne valide pas le ticket. [Détails, limites et recette](docs/V069-AIDES-ET-BILAN.md).
+
 # v0.68 — Tickets clarifiés et applications harmonisées
 
 Livraison groupée v0.67 + v0.68 : ressources et résultats attendus dans les nouveaux tickets, contexte moins répétitif, documentation en bibliothèque et gestion FTP par compte sélectionné. Le socle de sessions et preuves réseau v0.66 est conservé.

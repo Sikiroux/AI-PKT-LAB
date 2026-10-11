@@ -1,6 +1,6 @@
 # Roadmap actuelle — entreprise persistante
 
-État livré : v0.68. Les correctifs issus des audits ont commencé : catalogue, observations et surveillance bornée. Le comportement réel dans Packet Tracer 9 reste à valider. Les blocs suivants nécessitent le cadrage du modèle commun avant toute extension du moteur d'entreprise.
+État livré : v0.69. Les correctifs issus des audits ont commencé : catalogue, observations et surveillance bornée. Le comportement réel dans Packet Tracer 9 reste à valider. Les blocs suivants nécessitent le cadrage du modèle commun avant toute extension du moteur d'entreprise.
 
 ## Livré
 
@@ -29,6 +29,8 @@ Les interfaces sont partielles. Le journal de session n’est pas un Observateur
 - v0.66 : preuves réseau communes et ciblées, sessions utilisateur liées au compte/poste, VPN préservé lors des observations inconnues. Bloc ciblé ; recette réelle et cohérence des autres dépendances restent nécessaires.
 
 - v0.67–0.68 : ressources et retests explicites dans les nouveaux tickets, contexte repliable, tokens communs, bibliothèque documentaire et inspecteur des comptes FTP. Livraison ciblée ; refonte des autres consoles et recette visuelle encore nécessaires.
+
+- v0.69 : indices contextualisés et suivis, corrections volontaires de tous les incidents actuels, bilan des contrôles et aides, export HTML. Corrections des scénarios actifs AD/fichiers/DNS/multi-services ; autres variantes et évaluation approfondie des compétences restent à développer.
 
 ## Suite issue des deux audits
 

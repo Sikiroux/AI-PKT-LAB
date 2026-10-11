@@ -12,6 +12,7 @@ from workspace_app import Controller
 import file_incidents
 import dns_incidents
 import mixed_incidents
+import ticket_learning
 import desktop_incidents
 import ticket_arrivals
 import enterprise_incidents
@@ -128,7 +129,7 @@ class Tickets:
     @metadata_locked
     def public(self):
         return copy.deepcopy({'site':{'name':self.state['site'].get('name','Agence de test'),'environment_id':self.state['site'].get('environment_id'),'profile':self.state['site'].get('profile',{}),'devices':len(self.state['site']['devices']),'file':self.state['site'].get('file'),'ready':self.readiness,'inventory':self.state['site'].get('inventory',[]),'inventory_at':self.state['site'].get('inventory_at'),'service_capabilities':self.state['site'].get('service_capabilities',[])} if self.state['site'] else None,
-                'tickets':[dict({k:v for k,v in t.items() if k not in ('baseline','injection','service_scenario','procedural')}, classification=ticket_processing.classification(t), timeline=ticket_processing.timeline(t)) for t in self.state['tickets']],
+                'tickets':[dict({k:v for k,v in t.items() if k not in ('baseline','injection','service_scenario','procedural')}, classification=ticket_processing.classification(t), timeline=ticket_processing.timeline(t), assessment=ticket_learning.assessment(t)) for t in self.state['tickets']],
                 'session':self.desk.public() if self.desk else None,'service_jobs':self.desk.g.jobs() if self.desk else [],'console_diagnostic':self.state.get('console_diagnostic'),'events':self.state['events'][-40:]})
     def check_file(self,snapshot,expected):
         actual=snapshot.get('saved_filename')
@@ -478,6 +479,29 @@ class Tickets:
 
     def action(self,ident,action,data,resolving=False):
         t=self.get(ident)
+        if action=='learning_export':
+            with self.metadata_lock:
+                return {'html':ticket_learning.export_html(self.state['tickets'],(self.state.get('site') or {}).get('name','Entreprise'))}
+        if action in ('learning_hint','learning_correction'):
+            with self.metadata_lock:
+                if t.get('stage')=='queued':raise ValueError('Prépare cette demande avant de consulter sa correction.')
+                if action=='learning_hint':
+                    level=data.get('level')
+                    if type(level) is not int or level not in (1,2,3):raise ValueError('Indice de 1 à 3.')
+                    learning=t.setdefault('learning',{})
+                    learning['hints']=sorted(set(learning.get('hints',[])+[level]))
+                else:
+                    s=self.controller.workspace.state if getattr(self,'controller',None) else None
+                    result=ticket_learning.correction(t,s)
+                    if not result['available']:raise ValueError(result['reason'])
+                    learning=t.setdefault('learning',{})
+                    learning['correction']=result;learning.setdefault('correction_viewed_at',now())
+                if getattr(self,'controller',None):
+                    record=self.controller.workspace.state.get('live_incidents',{}).get(t['id'])
+                    if record and record.get('target_serial')==t.get('target_serial'):
+                        record['ticket']=copy.deepcopy(t);self.controller.workspace.save()
+                self.save()
+                return self.public()
         if action in ('classify','task_add','task_update'):
             with self.metadata_lock:
                 if t['status']=='clos':raise ValueError('Ticket clos : traitement en lecture seule.')
