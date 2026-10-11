@@ -1,5 +1,4 @@
 """Présentation des nouvelles entreprises, indépendante des tirages de pannes."""
-import math
 import hashlib
 import random
 from lab_engine import organization
@@ -37,24 +36,22 @@ def plan(seed, device_names):
         for index, name in enumerate(members):
             positions[name] = (centers[zone] + round((index - (len(members)-1)/2) * 140), 620)
     if 'PC-CPT-30' in names:
-        # [pkt_lab] Each switch owns a radial fan: straight PT links do not
-        # cross another switch's clients. Radius includes label clearance;
-        # these are conservative logical units, not measured PT icon pixels.
-        positions = {'R1': (1120, 130), 'SW-EMP': (480, 640),
-                     'SW-EMP2': (1300, 640), 'SW-SRV': (1920, 340),
-                     'SW-GUEST': (1920, 920), 'PC-GUEST': (1920, 1120),
-                     'PC-ADMIN': (480, 1120), 'PRN-OFFICE': (680, 1120)}
+        # Compact blocks, preserving the actual odd/even switch ownership.
+        # Spacing is conservative logical clearance, not measured icon pixels.
+        positions = {'R1': (1040, 130), 'SW-EMP': (430, 330),
+                     'SW-EMP2': (1130, 330), 'SW-SRV': (1810, 330),
+                     'SW-GUEST': (1810, 770), 'PC-GUEST': (1810, 970),
+                     'PC-ADMIN': (310, 830), 'PRN-OFFICE': (550, 830)}
         members = ['PC-ALICE', 'PC-BOB'] + [f'PC-CPT-{i:02d}' for i in range(3, 31)]
-        for parity, center in enumerate((480, 1300)):
-            clients = members[parity::2]
-            for index, name in enumerate(clients):
-                angle = -math.pi / 2 + index * 2 * math.pi / len(clients)
-                positions[name] = (round(center + 340 * math.cos(angle)),
-                                   round(640 + 340 * math.sin(angle)))
+        for parity, center in enumerate((430, 1130)):
+            for index, name in enumerate(members[parity::2]):
+                row, column = divmod(index, 5)
+                positions[name] = (center + (column - 2) * 120, 530 + row * 100)
         for index, name in enumerate(('SRV-INFRA', 'SRV-WEB', 'SRV-FTP', 'SRV-MAIL')):
-            positions[name] = (1740 + index * 120, 590)
+            row, column = divmod(index, 2)
+            positions[name] = (1750 + column * 120, 530 + row * 100)
     positions = {name: point for name, point in positions.items() if name in names}
-    return dict(version=2, convention=convention, zones=zones, names=names,
+    return dict(version=3, convention=convention, zones=zones, names=names,
                 positions=positions, canvas_limit=3900)
 
 

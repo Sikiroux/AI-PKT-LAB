@@ -1,3 +1,9 @@
+# v0.62.8 — Placement commun des entreprises et ateliers
+
+Les trente postes sont disposés en blocs compacts autour de leur switch, avec une zone serveurs distincte. Les ateliers « services d’entreprise » emploient aussi ce placement dans les réseaux initial, de référence et tous les instantanés des PKA. Les anciens labs classiques conservent leur disposition. [Recette et limites](docs/V0628-PLACEMENT-COMMUN.md).
+
+La segmentation VLAN/DHCP prévue pour la v0.63 reste à développer : cette livraison prépare uniquement la présentation logique.
+
 # v0.62.7 — Surveillance réseau et continuité du bureau
 
 La suite est cadrée dans le [contrat du modèle d’entreprise](docs/MODELE-ENTREPRISE.md) : dépendances, événements, signalements, connaissances du client et trois scénarios de référence. Il s’agit d’une spécification, pas de nouvelles fonctions déjà disponibles.

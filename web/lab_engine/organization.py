@@ -1,6 +1,7 @@
 import sys
 from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parents[2]))
+sys.path.append(str(Path(__file__).resolve().parents[1]))
 """Convention de noms et implantation physique, après les mutations pédagogiques."""
 import copy,re,uuid,json,html
 import xml.etree.ElementTree as ET
@@ -97,12 +98,20 @@ def finalize(folder,site='AG1',business=True):
   reference_root=ET.parse(folder/'reference.xml').getroot()
   device_names.extend(d.findtext('ENGINE/NAME') for d in reference_root.findall('NETWORK/DEVICES/DEVICE'))
  names=mapping(device_names,site) if business else {}
+ # Common presentation for the enterprise-services workshop family. Use the
+ # union of initial/reference devices so an added device never moves its peers.
+ import enterprise_design
+ logical_plan = enterprise_design.plan(site, device_names) if {'SW-EMP','SW-SRV','SW-GUEST'}.issubset(device_names) else None
+ logical_positions = {names.get(old,old):point for old,point in logical_plan['positions'].items()} if logical_plan else {}
  rows=[]
  for filename in ('initial.xml','baseline.xml','reproduction.xml','reference.xml','activity.xml'):
   path=folder/filename
   if not path.exists():continue
   tree=ET.parse(path);rename_tree(tree.getroot(),names)
   # An activity embeds both initial and answer network snapshots.
+  for candidate in list(tree.getroot().iter()):
+   if candidate.find('NETWORK/DEVICES') is not None and logical_positions:
+    enterprise_design.apply_positions(candidate,logical_positions)
   for candidate in list(tree.getroot().iter()):
    if candidate.find('PHYSICALWORKSPACE') is not None:
     layout=physical(candidate,names,site)

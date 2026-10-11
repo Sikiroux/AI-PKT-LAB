@@ -85,3 +85,31 @@ class DesignTests(unittest.TestCase):
                     d = devices[state['network_design']['names'][old]]
                     self.assertEqual((int(d.findtext('WORKSPACE/LOGICAL/X')), int(d.findtext('WORKSPACE/LOGICAL/Y'))), point)
             self.assertEqual(len(roots[0].findall('NETWORK/LINKS/LINK')), len(roots[1].findall('NETWORK/LINKS/LINK')))
+
+
+class WorkshopLayoutTests(unittest.TestCase):
+    def test_shared_layout_applies_to_both_activity_snapshots(self):
+        from lab_engine import organization
+        def network():
+            root = ET.Element('ROOT')
+            devices = ET.SubElement(ET.SubElement(root, 'NETWORK'), 'DEVICES')
+            for name in NAMES:
+                d = ET.SubElement(devices, 'DEVICE')
+                ET.SubElement(ET.SubElement(d, 'ENGINE'), 'NAME').text = name
+                logical = ET.SubElement(ET.SubElement(d, 'WORKSPACE'), 'LOGICAL')
+                ET.SubElement(logical, 'X').text = '0'
+                ET.SubElement(logical, 'Y').text = '0'
+            return root
+        with tempfile.TemporaryDirectory() as folder:
+            for filename in ('initial.xml', 'baseline.xml'):
+                ET.ElementTree(network()).write(Path(folder)/filename)
+            activity = ET.Element('ACTIVITY')
+            activity.extend((network(), network()))
+            ET.ElementTree(activity).write(Path(folder)/'activity.xml')
+            organization.finalize(folder, 'AG1', business=False)
+            expected = design.plan('AG1', NAMES)['positions']
+            for filename in ('initial.xml', 'baseline.xml', 'activity.xml'):
+                root = ET.parse(Path(folder)/filename).getroot()
+                for d in root.findall('.//DEVICE'):
+                    name = d.findtext('ENGINE/NAME')
+                    self.assertEqual((int(d.findtext('WORKSPACE/LOGICAL/X')), int(d.findtext('WORKSPACE/LOGICAL/Y'))), expected[name])
