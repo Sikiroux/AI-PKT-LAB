@@ -177,6 +177,7 @@ class Workspace:
             'documents_share_id': s.get('documents_share_id'),
             'checks': {a: evaluate(s, a) for a in ('remote', 'read', 'write')},
             'directory_login': ({'username': s['directory']['users'][s['directory_user_id']]['username'], 'authenticated': bool(ad.context(s)['authentication'])} if 'directory' in s else None),
+            'last_known_observation': s.get('last_known_observation'),
             'observation': s['observation'], 'events': s['events'][-30:]}
 
     def event(self, text):

@@ -2,6 +2,7 @@
 import copy
 import ipaddress
 import json
+import logging
 import ntpath
 import os
 import secrets
@@ -227,6 +228,7 @@ class Controller:
                 with self.client_scope(client_serial):self._observe_one(blocking=True,accelerate=accelerate)
                 return
             self._observe_one(blocking=True,accelerate=accelerate)
+            self._share_directory_probe(s)
             # One observation per simulated client; never share another PC's ping proof.
             candidates=[serial for serial in s.get('client_workspaces',{}) if serial!=clients.primary_serial(s)]
             if s.get('staff_size')==30:
@@ -241,6 +243,23 @@ class Controller:
                 with self.client_scope(serial):self._observe_one(blocking=True)
             self._read_state=copy.deepcopy(self.workspace.state)
         finally:self.lock.release()
+
+    def _share_directory_probe(self, state):
+        # Cette preuve concerne le même technicien et le même serveur pour tous
+        # les bureaux. Les preuves client→serveur et technicien→client restent locales.
+        probe = (state.get('observation') or {}).get('probes', {}).get('directory')
+        if not probe:
+            return
+        expected_source = state['devices']['technician']['name']
+        expected_target = state['devices']['server']['ip']
+        if probe.get('source_device') != expected_source or probe.get('target') != expected_target:
+            return
+        for profile in state.get('client_workspaces', {}).values():
+            local = profile['local']
+            observation = local.setdefault('observation', None)
+            if observation is None:
+                observation = local['observation'] = dict(at=0, status='unknown', probes={})
+            observation.setdefault('probes', {})['directory'] = copy.deepcopy(probe)
 
     def _observe_one(self, blocking=False, accelerate=False):
         # Ne jamais attendre le pont si une action utilisateur l'utilise déjà.
@@ -280,11 +299,14 @@ class Controller:
             statuses = [p['status'] for p in probes.values()]
             status = 'passed' if all(x == 'passed' for x in statuses) else 'unknown' if 'unknown' in statuses else 'failed'
             s['observation'] = dict(at=time.time(), status=status, source='Packet Tracer', probes=probes)
+            if status in ('passed', 'failed'):
+                s['last_known_observation'] = copy.deepcopy(s['observation'])
             desktop_services.process_jobs(s,time.time())
             for role, d in found.items():
                 s['devices'][role]['name'] = d['name']
             s['bound_file'] = s['network_file']
         except Exception as e:
+            logging.exception('Échec du contrôle réseau Packet Tracer')
             s['network_observation']=None
             s['observation'] = dict(at=time.time(), status='unknown', source='Packet Tracer', detail=str(e))
         finally:

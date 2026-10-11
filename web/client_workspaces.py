@@ -11,7 +11,7 @@ import sim_ad
 import files_adapter
 
 INCIDENT_KEYS=('desktop_incident','mixed_incident','directory_incident','file_incident','dns_incident')
-LOCAL_KEYS=('remote_service','remote_session','directory_auth','observation','network_observation')
+LOCAL_KEYS=('remote_service','remote_session','directory_auth','observation','network_observation','last_known_observation')
 SHARED_KEYS=('directory','directory_resource','directory_service','file_service','dns_service',
              'desktop_services','events','desktop_incident_count','validated','peripherals','local_access')
 
@@ -49,7 +49,7 @@ def ensure(s):
           s['directory']['audit'][-1]['user_id']=uid
           sim_ad.validate_directory(s['directory'])
           record=copy.deepcopy(profiles[first]);record.update(device=copy.deepcopy(second),requester=name,user_id=uid)
-          record['local'].update(remote_service=True,remote_session=False,directory_auth=None,observation=None,network_observation=None)
+          record['local'].update(remote_service=True,remote_session=False,directory_auth=None,observation=None,network_observation=None,last_known_observation=None)
           record['endpoint']['local_files']={'Bienvenue.txt':'Poste de '+name+' — '+s['company']}
           record['endpoint']['network_pending']=None
           record['printing'].update(jobs=[],next_job=1);record['dns_cache']={};record['ftp_session']=None
@@ -122,5 +122,5 @@ def merge(s,view,serial):
 
 def reset_sessions(s):
     for r in s.get('client_workspaces',{}).values():
-        r['local'].update(remote_session=False,directory_auth=None,observation=None,network_observation=None)
+        r['local'].update(remote_session=False,directory_auth=None,observation=None,network_observation=None,last_known_observation=None)
         r['ftp_session']=None

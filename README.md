@@ -1,4 +1,4 @@
-# v0.62.5 — Indices utiles et arrêt du logiciel
+# v0.62.6 — Correctifs issus des audits
 
 Les indices progressifs précisent les outils et les tests selon AD, DNS, fichiers, impression, FTP, accessoires ou arrivée d’un employé. Quitter enregistre les données puis arrête le serveur ; le lanceur Windows ne reste plus sur pause après un arrêt normal. [Guide et limites](docs/V0625-AIDES-ET-ARRET.md).
 

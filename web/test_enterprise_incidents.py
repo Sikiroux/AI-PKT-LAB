@@ -17,6 +17,14 @@ class LiveTests(unittest.TestCase):
   self.s['staff_size']=30
   t=Tickets(Fake(),Path(self.tmp.name)/'live-tickets.json');t.controller=self.c
   t.state['site']=dict(environment_id='env',devices=[]);self.c.observe=Mock();return t
+ def test_network_dialogue_uses_observation_timestamp(self):
+  from unittest.mock import patch
+  t=self.tickets();live.receive(t,'ad',client_serial='second');ident=next(iter(self.s['live_incidents']))
+  profile=self.s['client_workspaces']['second']['local']
+  for status,stamp,expected in [('passed',100,'positif'),('failed',100,'échoué'),('passed',50,'récent'),('passed',102,'récent')]:
+   profile['observation']=dict(at=stamp,status=status)
+   with patch('enterprise_incidents.time.time',return_value=101):row=live.dialogue(self.s,ident,'network')
+   self.assertIn(expected,row['answer'])
  def test_mutation_precedes_persistence_and_take_does_not_probe(self):
   t=self.tickets();live.receive(t,'ad',client_serial='second');row=t.state['tickets'][0]
   self.assertFalse(self.s['directory']['users'][self.s['client_workspaces']['second']['user_id']]['enabled'])

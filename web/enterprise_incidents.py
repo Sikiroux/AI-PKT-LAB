@@ -175,7 +175,9 @@ def dialogue(s,ident,question):
     elif question=='login':answer='Le compte est refusé.' if not v['directory']['users'][v['directory_user_id']]['enabled'] else 'Mon compte est actif ; cela ne confirme pas mon accès aux fichiers.'
     elif question=='network':
         observation=v.get('observation') or {}
-        status=observation.get('status','unknown') if observation.get('valid_until',0)>at else 'unknown'
+        from workspace_model import TTL
+        fresh = 0 <= at - observation.get('at', 0) <= TTL
+        status = observation.get('status', 'unknown') if fresh else 'unknown'
         answer={'passed':'Le dernier contrôle réseau est positif.','failed':'Le dernier contrôle réseau a échoué.'}.get(status,'Je ne dispose pas encore d’un contrôle réseau récent.')
     elif question=='retest':answer='La fonction demandée est disponible au dernier contrôle.' if all(r['status']=='valide' for r in checks(s,ticket,at)) else 'Le contrôle ne confirme pas encore que je peux reprendre cette activité.'
     else:answer='Je ne peux pas confirmer cela sans effectuer le test sur mon poste.'

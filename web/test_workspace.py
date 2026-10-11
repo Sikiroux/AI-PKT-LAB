@@ -94,6 +94,22 @@ class ModelTests(unittest.TestCase):
         self.assertFalse(evaluate(s, 'remote', at=101)['allowed'])
         self.assertTrue(evaluate(s, 'read', at=101)['allowed'])
 
+    def test_directory_probe_shared_without_fabricating_client_proofs(self):
+        with tempfile.TemporaryDirectory() as d:
+            c = Controller(None, d)
+            s = dict(devices={'technician': {'name': 'TECH'}, 'server': {'ip': '10.0.0.2'}},
+                     observation={'probes': {'directory': dict(at=100,status='passed',source_device='TECH',target='10.0.0.2')}},
+                     client_workspaces={'second': {'local': {'observation': None}}})
+            c._share_directory_probe(s)
+            observation=s['client_workspaces']['second']['local']['observation']
+            self.assertEqual(observation['probes']['directory']['at'],100)
+            self.assertNotIn('share',observation['probes'])
+            self.assertNotIn('remote',observation['probes'])
+            self.assertEqual(observation['status'],'unknown')
+            s['observation']['probes']['directory']['source_device']='OTHER'
+            c._share_directory_probe(s)
+            self.assertEqual(observation['probes']['directory']['source_device'],'TECH')
+
     def test_offline_bridge_becomes_unknown(self):
         class Broken:
             import threading
@@ -103,9 +119,12 @@ class ModelTests(unittest.TestCase):
             c = Controller(Broken(), d)
             c.workspace.state = generate('abc')
             c.workspace.state['remote_session'] = True
+            c.workspace.state['last_known_observation'] = dict(at=100,status='passed')
             c.observe()
             self.assertEqual(c.workspace.state['observation']['status'], 'unknown')
             self.assertTrue(c.workspace.state['remote_session'])
+            self.assertEqual(c.workspace.state['last_known_observation']['at'],100)
+            self.assertFalse(evaluate(c.workspace.state,'remote')['allowed'])
 
     def test_identity_survives_rename_and_rejects_wrong_file(self):
         with tempfile.TemporaryDirectory() as d:

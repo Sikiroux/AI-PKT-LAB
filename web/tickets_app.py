@@ -1,5 +1,6 @@
 """NetOps Lab local — tickets persistants, Python standard uniquement."""
 import ipaddress
+import logging
 import json, os, secrets, threading, time, webbrowser, shutil, ntpath
 from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -593,7 +594,8 @@ def run():
         while not stop_arrivals.wait(1):
             with workspace.lock:
                 try:tickets.desk.tick()
-                except Exception:pass
+                except Exception:
+                    logging.exception('Échec de la réception périodique des tickets')
     threading.Thread(target=arrival_loop,daemon=True).start();token=secrets.token_urlsafe(32)
     workspace_routes=WorkspaceRoutes(workspace,token)
     def workspace_loop():
