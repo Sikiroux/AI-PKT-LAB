@@ -166,3 +166,45 @@ class IncidentCheckpointTests(unittest.TestCase):
    ticket=t.state['tickets'][0]
    self.assertIn(expected,ticket['description']);self.assertIn('fichiers locaux restent accessibles',ticket['description'])
    self.assertNotIn(cause,str(ticket))
+
+
+class ActivityDiscoveryTests(unittest.TestCase):
+ proofs=fixtures.ClientWorkspacesTests.proofs
+ setUp=fixtures.ClientWorkspacesTests.setUp
+ tickets=LiveTests.tickets
+ def pending(self):
+  t=self.tickets();live.receive(t,'ad',client_serial='second',discovery_delay=30)
+  return t,self.s['live_incidents']['INC-LIVE-00001']
+ def test_mutation_before_report_and_no_early_recovery(self):
+  t,r=self.pending()
+  self.assertFalse(self.s['directory']['users'][self.s['client_workspaces']['second']['user_id']]['enabled'])
+  live.recover(t,self.s)
+  self.assertEqual(t.state['tickets'],[]);self.assertEqual(live.public(self.s),[])
+  self.assertFalse(r['ticket']['timer']['started'])
+  self.assertEqual(live.discover(t,r['discovery_due']-1),0)
+ def test_due_activity_reports_once_and_starts_timer_at_discovery(self):
+  t,r=self.pending();at=r['discovery_due']
+  self.assertEqual(live.discover(t,at),1);self.assertEqual(live.discover(t,at+1),0)
+  self.assertEqual(len(t.state['tickets']),1)
+  self.assertEqual(r['reported_at'],at);self.assertEqual(r['ticket']['timer']['running_since'],at)
+  self.assertEqual(r['activity']['status'],'failed');self.c.observe.assert_not_called()
+ def test_repair_before_discovery_suppresses_obsolete_report(self):
+  t,r=self.pending();self.s['directory']['users'][self.s['client_workspaces']['second']['user_id']]['enabled']=True
+  self.assertEqual(live.discover(t,r['discovery_due']),0)
+  live.recover(t,self.s);self.assertEqual(t.state['tickets'],[])
+  self.assertEqual(r['lifecycle'],'resolved_before_report');self.assertEqual(r['activity']['status'],'passed')
+ def test_pending_target_is_reserved(self):
+  t,r=self.pending()
+  with self.assertRaises(ValueError):live.receive(t,'printing',client_serial='second',discovery_delay=20)
+  self.assertEqual(self.s['live_incident_count'],1)
+ def test_pending_is_saved_and_restored_without_reinjection(self):
+  import json
+  t,r=self.pending();saved=json.loads(self.c.workspace.path.read_text())
+  self.c.workspace.state=saved
+  self.assertEqual(live.discover(t,r['discovery_due']),1)
+  self.assertEqual(saved['live_incident_count'],1);self.assertEqual(len(t.state['tickets']),1)
+ def test_delay_validation_precedes_mutation(self):
+  t=self.tickets();before=copy.deepcopy(self.s)
+  for delay in (-1,301,True,'30'):
+   with self.assertRaises(ValueError):live.receive(t,'ad',discovery_delay=delay)
+  self.assertEqual(self.s,before)

@@ -1,5 +1,5 @@
 """Arrivées de tickets sur le site persistant ou des réseaux indépendants."""
-import random,time,sys
+import hashlib,random,time,sys
 from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 from addressing import private_networks
@@ -89,7 +89,9 @@ class ServiceDesk:
   self.t.save();return self.public()
  def create(self,scenario=None,request=None):
   opened=[t for t in self.t.state['tickets'] if t['status']!='clos']
-  if len(opened)>=self.settings['max_open']:raise ValueError('Plafond de tickets ouverts atteint.')
+  state=self.t.controller.workspace.state if getattr(self.t,'controller',None) else {}
+  pending=sum(r.get('lifecycle')=='awaiting_activity' for r in (state or {}).get('live_incidents',{}).values())
+  if len(opened)+pending>=self.settings['max_open']:raise ValueError('Plafond de tickets ouverts atteint.')
   if self.settings['source']=='site':return self.create_site(scenario,opened,request)
   seed=random.SystemRandom().randrange(10**9)
   plan=procedural.choose(seed,scenario,self.t.state['tickets'],opened)
@@ -113,7 +115,7 @@ class ServiceDesk:
    request=request or {}
    engine=request.get('engine') or ('apps' if scenario=='workspace:apps' else 'mixed' if scenario=='workspace:mixed' else self.settings.get('arrival_engine','varied'))
    target=request.get('target',self.settings.get('app_target','random') if engine=='apps' else self.settings.get('mixed_target','random'))
-   return ticket_arrivals.receive(self.t,engine,target,request.get('level',self.settings.get('mixed_level',1)),request.get('minutes',self.settings['ticket_minutes']),request.get('target_client','random'))
+   return ticket_arrivals.receive(self.t,engine,target,request.get('level',self.settings.get('mixed_level',1)),request.get('minutes',self.settings['ticket_minutes']),request.get('target_client','random'),discovery_delay=request.get('discovery_delay',0))
   from contextlib import nullcontext
   with getattr(self.t.engine,'lock',nullcontext()):return self._create_site_legacy(scenario,opened)
  def _create_site_legacy(self,scenario,opened):
@@ -141,7 +143,12 @@ class ServiceDesk:
   return self.t.public()
  def tick(self,at=None):
   at=time.time() if at is None else at
-  if not self.settings['active'] or at<self.settings['next_at']:return
-  try:self.create();self.settings['message']='Dernier ticket reçu.';self.schedule(at)
+  if not self.settings['active']:return
+  import enterprise_incidents
+  enterprise_incidents.discover(self.t,at)
+  if at<self.settings['next_at']:return
+  state=self.t.controller.workspace.state if getattr(self.t,'controller',None) else {}
+  delay=20+int(hashlib.sha256((str((state or {}).get('seed'))+':activity:'+str((state or {}).get('live_incident_count',0))).encode()).hexdigest()[:4],16)%41 if (state or {}).get('staff_size')==30 else 0
+  try:self.create(request={'discovery_delay':delay});self.settings['message']='Événement appliqué ; signalement après la prochaine activité.' if delay else 'Dernier ticket reçu.';self.schedule(at)
   except Exception as e:self.settings.update(message='Arrivée différée : '+str(e),next_at=at+15)
   self.t.save()

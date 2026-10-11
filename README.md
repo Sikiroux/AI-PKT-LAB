@@ -1,3 +1,9 @@
+# v0.64 — Panne, découverte, signalement
+
+Les arrivées périodiques des grandes entreprises séparent désormais la panne locale de sa découverte : une tentative d’activité a lieu 20 à 60 secondes plus tard. Le ticket apparaît si le problème persiste ; une réparation préalable évite un signalement devenu inutile. Sauvegarde et reprise préservent cette chronologie. [Portée et limites](docs/V064-ACTIVITES-SIGNALEMENTS.md).
+
+Ce premier moteur de découverte ne simule pas encore une journée de travail complète. Les tickets initiaux et manuels restent immédiats.
+
 # v0.63.1 — Signalements récupérables et symptômes précis
 
 Pour les incidents simultanés des entreprises de trente employés, la mutation locale et son ticket récupérable sont sauvegardés ensemble. Une perte de la file de tickets ne laisse plus une mutation enregistrée sans signalement. Les demandes Documents distinguent partage réseau et application locale ; le dialogue indique une heure de constatation réelle plutôt qu’une formule générique. [Détails et limites](docs/V0631-SIGNALEMENTS.md).

@@ -18,11 +18,13 @@ CATALOGUE=(('printing','queue_paused'),('printing','spooler_stopped'),('printing
            ('ftp','service_stopped'),('dns','resolver_wrong'))+tuple(('peripherals',kind+':'+cause) for kind,cause in PERIPHERAL_CAUSES)
 def view(s,serial):
     return clients.project(s,serial)
-def receive(tickets,target='random',minutes=30,client_serial='random',engine='varied'):
+def receive(tickets,target='random',minutes=30,client_serial='random',engine='varied',discovery_delay=0):
     c=tickets.controller;s=c.workspace.state
     if type(minutes) is not int or not 0<=minutes<=1440:raise ValueError('Durée invalide.')
+    if type(discovery_delay) is not int or not 0<=discovery_delay<=300:raise ValueError('Délai de découverte invalide.')
     clients.sync_primary(s)
     opened=[t for t in tickets.state['tickets'] if t.get('live_incident') and t['status']!='clos']
+    opened += [r['ticket'] for r in s.get('live_incidents',{}).values() if r.get('lifecycle')=='awaiting_activity']
     legacy=[t for t in tickets.state['tickets'] if t['kind']=='workspace' and not t.get('live_incident') and t['status']!='clos' and t.get('stage')!='queued']
     shared=next((t for t in opened if t.get('live_family')=='ftp'),None)
     if target=='ftp' and shared:
@@ -118,16 +120,24 @@ def receive(tickets,target='random',minutes=30,client_serial='random',engine='va
             current['desktop_services']['ftp']['service_running']=False
             current['desktop_services']['ftp']['sessions']={}
         applied=time.time()
-        timers.autostart(ticket['timer'])
+        if not discovery_delay:timers.autostart(ticket['timer'])
         ticket['created']=time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(applied))
         ticket['incident_context']=dict(occurred_at=applied,applied_at=applied,reported_at=applied,
                                        resource_kind=family,resource=('Application Documents locale' if cause=='documents_missing' else 'Documents (partage réseau)') if family=='endpoint' else family)
         current.setdefault('live_incidents',{})[ident]=dict(id=ident,target_serial=serial,family=family,
             cause=cause,created=created,applied_at=applied,reported_at=applied,
-            lifecycle='reported',ticket=copy.deepcopy(ticket))
+            lifecycle='awaiting_activity' if discovery_delay else 'reported',
+            discovery_due=applied+discovery_delay,activity=dict(label=impact['activity'],status='pending' if discovery_delay else 'failed'),ticket=copy.deepcopy(ticket))
+        if discovery_delay:
+            current['live_incidents'][ident]['reported_at']=None
+            ticket['incident_context']['reported_at']=None
+            current['live_incidents'][ident]['ticket']=copy.deepcopy(ticket)
         current['live_incident_count']=index
         c.workspace.save()
     s=c.workspace.state
+    if discovery_delay:
+        tickets.event(ident+' : événement appliqué ; prochaine activité programmée.')
+        return tickets.public()
     tickets.state['tickets'].append(ticket)
     company_registry.ensure(s);company_registry.link_tickets(s,tickets.state['tickets'])
     s['live_incidents'][ident]['ticket']=copy.deepcopy(ticket);c.workspace.save()
@@ -136,6 +146,7 @@ def receive(tickets,target='random',minutes=30,client_serial='random',engine='va
 def recover(tickets,s):
     known={t['id'] for t in tickets.state['tickets']}
     for record in s.get('live_incidents',{}).values():
+        if record.get('lifecycle') in ('awaiting_activity','resolved_before_report'):continue
         if record['id'] not in known and record.get('ticket'):tickets.state['tickets'].append(copy.deepcopy(record['ticket']))
         ticket=next((t for t in tickets.state['tickets'] if t['id']==record['id']),None)
         if not ticket or record.get('family')!='ftp' or ticket.get('status')=='clos' or ticket.get('impact',{}).get('evidence'):continue
@@ -175,7 +186,7 @@ def checks(s,t,at):
 
 def public(s):
     incidents=s.get('live_incidents',{})
-    return [dict(id=r['id'],target_serial=r['target_serial'],created=r['created'],family=r['family']) for r in incidents.values()]
+    return [dict(id=r['id'],target_serial=r['target_serial'],created=r['created'],family=r['family']) for r in incidents.values() if r.get('lifecycle') not in ('awaiting_activity','resolved_before_report')]
 
 def dialogue(s,ident,question):
     from client_dialogue import QUESTIONS
@@ -199,12 +210,13 @@ def dialogue(s,ident,question):
     row=dict(at=at,question=QUESTIONS[question],answer=answer,speaker=v['requester'])
     ticket.setdefault('dialogue',[]).append(row);return row
 
-def work_status(s):
+def work_status(s, include_pending=False):
     result=[]
     for serial,p in s.get('client_workspaces',{}).items():
         incidents=[]
         for r in s.get('live_incidents',{}).values():
             t=r['ticket']
+            if not include_pending and r.get('lifecycle')=='awaiting_activity':continue
             if t['status']=='clos' or serial not in t['impact']['affected_serials']:continue
             family=r['family'];primary=serial==clients.primary_serial(s)
             endpoint=s['desktop_services']['endpoint'] if primary else p['endpoint']
@@ -222,3 +234,33 @@ def work_status(s):
         status='blocked' if any(t['impact']['work_status']=='blocked' for t in incidents) else 'degraded' if incidents else 'available'
         result.append(dict(serial=serial,name=p['requester'],department=person.get('department'),activity=person.get('activity'),status=status,tickets=[t['id'] for t in incidents]))
     return result
+
+
+def discover(tickets, at=None):
+    """Tentatives d'activité locales : aucun ping, aucune nouvelle mutation."""
+    at=time.time() if at is None else at
+    c=getattr(tickets,'controller',None)
+    if not c:return 0
+    s=c.workspace.state
+    if not s or s.get('environment_id')!=(tickets.state.get('site') or {}).get('environment_id'):return 0
+    due=[r for r in s.get('live_incidents',{}).values() if r.get('lifecycle')=='awaiting_activity' and at>=r['discovery_due']]
+    if not due:return 0
+    statuses={row['serial']:row for row in work_status(s,include_pending=True)}
+    count=0
+    for record in due:
+        ident=record['id'];ticket=record['ticket'];record['activity']['attempted_at']=at
+        affected=statuses.get(record['target_serial'],{}).get('tickets',[])
+        if ident not in affected:
+            record['lifecycle']='resolved_before_report';record['activity']['status']='passed';ticket['status']='clos'
+            continue
+        record['lifecycle']='reported';record['reported_at']=at;record['activity']['status']='failed'
+        ticket['created']=time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(at))
+        ticket['incident_context']['reported_at']=at
+        if ticket['timer'].get('limit') and not ticket['timer']['started']:timers.operate(ticket['timer'],'start',at)
+        count+=1
+    # Save the revealed report before exposing it to the independent ticket store.
+    c.workspace.save()
+    recover(tickets,s)
+    company_registry.ensure(s);company_registry.link_tickets(s,tickets.state['tickets'])
+    tickets.event('Activités des employés : '+str(count)+' nouveau(x) signalement(s).')
+    return count
