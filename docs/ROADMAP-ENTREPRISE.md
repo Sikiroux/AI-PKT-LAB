@@ -16,14 +16,19 @@
 
 Les interfaces sont partielles. Le journal de session n’est pas un Observateur d’événements Windows complet. Les moteurs ne reproduisent pas toutes les fonctions des services réels. Recette visuelle Windows/PT9 requise avant de déclarer l’ergonomie validée.
 
-## Suite, par priorité
+## Suite issue des deux audits
+
+Contrat de référence : [Modèle d’entreprise](MODELE-ENTREPRISE.md). Spécification préparée sur la v0.62.7 ; les fonctions décrites ne sont pas encore implémentées.
 
 | Version envisagée | Objectif | Critère de sortie |
 |---|---|---|
-| 0.62.x | Recette et hotfixes | Blocages, ciblage, sauvegardes, scroll et preuves réseau corrigés avec reproduction et test ciblé. |
-| 0.63 | Vie d’entreprise | Mobilités/départs, horaires, demandes et impacts métier ; architectures réseau réellement plus diverses. |
-| 0.64 | Conversations | Dialogue scénarisé enrichi, modèle local facultatif ; le client ne décrit que ce qu’il sait. |
-| 0.65 | Bilan pédagogique | Compétences, explications et portfolio d’interventions exportable. |
+| 0.63 | Réseau V2 et placement commun labs/entreprise | État sain vérifié dans PT, VLAN/routage/DHCP et variante Wi-Fi selon matériel validé. |
+| 0.64 | Événements, activités et signalements | Panne confirmée avant découverte, impacts réels, regroupement et reprise sans double injection. |
+| 0.65 | Dialogue contextualisé | Chronologie, ressource précise, essais et retest ; aucune connaissance de cause cachée. |
+| 0.66 | Cohérence des services | Une source de vérité pour chaque paramètre et des dépendances propres à chaque action. |
+| 0.67 | Tickets et textes | Symptômes compréhensibles, fiche simplifiée, priorité existante conservée, confirmation utile. |
+| 0.68 | Design system et applications | États et composants cohérents, scroll/focus et applications encore dominées par les formulaires revus. |
+| 0.69 | Consolidation pédagogique | Aides contextualisées, bilan justifié et export d’interventions. |
 
 À approfondir transversalement : interfaces des permissions et comptes FTP, détails par article du parc, diagnostics par service, événements structurés par équipement, type de démarrage/dépendances de service, supervision/salle serveurs avec métriques reliées à la simulation. La livraison 0.59 amorce ces outils ; elle ne clôt pas ces objectifs.
 
@@ -43,4 +48,4 @@ Différés : appareil définitivement HS, Packet Tracer entièrement sans interf
 
 ## Correctif prioritaire v0.62.3
 
-Livré dans le générateur : disposition compacte des 30 postes en deux groupes correspondant aux switches réels, icônes SVG natives dans les barres de titre. Recette PT9 à effectuer avant de qualifier le placement de validé. Les réseaux déjà sauvegardés restent inchangés. La roadmap 0.63–0.65 reste en place.
+Livré dans le générateur : disposition compacte des 30 postes en deux groupes correspondant aux switches réels, icônes SVG natives dans les barres de titre. Recette PT9 à effectuer avant de qualifier le placement de validé. Les réseaux déjà sauvegardés restent inchangés. Ces anciens numéros sont remplacés par le tableau issu des audits ci-dessus.

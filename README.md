@@ -1,5 +1,7 @@
 # v0.62.7 — Surveillance réseau et continuité du bureau
 
+La suite est cadrée dans le [contrat du modèle d’entreprise](docs/MODELE-ENTREPRISE.md) : dépendances, événements, signalements, connaissances du client et trois scénarios de référence. Il s’agit d’une spécification, pas de nouvelles fonctions déjà disponibles.
+
 Surveillance bornée à un poste par passage pour les entreprises de trente employés, alternance entre sessions actives et reste du parc, contrôle explicite ciblé avec fast-forward. Une preuve périmée ou un pont indisponible conserve le bureau avec un bandeau ; les actions réseau restent soumises à une preuve récente. [Guide et recette](docs/V0627-SURVEILLANCE-RESEAU.md). Validation réelle dans Packet Tracer 9 à effectuer.
 
 ## v0.62.6 — Correctifs issus des audits
