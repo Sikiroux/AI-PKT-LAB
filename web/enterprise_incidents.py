@@ -90,6 +90,13 @@ def receive(tickets,target='random',minutes=30,client_serial='random',engine='va
         severity='critique' if len(affected)>1 else 'elevee' if impact['work_status']=='blocked' else 'moderee',
         created=time.strftime('%Y-%m-%d %H:%M:%S'),checks=[],complete=False,notes='',dialogue=[],timer=timers.configure(minutes,'training'))
     ticket['request_context']=dict(requester=profile['requester'],station=profile['device']['name'],serial=serial,company=s['company'],complaint=complaint,urgency_label='Activité bloquée' if impact['work_status']=='blocked' else 'Activité perturbée',priority_reason=impact['activity'])
+    # Le récit public nomme la ressource attendue, jamais la mutation privée.
+    resource = ('\\\\'+s['devices']['server']['name']+'\\Documents') if family in ('endpoint','dns') else profile['device']['name']
+    if family=='printing':resource=profile['printing']['queues']['office']['name']
+    elif family=='ftp':resource=s['devices']['server']['name']+' · dépôt FTP'
+    elif family=='ad':resource=s['directory']['users'][profile['user_id']]['username']
+    ticket['request_context'].update(resource=resource,resource_scope='remote' if family in ('endpoint','dns','ftp') else 'account' if family=='ad' else 'peripheral' if family=='peripherals' else 'printer',expected_result={'endpoint':'Ouvrir les documents du partage depuis ce poste.','dns':'Retrouver le partage avec son nom habituel et ouvrir un document.','printing':'Obtenir le document dans la bonne file d’impression.','ftp':'Se connecter au dépôt et effectuer le transfert demandé.','ad':'Ouvrir la session du demandeur avec son compte.','peripherals':'Utiliser à nouveau l’accessoire sur le poste.'}[family])
+    ticket['description']+=' Ressource concernée : '+resource+'.'
     ticket['dialogue_questions']=enterprise_dialogue.questions(family)
     with c.client_scope(serial):
         current=c.workspace.state

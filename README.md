@@ -1,3 +1,9 @@
+# v0.68 — Tickets clarifiés et applications harmonisées
+
+Livraison groupée v0.67 + v0.68 : ressources et résultats attendus dans les nouveaux tickets, contexte moins répétitif, documentation en bibliothèque et gestion FTP par compte sélectionné. Le socle de sessions et preuves réseau v0.66 est conservé.
+
+[Détails v0.67](docs/V067-TICKETS-ET-TEXTES.md) · [Détails et recette v0.68](docs/V068-SYSTEME-APPLICATIONS.md). Recette visuelle Windows/PT9 requise ; toutes les consoles ne sont pas encore refondues.
+
 # v0.66 — Services et sessions cohérents
 
 Les nouvelles sessions utilisateur restent ouvertes pendant l’utilisation du logiciel ; leur état ne dépend plus de l’expiration d’une preuve réseau. Les preuves ICMP des applications vérifient la même paire source/cible. Les observations inconnues ne détruisent plus le VPN, et ses preuves communes sont partagées entre bureaux. [Détails et recette Windows/PT9](docs/V066-SERVICES-SESSIONS.md).

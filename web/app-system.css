@@ -1,0 +1,46 @@
+/* v0.68 : tokens partagés et surfaces métier. Ne remplace pas la géométrie OS.js. */
+:root{--app-surface:#fcfdfe;--app-subtle:#f1f6f8;--app-border:#d6e3e8;--app-ink:#203e4d;--app-muted:#58717e;--app-accent:#146b82;--app-selection:#e4f1f5;--app-focus:#087a99;--app-radius:8px;--app-space:12px;--app-success:#226a4d;--app-warning:#875513;--app-danger:#aa3442;--scroll-thumb:#8ca7b2;--scroll-hover:#557d8e}
+.desktop-app-content{color:var(--app-ink);background:var(--app-surface)}
+.desktop-app-content :is(button,input,select,textarea){font:inherit;border-color:var(--app-border)}
+.desktop-app-content :is(button,input,select,textarea,a,summary):focus-visible,.ticket-context summary:focus-visible{outline:2px solid var(--app-focus);outline-offset:3px}
+.desktop-app-content button:disabled{opacity:.55;cursor:not-allowed}
+.desktop-app-content .app-toolbar{gap:8px;align-items:center;flex-wrap:wrap}
+.desktop-app-content .app-table{border-collapse:collapse;width:100%;font-size:13px}
+.desktop-app-content .app-table th{background:var(--app-subtle);color:var(--app-muted);font-weight:600;text-align:left}
+.desktop-app-content .app-table :is(th,td){padding:9px 12px;border-bottom:1px solid var(--app-border);overflow-wrap:anywhere}
+.desktop-app-content .app-table tr.selected{background:var(--app-selection)}
+.desktop-app-content .app-feedback{margin:10px 0 0;padding:8px 12px;border-left:3px solid var(--app-accent);background:var(--app-subtle);font-size:12px;overflow-wrap:anywhere}
+.desktop-app-content .app-feedback:empty{display:none}
+.desktop-app-content .app-help{color:var(--app-muted);font-size:12px;line-height:1.6}
+#root .knowledge-app{container-type:inline-size;container-name:knowledge;gap:10px;overflow:hidden}
+#root .knowledge-app>.console-banner{margin:0;background:transparent;padding:0;font-size:20px;font-weight:650;color:var(--app-ink)}
+#root .knowledge-app>.app-help{margin:0}
+#root .knowledge-app>.app-toolbar{padding:10px 12px;border:1px solid var(--app-border);border-radius:var(--app-radius);background:var(--app-subtle);display:flex}
+#root .knowledge-app>.app-toolbar label{margin:0;min-width:150px;flex:1;font-size:12px;color:var(--app-muted)}
+#root .knowledge-app>.app-toolbar :is(input,select){display:block;width:100%;margin-top:4px}
+#root .knowledge-app>.muted{margin:0;font-size:12px;color:var(--app-muted)}
+#root .knowledge-layout{gap:0;border:1px solid var(--app-border);border-radius:var(--app-radius);grid-template-columns:minmax(190px,28%) minmax(0,1fr)}
+#root .knowledge-layout>.workstation-list{max-height:none;padding:6px;background:var(--app-subtle);border-right:1px solid var(--app-border)}
+#root .knowledge-layout .knowledge-item{display:flex;gap:10px;align-items:center;white-space:normal;width:100%;padding:12px;border:0;border-radius:6px;margin:2px 0;color:var(--app-ink);background:transparent;text-align:left;font-size:13px;line-height:1.45}
+#root .knowledge-item svg{width:20px;height:20px;order:-1;flex:0 0 20px;color:var(--app-accent)}
+#root .knowledge-layout .knowledge-item[aria-pressed=true]{background:var(--app-selection);box-shadow:inset 3px 0 var(--app-accent);border-left:0}
+#root .knowledge-article{padding:24px 30px;background:var(--app-surface)}
+#root .knowledge-article h2{font-size:22px;line-height:1.3;margin:0 0 12px}
+#root .knowledge-reading{max-width:70ch}
+#root .knowledge-paragraph{font-size:14px;line-height:1.8;margin:18px 0;color:var(--app-ink)}
+#root .knowledge-article>.app-help{padding-top:16px;border-top:1px solid var(--app-border);margin-top:24px}
+#root .account-workspace{display:grid;grid-template-columns:minmax(120px,25%) minmax(0,1fr);border:1px solid var(--app-border);border-radius:var(--app-radius);overflow:hidden}
+#root .account-workspace>nav{padding:8px;background:var(--app-subtle);border-right:1px solid var(--app-border)}
+#root .account-workspace>section{padding:20px;min-width:0}
+#root .account-choice{display:block;width:100%;text-align:left;background:transparent;border:0;margin:3px 0;overflow-wrap:anywhere}
+#root .account-choice[aria-pressed=true]{background:var(--app-selection);color:var(--app-accent);box-shadow:inset 3px 0 var(--app-accent)}
+#root .account-state{font-size:12px;color:var(--app-muted)}
+.ticket-context .request-identity,.ticket-context .request-resource{padding:12px 0;border-bottom:1px solid var(--app-border)}
+.ticket-context .request-identity h4,.ticket-context .request-resource h4{margin:0 0 8px}
+.ticket-context .request-identity p{margin:4px 0}
+.ticket-context .resource-path{font-family:Consolas,monospace;font-size:12px;overflow-wrap:anywhere;background:var(--app-subtle);padding:8px;border-radius:6px}
+.ticket-context details{margin:14px 0;font-size:12px;line-height:1.6}
+.ticket-context details>summary{cursor:pointer;font-weight:600;color:var(--app-muted)}
+@container knowledge (max-width:560px){#root .knowledge-layout{grid-template-columns:1fr;grid-template-rows:minmax(110px,32%) minmax(0,1fr)}#root .knowledge-layout>.workstation-list{border-right:0;border-bottom:1px solid var(--app-border)}#root .knowledge-article{padding:18px}}
+@media(max-width:600px){#root .account-workspace{grid-template-columns:1fr}#root .account-workspace>nav{border-right:0;border-bottom:1px solid var(--app-border);display:flex;flex-wrap:wrap}#root .account-choice{width:auto}}
+@media(forced-colors:active){.desktop-app-content button[aria-pressed=true]{outline:2px solid Highlight}.desktop-app-content .app-feedback{border-color:CanvasText}}

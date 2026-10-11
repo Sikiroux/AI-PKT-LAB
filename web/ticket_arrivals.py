@@ -41,6 +41,8 @@ def receive(tickets,engine='varied',target='random',level=1,minutes=30,client_se
     name=profile['device']['name'] if profile else s['devices']['client']['name']
     requester=profile['requester'] if profile else s['requester']
     wording=ticket_wording.compose(seed,target,requester,s['company'],name,serial)
+    if target in ('files','dns','ad'):
+        wording['request_context'].update(resource='\\\\'+s['devices']['server']['name']+'\\Documents',resource_scope='remote')
     ident=('INC-APP-Q' if selected=='apps' else 'INC-MIX-Q')+str(index).zfill(4)
     plan={'version':1,'seed':seed,'index':index,'engine':selected,'target':target,'level':level,'minutes':minutes,'client_serial':serial}
     ticket={'id':ident,'kind':'workspace','name':name,'target_serial':serial,**wording,

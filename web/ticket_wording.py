@@ -27,4 +27,5 @@ def compose(seed,family,requester,company,station,serial):
     urgency,label,severity,reason=rng.choice(URGENCIES)
     context=dict(version=1,requester=requester,company=company,station=station,serial=serial,
                  complaint=complaint,reported_scope='one_user',urgency=urgency,urgency_label=label,priority_reason=reason)
+    context['expected_result']={'printing':'Obtenir le document sur l’imprimante choisie.','ftp':'Effectuer le transfert du fichier demandé avec le compte FTP.','endpoint':'Retrouver l’outil ou l’accès décrit dans la demande.','peripherals':'Utiliser l’accessoire local concerné.','ad':'Accéder aux documents partagés avec le compte du demandeur.','files':'Ouvrir le document du partage et vérifier l’action demandée.','dns':'Accéder au partage avec son adresse habituelle.','deployment':'Terminer les étapes de préparation prévues dans l’atelier.','workstation_setup':'Disposer des applications et documents demandés sur le poste.'}[family]
     return dict(title=title,description=f'{requester} — {company}\nPoste : {station} ({serial}).\n« {complaint} »\n{reason}',severity=severity,request_context=context)
