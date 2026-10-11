@@ -1,3 +1,9 @@
+# v0.65 — Dialogue client contextualisé
+
+Les incidents des grandes entreprises proposent des questions adaptées au problème. Le demandeur précise le poste et la ressource, conserve son récit initial et décrit ses essais datés. Les retests ne réparent rien et distinguent connexion réseau, résolution DNS et accès aux fichiers. [Portée et limites](docs/V065-DIALOGUES-CLIENT.md).
+
+Ce dialogue reste déterministe, sans LLM. Les anciens scénarios gardent leur moteur.
+
 # v0.64 — Panne, découverte, signalement
 
 Les arrivées périodiques des grandes entreprises séparent désormais la panne locale de sa découverte : une tentative d’activité a lieu 20 à 60 secondes plus tard. Le ticket apparaît si le problème persiste ; une réparation préalable évite un signalement devenu inutile. Sauvegarde et reprise préservent cette chronologie. [Portée et limites](docs/V064-ACTIVITES-SIGNALEMENTS.md).

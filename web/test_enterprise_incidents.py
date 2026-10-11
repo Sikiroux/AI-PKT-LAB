@@ -22,7 +22,7 @@ class LiveTests(unittest.TestCase):
   t=self.tickets();live.receive(t,'ad',client_serial='second');ident=next(iter(self.s['live_incidents']))
   profile=self.s['client_workspaces']['second']['local']
   for status,stamp,expected in [('passed',100,'positif'),('failed',100,'échoué'),('passed',50,'récent'),('passed',102,'récent')]:
-   profile['observation']=dict(at=stamp,status=status)
+   profile['observation']=dict(at=stamp,status=status,probes={'share':dict(at=stamp,status=status,source_device='second',target=self.s['devices']['server']['ip'])})
    with patch('enterprise_incidents.time.time',return_value=101):row=live.dialogue(self.s,ident,'network')
    self.assertIn(expected,row['answer'])
  def test_mutation_precedes_persistence_and_take_does_not_probe(self):

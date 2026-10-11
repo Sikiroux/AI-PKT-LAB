@@ -6,6 +6,7 @@ import time
 import client_workspaces as clients
 import enterprise_staff
 import company_registry
+import enterprise_dialogue
 import desktop_services as ds
 import files_adapter
 import timers
@@ -89,6 +90,7 @@ def receive(tickets,target='random',minutes=30,client_serial='random',engine='va
         severity='critique' if len(affected)>1 else 'elevee' if impact['work_status']=='blocked' else 'moderee',
         created=time.strftime('%Y-%m-%d %H:%M:%S'),checks=[],complete=False,notes='',dialogue=[],timer=timers.configure(minutes,'training'))
     ticket['request_context']=dict(requester=profile['requester'],station=profile['device']['name'],serial=serial,company=s['company'],complaint=complaint,urgency_label='Activité bloquée' if impact['work_status']=='blocked' else 'Activité perturbée',priority_reason=impact['activity'])
+    ticket['dialogue_questions']=enterprise_dialogue.questions(family)
     with c.client_scope(serial):
         current=c.workspace.state
         if family=='peripherals':
@@ -132,6 +134,9 @@ def receive(tickets,target='random',minutes=30,client_serial='random',engine='va
             current['live_incidents'][ident]['reported_at']=None
             ticket['incident_context']['reported_at']=None
             current['live_incidents'][ident]['ticket']=copy.deepcopy(ticket)
+        report=enterprise_dialogue.snapshot(current,ticket)
+        if not discovery_delay:report['attempts'].append(enterprise_dialogue.attempt_description(report,applied,'failed'))
+        current['live_incidents'][ident]['client_report']=report
         current['live_incident_count']=index
         c.workspace.save()
     s=c.workspace.state
@@ -147,6 +152,7 @@ def recover(tickets,s):
     known={t['id'] for t in tickets.state['tickets']}
     for record in s.get('live_incidents',{}).values():
         if record.get('lifecycle') in ('awaiting_activity','resolved_before_report'):continue
+        record['ticket'].setdefault('dialogue_questions',enterprise_dialogue.questions(record['family']))
         if record['id'] not in known and record.get('ticket'):tickets.state['tickets'].append(copy.deepcopy(record['ticket']))
         ticket=next((t for t in tickets.state['tickets'] if t['id']==record['id']),None)
         if not ticket or record.get('family')!='ftp' or ticket.get('status')=='clos' or ticket.get('impact',{}).get('evidence'):continue
@@ -189,26 +195,10 @@ def public(s):
     return [dict(id=r['id'],target_serial=r['target_serial'],created=r['created'],family=r['family']) for r in incidents.values() if r.get('lifecycle') not in ('awaiting_activity','resolved_before_report')]
 
 def dialogue(s,ident,question):
-    from client_dialogue import QUESTIONS
-    if question not in QUESTIONS:raise ValueError('Question inconnue.')
     record=s.get('live_incidents',{}).get(ident)
     if not record:raise ValueError('Incident inconnu.')
-    v=view(s,record['target_serial']);ticket=record['ticket'];at=time.time()
-    if question=='scope':answer='Je travaille sur '+v['devices']['client']['name']+'. '+ticket['impact']['activity']+'.'
-    elif question=='when':
-        stamp=record.get('reported_at')
-        answer=('Je l’ai constaté à '+time.strftime('%H:%M:%S',time.localtime(stamp))+', au moment de mon signalement. Je ne sais pas si le problème avait commencé plus tôt.') if stamp else 'Je n’avais pas noté l’heure à mon signalement ; je ne peux pas préciser quand le problème a commencé.'
-    elif question=='login':answer='Le compte est refusé.' if not v['directory']['users'][v['directory_user_id']]['enabled'] else 'Mon compte est actif ; cela ne confirme pas mon accès aux fichiers.'
-    elif question=='network':
-        observation=v.get('observation') or {}
-        from workspace_model import TTL
-        fresh = 0 <= at - observation.get('at', 0) <= TTL
-        status = observation.get('status', 'unknown') if fresh else 'unknown'
-        answer={'passed':'Le dernier contrôle réseau est positif.','failed':'Le dernier contrôle réseau a échoué.'}.get(status,'Je ne dispose pas encore d’un contrôle réseau récent.')
-    elif question=='retest':answer='La fonction demandée est disponible au dernier contrôle.' if all(r['status']=='valide' for r in checks(s,ticket,at)) else 'Le contrôle ne confirme pas encore que je peux reprendre cette activité.'
-    else:answer='Je ne peux pas confirmer cela sans effectuer le test sur mon poste.'
-    row=dict(at=at,question=QUESTIONS[question],answer=answer,speaker=v['requester'])
-    ticket.setdefault('dialogue',[]).append(row);return row
+    return enterprise_dialogue.answer(s,record,question,time.time(),checks)
+
 
 def work_status(s, include_pending=False):
     result=[]
@@ -254,6 +244,8 @@ def discover(tickets, at=None):
             record['lifecycle']='resolved_before_report';record['activity']['status']='passed';ticket['status']='clos'
             continue
         record['lifecycle']='reported';record['reported_at']=at;record['activity']['status']='failed'
+        knowledge=record.setdefault('client_report',enterprise_dialogue.snapshot(view(s,record['target_serial']),ticket))
+        knowledge['attempts'].append(enterprise_dialogue.attempt_description(knowledge,at,'failed'))
         ticket['created']=time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(at))
         ticket['incident_context']['reported_at']=at
         if ticket['timer'].get('limit') and not ticket['timer']['started']:timers.operate(ticket['timer'],'start',at)
