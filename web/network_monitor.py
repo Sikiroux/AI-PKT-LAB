@@ -1,8 +1,30 @@
 """Planification bornée et état informatif des preuves réseau, sans accès au pont."""
 from workspace_model import TTL
+import threading
+import time
 
 
-def select_target(state):
+class BrowserPresence:
+    """Priorité éphémère ; ne constitue ni session ni preuve réseau."""
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._seen = {}
+
+    def touch(self, environment, serial, now=None):
+        now = time.monotonic() if now is None else now
+        with self._lock:
+            self._seen = {key: at for key, at in self._seen.items() if 0 <= now-at <= 15}
+            self._seen[(environment, serial)] = now
+
+    def active(self, environment, now=None):
+        now = time.monotonic() if now is None else now
+        with self._lock:
+            return {serial for (env, serial), at in self._seen.items()
+                    if env == environment and 0 <= now-at <= 15}
+
+
+
+def select_target(state, foreground=None):
     profiles = state.get('client_workspaces', {})
     primary = state.get('devices', {}).get('client', {}).get('serial')
     if not profiles:
@@ -20,7 +42,9 @@ def select_target(state):
     # ne peut affamer les autres postes. Le poste le moins récemment tenté passe.
     turn = state.get('monitor_turn', 0)
     state['monitor_turn'] = turn + 1
-    pool = active if active and turn % 2 == 0 else list(profiles)
+    visible = [serial for serial in (foreground or ()) if serial in profiles]
+    priority = visible or active
+    pool = priority if priority and turn % 2 == 0 else list(profiles)
     return min(pool, key=age_key)
 
 

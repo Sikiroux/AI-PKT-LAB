@@ -1,3 +1,7 @@
+# v0.70 — Surveillance du bureau consulté
+
+Les bureaux visibles reçoivent une priorité temporaire dans la surveillance périodique du parc de 30 postes. Les onglets abandonnés ne conservent plus cette priorité. Aucune validation réseau implicite ni accélération périodique. [Portée, limites et recette PT9](docs/V070-SURVEILLANCE-BUREAU.md).
+
 # v0.69 — Aides, réponses et bilan des interventions
 
 Indices consultables et mémorisés, correction volontaire des incidents actuels, bilan factuel et export HTML imprimable. Consulter une correction ne répare rien et ne valide pas le ticket. [Détails, limites et recette](docs/V069-AIDES-ET-BILAN.md).

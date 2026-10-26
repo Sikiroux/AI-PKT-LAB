@@ -51,6 +51,8 @@ class Controller:
         active = self.environments.data['active']
         self.workspace = Workspace(self.environments.path(active) if active else self.folder / 'session.json')
         self.lock = threading.RLock()
+        from network_monitor import BrowserPresence
+        self.browser_presence = BrowserPresence()
         self.on_change = None
         self._migrate_directory(self.workspace)
 
@@ -229,7 +231,7 @@ class Controller:
                 return
             if not blocking and not client_serial and s.get('staff_size') == 30:
                 import network_monitor
-                client_serial = network_monitor.select_target(s)
+                client_serial = network_monitor.select_target(s, self.browser_presence.active(s.get('environment_id','legacy')))
             if client_serial:
                 with self.client_scope(client_serial):
                     self._observe_one(blocking=True, accelerate=accelerate if blocking else False)

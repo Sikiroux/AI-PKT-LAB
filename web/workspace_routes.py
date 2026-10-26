@@ -24,7 +24,11 @@ class WorkspaceRoutes:
         elif path == '/workspace/state':
             query=parse_qs(urlsplit(handler.path).query)
             serial=query.get('client_serial',[None])[0]
-            handler.send(200, self.controller.public_snapshot(serial) if serial else self.controller.public_snapshot())
+            snapshot = self.controller.public_snapshot(serial) if serial else self.controller.public_snapshot()
+            if (snapshot and query.get('visible') == ['1'] and
+                    query.get('environment_id') == [snapshot.get('environment_id')]):
+                self.controller.browser_presence.touch(snapshot['environment_id'], snapshot.get('client_serial'))
+            handler.send(200, snapshot)
         elif path.startswith('/osjs/'):
             name = path.removeprefix('/osjs/')
             allowed = {'main.js', 'main.css', 'LICENSE',

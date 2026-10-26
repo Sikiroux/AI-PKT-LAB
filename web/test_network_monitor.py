@@ -74,3 +74,48 @@ class ControllerMonitorTests(unittest.TestCase):
             controller.observe(blocking=True,client_serial='b',accelerate=True)
             controller.client_scope.assert_called_once_with('b')
             controller._observe_one.assert_called_once_with(blocking=True,accelerate=True)
+
+class ForegroundTests(unittest.TestCase):
+    def test_presence_is_short_lived_and_scoped(self):
+        presence=monitor.BrowserPresence()
+        presence.touch('A','pc1',100)
+        self.assertEqual(presence.active('A',115),{'pc1'})
+        self.assertEqual(presence.active('A',116),set())
+        self.assertEqual(presence.active('B',101),set())
+        self.assertEqual(presence.active('A',99),set())
+
+    def test_visible_post_beats_old_open_sessions_without_starving_park(self):
+        s=MonitorTests().state();seen=set()
+        for at in range(1,61):
+            serial=monitor.select_target(s,{'pc07','unknown'})
+            if at%2==1:self.assertEqual(serial,'pc07')
+            seen.add(serial)
+            if serial=='pc00':s['observation']={'at':at}
+            else:s['client_workspaces'][serial]['local']['observation']={'at':at}
+        self.assertEqual(len(seen),30)
+
+    def test_presence_does_not_validate_network_or_authenticate(self):
+        import copy
+        s=MonitorTests().state();before=copy.deepcopy(s)
+        presence=monitor.BrowserPresence();presence.touch('A','pc00',100)
+        self.assertEqual(s,before)
+        self.assertEqual(monitor.public_status(s,101)['status'],'unknown')
+
+class PresenceRouteTests(unittest.TestCase):
+    def test_read_registers_only_visible_matching_environment(self):
+        from types import SimpleNamespace
+        from unittest.mock import Mock
+        from workspace_routes import WorkspaceRoutes
+        snapshot=dict(environment_id='A',client_serial='pc1')
+        controller=SimpleNamespace(public_snapshot=Mock(return_value=snapshot),browser_presence=monitor.BrowserPresence())
+        routes=WorkspaceRoutes(controller,'token')
+        def read(query):
+            handler=SimpleNamespace(path='/workspace/state'+query,send=Mock())
+            self.assertTrue(routes.get(handler));handler.send.assert_called_once_with(200,snapshot)
+        read('?client_serial=pc1&visible=1&environment_id=B')
+        self.assertEqual(controller.browser_presence.active('A'),set())
+        read('?client_serial=pc1&environment_id=A')
+        self.assertEqual(controller.browser_presence.active('A'),set())
+        read('?client_serial=pc1&visible=1&environment_id=A')
+        self.assertEqual(controller.browser_presence.active('A'),{'pc1'})
+        self.assertEqual(controller.browser_presence.active('B'),set())
