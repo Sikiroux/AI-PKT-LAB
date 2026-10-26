@@ -69,6 +69,14 @@ def answer(s,record,question,at,checks):
         status=proof['status'] if proof['observed_at']<=at<=proof['valid_until'] else 'unknown'
         response={'passed':'Le dernier contrôle réseau par IP est positif. Cela ne confirme pas l’accès à la ressource.',
                   'failed':'Le dernier contrôle réseau par IP a échoué.'}.get(status,'Je ne dispose pas encore d’un contrôle réseau récent pour ce poste et ce serveur.')
+        if question=='network':
+            observed=v.get('network_observation') or {}
+            stamp=observed.get('at',0)
+            fresh=type(stamp) in (int,float) and 0<=at-stamp<=ad.TTL
+            link=observed.get('client_link') if fresh else None
+            if link is False:response='Le dernier relevé du poste indique une liaison réseau débranchée. Il faut vérifier le câble et le port avant de conclure sur le service.'
+            elif link is True:response='Le dernier relevé indique une liaison réseau présente. '+response
+            else:response='Je n’ai pas de relevé récent de la liaison du poste. '+response
     elif question=='name':
         observation,_=dns_adapter.resolution(v,at)
         response='L’adresse habituelle est '+knowledge['resource']+'. '

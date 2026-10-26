@@ -85,7 +85,7 @@ def receive(tickets,target='random',minutes=30,client_serial='random',engine='va
                 scope='service_users' if family=='ftp' and ftp_known else 'workstation',departments=departments,
                 evidence='business_dependencies' if family=='ftp' and ftp_known else 'reported_workstation')
     ticket=dict(id=ident,kind='workspace',name=profile['device']['name'],target_serial=serial,requester=profile['requester'],
-        title=title,description=profile['requester']+' : « '+complaint+' » Poste : '+profile['device']['name']+'.',
+        requester_account_id=profile['user_id'],title=title,description=profile['requester']+' : « '+complaint+' » Poste : '+profile['device']['name']+'.',
         status='nouveau',stage='prepared',workspace_goal='live',live_incident=True,live_family=family,impact=impact,
         severity='critique' if len(affected)>1 else 'elevee' if impact['work_status']=='blocked' else 'moderee',
         created=time.strftime('%Y-%m-%d %H:%M:%S'),checks=[],complete=False,notes='',dialogue=[],timer=timers.configure(minutes,'training'))
@@ -133,7 +133,7 @@ def receive(tickets,target='random',minutes=30,client_serial='random',engine='va
         ticket['created']=time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(applied))
         ticket['incident_context']=dict(occurred_at=applied,applied_at=applied,reported_at=applied,
                                        resource_kind=family,resource=('Application Documents locale' if cause=='documents_missing' else 'Documents (partage réseau)') if family=='endpoint' else family)
-        current.setdefault('live_incidents',{})[ident]=dict(id=ident,target_serial=serial,family=family,
+        current.setdefault('live_incidents',{})[ident]=dict(id=ident,target_serial=serial,requester_account_id=profile['user_id'],family=family,
             cause=cause,created=created,applied_at=applied,reported_at=applied,
             lifecycle='awaiting_activity' if discovery_delay else 'reported',
             discovery_due=applied+discovery_delay,activity=dict(label=impact['activity'],status='pending' if discovery_delay else 'failed'),ticket=copy.deepcopy(ticket))
@@ -173,12 +173,26 @@ def recover(tickets,s):
 def checks(s,t,at):
     record=s.get('live_incidents',{}).get(t['id'])
     if not record or record['target_serial']!=t['target_serial']:raise ValueError('Incident absent ou cible remplacée.')
+    try:v=view(s,t['target_serial'])
+    except ValueError:
+        return [dict(label='Poste du signalement identifié',status='inconnu',detail='Le poste du signalement ne possède plus de bureau identifiable dans cet environnement.')]
+    original=(record.get('requester_account_id') or record['ticket'].get('requester_account_id') or
+              (record.get('client_report') or {}).get('user_id'))
+    if not original:
+        employee=record['ticket'].get('employee_id')
+        original=s.get('company_registry',{}).get('people',{}).get(employee,{}).get('account_id')
+    if not original:
+        return [dict(label='Demandeur du signalement identifié',status='inconnu',
+                     detail='Le compte du demandeur initial n’est pas identifiable dans cette sauvegarde. Aucun résultat personnel ne peut être confirmé avec le compte courant par défaut.')]
+    if original!=v.get('directory_user_id'):
+        return [dict(label='Demandeur et poste du signalement',status='inconnu',
+                     detail='Le compte affecté au poste a changé depuis le signalement. Un essai avec son nouvel utilisateur ne confirme pas l’accès du demandeur initial.')]
     if record['family']=='peripherals':
         model=s.get('peripherals')
         if not model or model['environment_id']!=s.get('environment_id','legacy'):
             return [dict(label='Équipement local du poste',status='inconnu',detail='Équipement non disponible pour cet environnement.')]
         return [dict(label=hardware.KINDS[kind]+' externe opérationnel',status='valide' if check['available'] else 'non satisfait',detail='État matériel simulé du poste identifié ; aucun contrôle réseau requis.') for kind,check in hardware.evaluate(model,t['target_serial']).items()]
-    v=view(s,t['target_serial']);family=record['family']
+    family=record['family']
     if family=='printing':
         result=ds.evaluate_print(v,'office',at);ok=result['allowed'];unknown=result['status']=='unknown'
     elif family=='endpoint':

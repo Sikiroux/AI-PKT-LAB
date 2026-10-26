@@ -87,7 +87,15 @@ def link_tickets(state, tickets):
         if not serial and ticket.get('id') == 'INC-1000':
             serial = primary.get('serial')
         refs = links(state, serial)
-        if refs and any(ticket.get(k) != v for k, v in refs.items()):
-            ticket.update(refs, target_serial=serial)
-            changed = True
+        account=ticket.get('requester_account_id')
+        if refs and account:
+            people=[p for p in state['company_registry']['people'].values() if p.get('account_id')==account]
+            refs['employee_id']=people[0]['id'] if len(people)==1 else None
+        if refs:
+            # Le demandeur du signalement ne devient pas le nouvel occupant du poste.
+            # Un lien déjà enregistré est historique, pas une affectation à synchroniser.
+            for key,value in dict(refs,target_serial=serial).items():
+                if key not in ticket:
+                    ticket[key]=value
+                    changed=True
     return changed

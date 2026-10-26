@@ -1,3 +1,7 @@
+# v0.73 — Identité du demandeur conservée
+
+Les tickets conservent leur demandeur au signalement ; un nouvel occupant du poste ne peut pas valider sa demande. Les réponses client distinguent liaison physique et contrôle par IP. [Portée, limites et recette](docs/V073-IDENTITE-DU-SIGNALEMENT.md).
+
 # v0.72 — Contrôles réseau indépendants
 
 Un appareil absent ou ambigu ne bloque plus les mesures des trajets indépendants. Les trajets non identifiés restent non vérifiés ; un mauvais fichier PT bloque toujours toute observation. [Détails, limites et recette](docs/V072-CONTROLES-INDEPENDANTS.md).
