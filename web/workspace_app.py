@@ -170,15 +170,16 @@ class Controller:
             if self.on_change:self.on_change(self.workspace.state,self.workspace.path.parent)
             return self.workspace.public()
 
-    def identities(self, snapshot):
+    def identities(self, snapshot, partial=False):
         s = self.workspace.state
         actual = snapshot.get('saved_filename')
         if not actual or ntpath.normcase(ntpath.normpath(actual)) != ntpath.normcase(ntpath.normpath(s['network_file'])):
             raise ValueError('Ouvre entreprise.pkt de cette session et enregistre-le au même emplacement.')
         found = {}
         for role, expected in s['devices'].items():
-            matches = [d for d in snapshot['devices'] if d.get('serial') == expected['serial']]
+            matches = [d for d in snapshot['devices'] if d.get('serial') == expected['serial']] if expected.get('serial') else []
             if len(matches) != 1:
+                if partial:continue
                 raise ValueError('Identité absente ou ambiguë : ' + role)
             found[role] = matches[0]
         return found
@@ -284,30 +285,12 @@ class Controller:
                 return
             self._read_state = copy.deepcopy((getattr(self,'_canonical_workspace',None) or self.workspace).state)
             with self.engine.lock:
-                snapshot=self.engine.snapshot();found = self.identities(snapshot)
+                snapshot=self.engine.snapshot();found = self.identities(snapshot, partial=True)
                 s['observed_workstations'] = [copy.deepcopy(d) for d in snapshot.get('devices', []) if d.get('model') in ('PC-PT','Laptop-PT')]
-                client=found['client'];ports=[p for p in client.get('ports',[]) if p.get('name')=='FastEthernet0']
+                client=found.get('client',{});ports=[p for p in client.get('ports',[]) if p.get('name')=='FastEthernet0']
                 s['network_observation']=dict(at=time.time(),devices=workspace_links.signature(snapshot,s),client_link=ports[0].get('linked') if ports else None,interfaces={role:[dict(p) for p in device.get('ports',[]) if p.get('name')=='FastEthernet0'] for role,device in found.items()})
-                probes = {}
-                jobs=[('remote','technician','client'),('share','client','server'),('directory','technician','server')]
-                if 'desktop_services' in s:jobs.append(('printing','client',s['desktop_services']['printing']['printer']['device_role']))
-                batch=None
-                if callable(getattr(type(self.engine),'quiet_pings',None)):
-                    batch=dict(zip([j[0] for j in jobs],self.engine.quiet_pings([(found[source]['name'],s['devices'][target_role]['ip']) for key,source,target_role in jobs],accelerate=accelerate)))
-                for key, source, target_role in (('remote', 'technician', 'client'), ('share', 'client', 'server'), ('directory', 'technician', 'server')):
-                    target = s['devices'][target_role]['ip']
-                    ping = batch[key] if batch is not None else self.engine.ping(found[source]['name'], target)
-                    probes[key] = dict(at=time.time(), source='Packet Tracer',
-                        status={'valide': 'passed', 'non satisfait': 'failed'}.get(ping['status'], 'unknown'),
-                        detail=ping.get('detail', ''), source_device=found[source]['name'], target=target)
-                if 'desktop_services' in s:
-                    printer=s['desktop_services']['printing']['printer'];target=s['devices'][printer['device_role']]['ip']
-                    ping=batch['printing'] if batch is not None else self.engine.ping(found['client']['name'],target)
-                    probes['printing']=dict(at=time.time(),source='Packet Tracer',status={'valide':'passed','non satisfait':'failed'}.get(ping['status'],'unknown'),detail=ping.get('detail',''),source_device=found['client']['name'],target=target)
-                outside=s.get('technician_locations',{}).get('outside')
-                if outside and (s.get('technician_session') or {}).get('location')=='outside':
-                    ping=self.engine.quiet_pings([(found['technician']['name'],outside['gateway'])],accelerate=accelerate)[0] if batch is not None else self.engine.ping(found['technician']['name'],outside['gateway'])
-                    probes['vpn_gateway']=dict(at=time.time(),source='Packet Tracer',status={'valide':'passed','non satisfait':'failed'}.get(ping['status'],'unknown'),detail=ping.get('detail',''),source_device=found['technician']['name'],target=outside['gateway'])
+                import network_observer
+                probes=network_observer.collect(self.engine,s,found,time.time,accelerate)
             statuses = [p['status'] for p in probes.values()]
             status = 'passed' if all(x == 'passed' for x in statuses) else 'unknown' if 'unknown' in statuses else 'failed'
             s['observation'] = dict(at=time.time(), status=status, source='Packet Tracer', probes=probes)

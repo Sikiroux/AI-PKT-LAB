@@ -67,7 +67,7 @@ class CoherenceTests(unittest.TestCase):
   t['vpn'].update(connected=True,expires_at=self.now+1000)
   self.s['technician_locations']={'outside':{'gateway':'192.0.2.1','device':'outside-router','port':'GigabitEthernet0/0'}}
   found={key:dict(device,ports=[]) for key,device in self.s['devices'].items()}
-  self.c.identities=lambda snapshot:found
+  self.c.identities=lambda snapshot, **kwargs:found
   self.c.engine=SimpleNamespace(lock=threading.RLock(),snapshot=lambda:dict(devices=[]),ping=lambda source,target:dict(status='inconnu'))
   self.s['network_file']='training.pkt';self.c._observe_one(blocking=True)
   self.assertIn('vpn_gateway',self.s['observation']['probes'])

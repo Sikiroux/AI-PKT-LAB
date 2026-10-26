@@ -1,3 +1,7 @@
+# v0.72 — Contrôles réseau indépendants
+
+Un appareil absent ou ambigu ne bloque plus les mesures des trajets indépendants. Les trajets non identifiés restent non vérifiés ; un mauvais fichier PT bloque toujours toute observation. [Détails, limites et recette](docs/V072-CONTROLES-INDEPENDANTS.md).
+
 # v0.71 — Sessions conservées lors des changements de transport
 
 Déplacer le portable technicien ou déconnecter son VPN ne déconnecte plus le compte Windows de l’employé. Les anciennes preuves réseau sont invalidées sur tous les bureaux ; les actions restent suspendues jusqu’au rétablissement. [Détails et recette PT9](docs/V071-TRANSPORT-ET-SESSIONS.md).
