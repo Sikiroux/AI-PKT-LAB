@@ -27,7 +27,10 @@ def snapshot(v,ticket):
     elif family in ('endpoint','dns'):
         resource='\\\\'+server+'\\Documents'
         operation='ouvrir le partage Documents à l’adresse '+resource
-    elif family=='ftp':resource=server;operation='ouvrir le dépôt FTP sur '+server
+    elif family=='ftp':
+        resource=ticket.get('request_context',{}).get('resource',server)
+        goal=ticket.get('transfer_goal') or {}
+        operation=('télécharger '+goal['name']+' depuis le dépôt FTP sur '+server) if goal.get('name') else 'ouvrir le dépôt FTP sur '+server
     elif family=='ad':
         resource=v['directory']['users'][v['directory_user_id']]['username']
         operation='ouvrir ma session avec le compte '+resource
@@ -117,7 +120,15 @@ def answer(s,record,question,at,checks):
                     response={'passed':'Le nom est retrouvé et le contrôle autorise la lecture d’un document du partage. Aucun fichier n’a été modifié.',
                               'failed':'Le nom est retrouvé, mais la lecture du document du partage reste indisponible sur mon poste.',
                               'unknown':'Le nom est retrouvé, mais je ne peux pas encore confirmer la lecture du document. Vérifie ma session et les contrôles Documents du poste.'}[outcome]
-            elif family=='ftp':operation='joindre le service FTP'
+            elif family=='ftp':
+                operation=knowledge['operation'] if len(rows)>1 else 'joindre le service FTP'
+                if rows and rows[0]['status']=='non satisfait':
+                    outcome='failed';response='Je ne peux toujours pas joindre le service FTP depuis mon poste.'
+                elif len(rows)>1 and outcome=='passed':
+                    response='Le téléchargement demandé est confirmé sur mon poste et la copie locale correspond au document actuel du dépôt.'
+                elif rows and rows[0]['status']=='valide':
+                    outcome='unknown';response='Le service FTP est accessible, mais le téléchargement demandé sur mon poste n’est pas encore confirmé. Je dois me connecter au client FTP et télécharger le document indiqué.'
+                else:response='Je ne dispose pas de contrôles récents permettant de confirmer le service FTP et le téléchargement.'
         knowledge['attempts'].append(dict(at=at,operation=operation,status=outcome));knowledge['attempts']=knowledge['attempts'][-20:]
     row=dict(at=at,question=LABELS[question],answer=response,speaker=ticket['requester'])
     ticket.setdefault('dialogue',[]).append(row);ticket['dialogue']=ticket['dialogue'][-60:]

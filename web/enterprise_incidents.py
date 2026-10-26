@@ -53,6 +53,9 @@ def receive(tickets,target='random',minutes=30,client_serial='random',engine='va
     if ftp_known and not any(candidate in ftp_users for candidate in candidates):
         if target=='ftp':raise ValueError('Aucun poste disponible ne dépend du dépôt FTP pour son activité métier.')
         options=[p for p in options if p[0]!='ftp']
+    if not s['desktop_services']['ftp']['files']:
+        if target=='ftp':raise ValueError('Le dépôt FTP ne contient aucun document à demander en téléchargement.')
+        options=[pair for pair in options if pair[0]!='ftp']
     if previous and target=='random':options=[p for p in options if p[0]!=previous.get('live_family')] or options
     if not options:raise ValueError('Cette famille est indisponible ou un incident partagé est déjà ouvert.')
     family=rng.choice(sorted({pair[0] for pair in options}))
@@ -94,10 +97,16 @@ def receive(tickets,target='random',minutes=30,client_serial='random',engine='va
     # Le récit public nomme la ressource attendue, jamais la mutation privée.
     resource = ('\\\\'+s['devices']['server']['name']+'\\Documents') if family in ('endpoint','dns') else profile['device']['name']
     if family=='printing':resource=profile['printing']['queues']['office']['name']
-    elif family=='ftp':resource=s['devices']['server']['name']+' · dépôt FTP'
+    elif family=='ftp':
+        filename=sorted(s['desktop_services']['ftp']['files'])[0]
+        resource=s['devices']['server']['name']+' · dépôt FTP / '+filename
+        ticket['transfer_goal']=dict(direction='download',name=filename)
     elif family=='ad':resource=s['directory']['users'][profile['user_id']]['username']
     ticket['request_context'].update(resource=resource,resource_scope='remote' if family in ('endpoint','dns','ftp') else 'account' if family=='ad' else 'peripheral' if family=='peripherals' else 'printer',expected_result={'endpoint':'Ouvrir les documents du partage depuis ce poste.','dns':'Retrouver le partage avec son nom habituel et ouvrir un document.','printing':'Obtenir le document dans la bonne file d’impression.','ftp':'Se connecter au dépôt et effectuer le transfert demandé.','ad':'Ouvrir la session du demandeur avec son compte.','peripherals':'Utiliser à nouveau l’accessoire sur le poste.'}[family])
+    if family=='ftp':
+        ticket['request_context']['expected_result']='Depuis '+profile['device']['name']+', se connecter au dépôt FTP et télécharger '+ticket['transfer_goal']['name']+' dans les fichiers locaux du poste.'
     ticket['description']+=' Ressource concernée : '+resource+'.'
+    if family=='ftp':ticket['description']+=' Résultat attendu : '+ticket['request_context']['expected_result']
     ticket['dialogue_questions']=enterprise_dialogue.questions(family)
     with c.client_scope(serial):
         current=c.workspace.state
@@ -138,6 +147,7 @@ def receive(tickets,target='random',minutes=30,client_serial='random',engine='va
             cause=cause,created=created,applied_at=applied,reported_at=applied,
             lifecycle='awaiting_activity' if discovery_delay else 'reported',
             discovery_due=applied+discovery_delay,activity=dict(label=impact['activity'],status='pending' if discovery_delay else 'failed'),ticket=copy.deepcopy(ticket))
+        if family=='ftp':current['live_incidents'][ident]['transfer_goal']=copy.deepcopy(ticket['transfer_goal'])
         if discovery_delay:
             current['live_incidents'][ident]['reported_at']=None
             ticket['incident_context']['reported_at']=None
@@ -233,7 +243,17 @@ def checks(s,t,at):
         rows.append(dict(label='Document du partage lisible depuis le poste du demandeur',status=status,detail=detail))
         return rows
     else:
-        result=ds.ftp_check(v,'login','client',at);ok=result['allowed'];unknown=result['status']=='unknown'
+        import ftp_transfers
+        result=ds.ftp_check(v,'login','client',at)
+        status='valide' if result['allowed'] else 'inconnu' if result['status']=='unknown' else 'non satisfait'
+        goal=record.get('transfer_goal') or record['ticket'].get('transfer_goal') or {}
+        filename=goal.get('name','un document du dépôt')
+        confirmed=bool(result['allowed']) and ftp_transfers.download_confirmed(v,record,at)
+        return [dict(label='Service FTP accessible depuis le poste du demandeur',status=status,
+                     detail='Disponibilité du service et preuve réseau récente ; aucune authentification ni aucun transfert automatique.'),
+                dict(label='Téléchargement confirmé : '+filename,status='valide' if confirmed else 'inconnu',
+                     detail='Téléchargement effectué après la panne depuis ce poste ; copie locale conforme au fichier actuel du dépôt.' if confirmed else
+                     'Depuis le poste du demandeur, connecte le client FTP avec un compte autorisé et télécharge '+filename+'. Un service disponible ou une copie locale préexistante ne suffisent pas.')]
     labels={'printing':'File d’impression utilisable sur le poste du demandeur',
             'endpoint':'Accès au partage Documents depuis l’application du poste',
             'ad':'Compte actif et session du demandeur authentifiée sur son poste',

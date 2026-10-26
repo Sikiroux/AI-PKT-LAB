@@ -1,8 +1,10 @@
 # Roadmap actuelle — entreprise persistante
 
-État livré : v0.75. Les correctifs issus des audits ont commencé : catalogue, observations et surveillance bornée. Le comportement réel dans Packet Tracer 9 reste à valider. Les blocs suivants nécessitent le cadrage du modèle commun avant toute extension du moteur d'entreprise.
+État livré : v0.76. Les correctifs issus des audits ont commencé : catalogue, observations et surveillance bornée. Le comportement réel dans Packet Tracer 9 reste à valider. Les blocs suivants nécessitent le cadrage du modèle commun avant toute extension du moteur d'entreprise.
 
 ## Stabilité en cours
+
+v0.76 : téléchargement FTP nommé, trace de réussite par poste/environnement et contrôle de la copie locale ; service seul insuffisant. Impression d’un document et transferts de tous les utilisateurs d’une panne partagée restent à approfondir. [Recette et limites](V076-TRANSFERT-FTP.md).
 
 v0.75 : résolution du nom et lecture du document contrôlées séparément pour les tickets DNS simultanés ; retest client cohérent. FTP et impression restent à approfondir. [Recette et limites](V075-DNS-ET-DOCUMENTS.md).
 

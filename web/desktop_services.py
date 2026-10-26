@@ -21,7 +21,7 @@ def ensure(s):
 
 def public(s):
     if not s or 'desktop_services' not in s:return None
-    d=copy.deepcopy(s['desktop_services']);d['ftp'].pop('sessions',None)
+    d=copy.deepcopy(s['desktop_services']);d['ftp'].pop('sessions',None);d['ftp'].pop('transfer_history',None)
     for a in d['ftp']['accounts'].values():a.pop('password_hash',None)
     d['ftp']['files']=[dict(name=n,size=len(v.encode())) for n,v in d['ftp']['files'].items()]
     d['endpoint']['local_files']=[dict(name=n,size=len(v.encode())) for n,v in d['endpoint']['local_files'].items()]
@@ -113,7 +113,10 @@ def ftp_action(s,action,payload,source,now):
         if name not in f['files']:return dict(allowed=False,code='550_FILE_NOT_FOUND')
         local=s['desktop_services']['endpoint']['local_files']
         if name not in local and len(local)>=100:return dict(allowed=False,code='LOCAL_STORAGE_FULL')
-        local[name]=f['files'][name];return dict(allowed=True,code='226',name=name,content=f['files'][name])
+        local[name]=f['files'][name]
+        import ftp_transfers
+        ftp_transfers.record_download(s,source,name,f['files'][name],now)
+        return dict(allowed=True,code='226',name=name,content=f['files'][name])
     content=payload.get('content');revision=payload.get('expected_revision')
     if not isinstance(content,str) or len(content.encode())>65536:raise ValueError('Texte de 64 Kio maximum.')
     if type(revision) is not int or revision!=f['revision']:return dict(allowed=False,code='REVISION_CONFLICT')

@@ -8,7 +8,7 @@ REPAIRS={
  'mapped_drive_wrong':('Chemin du lecteur réseau incorrect','Dans Paramètres du poste → Lecteur réseau, remets le chemin Documents de la documentation d’entreprise.'),
  'documents_missing':('Application Documents absente','Dans Paramètres du poste → Applications, installe Documents.'),
  'account_disabled':('Compte du demandeur désactivé','Depuis le technicien, ouvre Annuaire, sélectionne le compte associé au poste et réactive ce compte. Reconnecte ensuite cet utilisateur.'),
- 'service_stopped':('Service FTP arrêté','Depuis le technicien, ouvre Serveur FTP → Service et accès et démarre le service.'),
+ 'service_stopped':('Service FTP arrêté','Depuis le technicien, ouvre Serveur FTP → Service et accès et démarre le service. Depuis le poste du demandeur, connecte ensuite le client FTP avec un compte autorisé et télécharge le document indiqué dans le ticket.'),
  'resolver_wrong':('Serveur DNS client incorrect','Dans DNS, sélectionne le client du poste concerné et configure l’adresse du serveur DNS indiqué dans la documentation. Renouvelle la résolution du nom.'),
 }
 

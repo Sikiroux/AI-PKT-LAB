@@ -1,3 +1,7 @@
+# v0.76 — Téléchargement FTP confirmé
+
+Les nouveaux tickets FTP nomment un document à télécharger depuis le poste du demandeur. Le contrôle exige une trace de téléchargement réussi après la panne et une copie locale conforme au dépôt actuel ; le service seul ne suffit plus. [Détails, limites et recette](docs/V076-TRANSFERT-FTP.md).
+
 # v0.75 — DNS et document vérifiés séparément
 
 Le ticket DNS simultané ne se valide plus sur la seule résolution du nom : un document du partage doit aussi être lisible depuis le poste du demandeur. Le retest client distingue les deux résultats. [Détails, limites et recette](docs/V075-DNS-ET-DOCUMENTS.md).
