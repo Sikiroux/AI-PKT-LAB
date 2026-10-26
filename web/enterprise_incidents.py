@@ -9,6 +9,7 @@ import company_registry
 import enterprise_dialogue
 import desktop_services as ds
 import files_adapter
+import directory_adapter
 import timers
 import dns_adapter
 import sim_peripherals as hardware
@@ -202,14 +203,28 @@ def checks(s,t,at):
         unknown=result['status']=='unknown'
     elif family=='ad':
         from workspace_model import evaluate
-        result=evaluate(v,'remote',at);ok=result['allowed'] and v['directory']['users'][v['directory_user_id']]['enabled'];unknown=result['status']=='unknown'
+        result=evaluate(v,'remote',at)
+        enabled=v['directory']['users'][v['directory_user_id']]['enabled']
+        authenticated=bool(directory_adapter.authentication(v,'client',at))
+        ok=result['allowed'] and enabled and authenticated
+        unknown=result['status']=='unknown' or (result['allowed'] and enabled and not authenticated)
     elif family=='dns':
         observation,result=dns_adapter.resolution(v,at)
         ok=observation['status']=='resolved' and observation['resolved_ip']==v['devices']['server']['ip'];unknown=observation['status']=='unknown'
     else:
         result=ds.ftp_check(v,'login','client',at);ok=result['allowed'];unknown=result['status']=='unknown'
-    return [dict(label='Fonction concernée disponible sur le poste identifié',status='valide' if ok else 'inconnu' if unknown else 'non satisfait',
-                 detail='Contrôle de la fonction simulée et preuve réseau Packet Tracer récente ; aucune réponse réseau inventée.')]
+    labels={'printing':'File d’impression utilisable sur le poste du demandeur',
+            'endpoint':'Accès au partage Documents depuis l’application du poste',
+            'ad':'Compte actif et session du demandeur authentifiée sur son poste',
+            'dns':'Nom documentaire résolu vers le serveur attendu',
+            'ftp':'Service FTP joignable avant authentification du compte'}
+    detail='Contrôle de la fonction simulée et preuve réseau Packet Tracer récente ; aucune réponse réseau inventée.'
+    if family=='ad' and result['allowed'] and enabled and not authenticated:
+        detail='Le compte est actif et le poste accessible. Ouvre la session utilisateur du demandeur sur ce poste, puis relance la vérification ; sa connexion n’est pas encore confirmée.'
+    elif family=='printing':detail+=' Aucun nouveau document n’a été imprimé par ce contrôle.'
+    elif family=='dns':detail+=' Ce contrôle de nom ne confirme pas l’accès au partage.'
+    elif family=='ftp':detail+=' Ce contrôle ne confirme ni un mot de passe ni un transfert de fichier.'
+    return [dict(label=labels[family],status='valide' if ok else 'inconnu' if unknown else 'non satisfait',detail=detail)]
 
 def public(s):
     incidents=s.get('live_incidents',{})

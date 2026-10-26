@@ -1,3 +1,7 @@
+# v0.74 — Connexion du demandeur réellement confirmée dans la simulation
+
+Un compte AD réactivé et un poste joignable ne suffisent plus à valider le ticket : la session du demandeur doit être authentifiée sur son poste. Les autres contrôles précisent leurs limites. [Détails et recette PT9](docs/V074-CONFIRMATION-SESSION-AD.md).
+
 # v0.73 — Identité du demandeur conservée
 
 Les tickets conservent leur demandeur au signalement ; un nouvel occupant du poste ne peut pas valider sa demande. Les réponses client distinguent liaison physique et contrôle par IP. [Portée, limites et recette](docs/V073-IDENTITE-DU-SIGNALEMENT.md).
