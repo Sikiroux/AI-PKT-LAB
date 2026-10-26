@@ -16,8 +16,13 @@ def ensure(s):
 def invalidate(s):
     if 'technician_session' in s:
         s['technician_session']['vpn'].update(connected=False,expires_at=0)
-    s['observation']=None;s['remote_session']=False
-    if 'directory' in s:ad.invalidate(s)
+    # Le transport du technicien ne ferme pas les sessions Windows des employés.
+    # Toutes les projections doivent perdre leurs anciennes preuves, même masquées.
+    holders=[s]+[profile['local'] for profile in s.get('client_workspaces',{}).values()]
+    for holder in holders:
+        holder['observation']=None
+        holder['network_observation']=None
+        holder['validated']=False
 
 def policy(s,now=None):
     now=time.time() if now is None else now;t=s.get('technician_session')
@@ -34,7 +39,9 @@ def policy(s,now=None):
 
 def vpn(s,action,password='',now=None):
     now=time.time() if now is None else now;ensure(s);t=s['technician_session'];v=t['vpn']
-    if action=='disconnect':v.update(connected=False,expires_at=0);s['remote_session']=False;ad.invalidate(s);return dict(allowed=True,code='VPN_DISCONNECTED')
+    if action=='disconnect':
+        invalidate(s)
+        return dict(allowed=True,code='VPN_DISCONNECTED')
     if action!='connect':raise ValueError('Action VPN inconnue.')
     if t['location']!='outside' or t['connection']!='wired' or t.get('pending'):raise ValueError('Raccorde le portable au réseau extérieur simulé avant le VPN.')
     if not (v['service_enabled'] and v['account_enabled'] and v['profile_valid']):return dict(allowed=False,code='VPN_PROFILE_REFUSED')

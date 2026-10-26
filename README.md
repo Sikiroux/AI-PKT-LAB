@@ -1,3 +1,7 @@
+# v0.71 — Sessions conservées lors des changements de transport
+
+Déplacer le portable technicien ou déconnecter son VPN ne déconnecte plus le compte Windows de l’employé. Les anciennes preuves réseau sont invalidées sur tous les bureaux ; les actions restent suspendues jusqu’au rétablissement. [Détails et recette PT9](docs/V071-TRANSPORT-ET-SESSIONS.md).
+
 # v0.70 — Surveillance du bureau consulté
 
 Les bureaux visibles reçoivent une priorité temporaire dans la surveillance périodique du parc de 30 postes. Les onglets abandonnés ne conservent plus cette priorité. Aucune validation réseau implicite ni accélération périodique. [Portée, limites et recette PT9](docs/V070-SURVEILLANCE-BUREAU.md).

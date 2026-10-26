@@ -102,9 +102,12 @@ class MixedTests(unittest.TestCase):
   self.assertFalse(tm.vpn(s,'connect','wrong',self.now)['allowed']);self.assertTrue(tm.vpn(s,'connect','Formation!2026',self.now)['allowed']);self.assertTrue(tm.policy(s,self.now)['allowed'])
   self.assertFalse(tm.policy(s,self.now+46)['allowed']);self.assertFalse(tm.policy(s,self.now+1801)['allowed'])
   s['observation']['probes']['vpn_gateway']['source_device']='client';self.assertFalse(tm.vpn(s,'connect','Formation!2026',self.now)['allowed'])
- def test_console_pending_and_vpn_disconnect_close_access(self):
+ def test_console_pending_and_vpn_disconnect_suspend_access_keep_session(self):
   tm.ensure(self.s);t=self.s['technician_session'];t['connection']='console';self.assertFalse(tm.policy(self.s,self.now)['allowed']);self.assertEqual(ad.context(self.s,'technician',self.now)['network']['status'],'failed')
-  t['pending']={'location':'office'};self.assertEqual(tm.policy(self.s,self.now)['status'],'unknown');tm.vpn(self.s,'disconnect',now=self.now);self.assertFalse(self.s['remote_session']);self.assertIsNone(self.s['directory_auth'])
+  auth=copy.deepcopy(self.s['directory_auth'])
+  t['pending']={'location':'office'};self.assertEqual(tm.policy(self.s,self.now)['status'],'unknown');tm.vpn(self.s,'disconnect',now=self.now)
+  self.assertTrue(self.s['remote_session']);self.assertEqual(self.s['directory_auth'],auth)
+  self.assertIsNone(self.s['observation']);self.assertFalse(tm.policy(self.s,self.now)['allowed'])
  def test_cable_script_guards_and_escapes_name(self):
   js=wl.disconnect_js(dict(name='pc";evil()',serial='serial'),'FastEthernet0',dict(device='switch',port='Fa1'))
   self.assertIn('getSerialNumber()',js);self.assertIn('deleteLink',js);self.assertNotIn('shutdown',js);self.assertIn('pc\\";evil()',js)
@@ -139,8 +142,10 @@ class BridgeTests(unittest.TestCase):
   tech=dict(s['devices']['technician'],ports=[dict(name='FastEthernet0',linked=False)])
   snapshot=dict(saved_filename=s['network_file'],devices=[dict(s['devices']['client'],ports=[]),dict(s['devices']['server'],ports=[]),tech,dict(name='sw',serial='sw',ports=[])])
   engine=Mock();engine.lock=threading.Lock();engine.snapshot.return_value=snapshot;engine.call.return_value=json.dumps({'error':'API unavailable'});self.c.engine=engine
+  auth=copy.deepcopy(s['directory_auth'])
   with self.assertRaises(ValueError):self.c.technician('move',dict(location='server_room',connection='wired'))
-  self.assertIsNotNone(s['technician_session']['pending']);self.assertFalse(s['remote_session']);self.assertIsNone(s['directory_auth'])
+  self.assertIsNotNone(s['technician_session']['pending']);self.assertTrue(s['remote_session']);self.assertEqual(s['directory_auth'],auth)
+  self.assertIsNone(s['observation']);self.assertFalse(tm.policy(s,self.now)['allowed'])
   tech['ports'][0].update(linked=True,peer=dict(device='sw',port='FastEthernet0/20'),ip=dest['ip'],mask=dest['mask'])
   self.c.technician('confirm',{});self.assertIsNone(s['technician_session']['pending']);self.assertEqual(s['devices']['technician']['ip'],dest['ip']);self.assertEqual(s['technician_session']['location'],'server_room')
  def test_same_environment_dialogue_does_not_pause_arrivals(self):

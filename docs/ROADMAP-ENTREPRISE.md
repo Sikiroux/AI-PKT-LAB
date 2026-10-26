@@ -1,8 +1,10 @@
 # Roadmap actuelle — entreprise persistante
 
-État livré : v0.70. Les correctifs issus des audits ont commencé : catalogue, observations et surveillance bornée. Le comportement réel dans Packet Tracer 9 reste à valider. Les blocs suivants nécessitent le cadrage du modèle commun avant toute extension du moteur d'entreprise.
+État livré : v0.71. Les correctifs issus des audits ont commencé : catalogue, observations et surveillance bornée. Le comportement réel dans Packet Tracer 9 reste à valider. Les blocs suivants nécessitent le cadrage du modèle commun avant toute extension du moteur d'entreprise.
 
 ## Stabilité en cours
+
+v0.71 : mobilité/VPN du technicien séparés de la connexion Windows des employés ; invalidation des preuves de tous les bureaux. [Recette PT9](V071-TRANSPORT-ET-SESSIONS.md).
 
 v0.70 : priorité temporaire aux bureaux visibles dans la surveillance du parc, avec équité conservée. Recette PT9 nécessaire ; ce correctif ne clôt pas le bloc stabilité ni la cohérence complète des incidents. [Détails](V070-SURVEILLANCE-BUREAU.md).
 
