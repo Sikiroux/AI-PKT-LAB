@@ -210,7 +210,28 @@ def checks(s,t,at):
         unknown=result['status']=='unknown' or (result['allowed'] and enabled and not authenticated)
     elif family=='dns':
         observation,result=dns_adapter.resolution(v,at)
-        ok=observation['status']=='resolved' and observation['resolved_ip']==v['devices']['server']['ip'];unknown=observation['status']=='unknown'
+        resolved=observation['status']=='resolved' and observation['resolved_ip']==v['devices']['server']['ip']
+        name_status='valide' if resolved else 'inconnu' if observation['status']=='unknown' else 'non satisfait'
+        rows=[dict(label='Nom documentaire résolu vers le serveur attendu',status=name_status,
+                   detail='Résolution simulée depuis le poste du demandeur, avec preuve réseau récente ; ce résultat seul ne valide pas la lecture.')]
+        status='inconnu';detail='Confirme d’abord la résolution du nom ; la lecture du partage n’est pas encore vérifiée.'
+        if resolved:
+            endpoint=v['desktop_services']['endpoint']
+            expected='\\\\'+v['devices']['server']['name']+'\\Documents'
+            files=[f for f in v['file_service']['files'].values() if f['share_id']==v['documents_share_id']]
+            if 'documents' not in endpoint['applications'] or endpoint['mapped_drive']['path'].casefold()!=expected.casefold():
+                status='non satisfait';detail='Le poste ne permet pas d’ouvrir le partage avec l’application et le lecteur attendus.'
+            elif not directory_adapter.authentication(v,'client',at):
+                detail='Le nom est retrouvé. Ouvre la session utilisateur du demandeur sur ce poste pour vérifier la lecture du partage.'
+            elif not files:
+                status='non satisfait';detail='Le partage ne contient aucun document à lire. Une liste de dossiers ne confirme pas l’ouverture d’un document.'
+            else:
+                read=files_adapter.access(v,'read',at)
+                status='valide' if read['allowed'] else 'inconnu' if read['status']=='unknown' else 'non satisfait'
+                detail='Lecture d’un document du partage autorisée par la simulation.' if read['allowed'] else 'La lecture du document reste refusée ou non vérifiée ; consulte le contrôle Documents du poste.'
+                detail+=' Aucun fichier n’a été modifié par ce contrôle.'
+        rows.append(dict(label='Document du partage lisible depuis le poste du demandeur',status=status,detail=detail))
+        return rows
     else:
         result=ds.ftp_check(v,'login','client',at);ok=result['allowed'];unknown=result['status']=='unknown'
     labels={'printing':'File d’impression utilisable sur le poste du demandeur',

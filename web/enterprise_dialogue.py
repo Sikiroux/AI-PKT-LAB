@@ -11,7 +11,7 @@ LABELS={'scope':'Poste et ressource concernés','when':'Quand l’avez-vous cons
         'login':'Session utilisateur','save':'Lecture et enregistrement','retest':'Réessayer maintenant'}
 FAMILIES={'printing':('scope','when','attempts','changes','network','ip','retest'),
           'endpoint':('scope','when','attempts','changes','network','name','login','save','retest'),
-          'dns':('scope','when','attempts','changes','network','ip','name','retest'),
+          'dns':('scope','when','attempts','changes','network','ip','name','login','retest'),
           'ad':('scope','when','attempts','changes','login','network','retest'),
           'ftp':('scope','when','attempts','changes','network','ip','retest'),
           'peripherals':('scope','when','attempts','changes','retest')}
@@ -105,9 +105,18 @@ def answer(s,record,question,at,checks):
             operation=knowledge['operation']
             if family=='dns':
                 operation='retrouver le nom du serveur documentaire'
-                response={'passed':'Le contrôle retrouve le nom du serveur documentaire. Il faut encore vérifier l’accès au partage.',
-                          'failed':'Le contrôle ne retrouve toujours pas le nom du serveur documentaire.',
-                          'unknown':'Je n’ai pas de contrôle récent permettant de confirmer la résolution du nom.'}[outcome]
+                name_status=rows[0]['status'] if rows else 'inconnu'
+                if name_status!='valide':
+                    outcome='failed' if name_status=='non satisfait' else 'unknown'
+                    response='Le nom habituel ne permet toujours pas de confirmer le serveur documentaire attendu.' if name_status=='non satisfait' else 'Je n’ai pas de contrôle récent permettant de confirmer la résolution du nom.'
+                elif len(rows)<2:
+                    outcome='unknown'
+                    response='Le contrôle retrouve le nom du serveur documentaire. Il faut encore vérifier l’accès au partage.'
+                else:
+                    operation='retrouver le serveur et lire un document du partage '+knowledge['resource']
+                    response={'passed':'Le nom est retrouvé et le contrôle autorise la lecture d’un document du partage. Aucun fichier n’a été modifié.',
+                              'failed':'Le nom est retrouvé, mais la lecture du document du partage reste indisponible sur mon poste.',
+                              'unknown':'Le nom est retrouvé, mais je ne peux pas encore confirmer la lecture du document. Vérifie ma session et les contrôles Documents du poste.'}[outcome]
             elif family=='ftp':operation='joindre le service FTP'
         knowledge['attempts'].append(dict(at=at,operation=operation,status=outcome));knowledge['attempts']=knowledge['attempts'][-20:]
     row=dict(at=at,question=LABELS[question],answer=response,speaker=ticket['requester'])

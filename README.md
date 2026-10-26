@@ -1,3 +1,7 @@
+# v0.75 — DNS et document vérifiés séparément
+
+Le ticket DNS simultané ne se valide plus sur la seule résolution du nom : un document du partage doit aussi être lisible depuis le poste du demandeur. Le retest client distingue les deux résultats. [Détails, limites et recette](docs/V075-DNS-ET-DOCUMENTS.md).
+
 # v0.74 — Connexion du demandeur réellement confirmée dans la simulation
 
 Un compte AD réactivé et un poste joignable ne suffisent plus à valider le ticket : la session du demandeur doit être authentifiée sur son poste. Les autres contrôles précisent leurs limites. [Détails et recette PT9](docs/V074-CONFIRMATION-SESSION-AD.md).
