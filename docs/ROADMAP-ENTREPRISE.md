@@ -99,3 +99,8 @@ Files d’impression : recherche locale, filtres, compteurs, conservation lors d
 ## Affinage UI v0.80
 
 Propriétés d’imprimante : identité visuelle, états explicites, onglets accessibles, actions générales et maintenance regroupées. Rendu Chrome à vérifier. Fenêtre Imprimer et messages des commandes encore à améliorer.
+
+
+## Affinage UI v0.81
+
+Boîte Imprimer : résumé, états vides, protection double envoi et distinction accepté/imprimé. Rendu Chrome à vérifier. Les erreurs des autres commandes d’administration et la cohérence visuelle des autres applications restent à traiter.

@@ -95,3 +95,14 @@
 #root .printer-property-panel dd {margin:0;overflow-wrap:anywhere;font-size:13px}
 #root .printer-paper-control {margin-top:16px;padding:14px;border:1px solid var(--app-border);border-radius:var(--app-radius);background:var(--app-subtle)}
 #root .printer-section-title {font-size:13px;font-weight:650;margin:0 0 10px}
+
+/* v0.81: document printing dialog. */
+#root .print-dialog-app {display:flex;flex-direction:column;gap:14px;min-width:0}
+#root .print-dialog-choices {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(190px,100%),1fr));gap:14px}
+#root .print-dialog-choices label {display:flex;flex-direction:column;gap:7px;color:var(--app-muted);font-size:12px;min-width:0}
+#root .print-dialog-choices select {width:100%;min-width:0;padding:9px;background:var(--app-surface);color:var(--app-ink);border-radius:6px}
+#root .print-dialog-summary {padding:14px;border:1px solid var(--app-border);border-radius:var(--app-radius);background:var(--app-subtle)}
+#root .print-dialog-summary .network-card {display:grid;grid-template-columns:90px minmax(0,1fr);gap:10px;margin:0}
+#root .print-dialog-summary dt {font-size:12px;color:var(--app-muted)}
+#root .print-dialog-summary dd {margin:0;font-size:13px;overflow-wrap:anywhere}
+#root .print-dialog-app .app-toolbar {display:flex;justify-content:flex-end}

@@ -1,3 +1,7 @@
+# v0.81 — Fenêtre Imprimer
+
+Résumé avant envoi, destination explicite, gestion des états vides et protection contre les doublons. [Détails et recette visuelle](docs/V081-FENETRE-IMPRIMER-UI.md).
+
 # v0.80 — Propriétés d’imprimante retravaillées
 
 En-tête avec icône, états de configuration, onglets clavier et actions regroupées. [Détails, limites et recette visuelle](docs/V080-PROPRIETES-IMPRIMANTES-UI.md).
