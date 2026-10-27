@@ -9,6 +9,7 @@ APP_TARGETS=('printing','ftp','endpoint','peripherals','deployment','workstation
 VARIED=(('apps','printing'),('apps','ftp'),('apps','endpoint'),('apps','peripherals'),('mixed','ad'),('mixed','files'),('mixed','dns'))
 
 def receive(tickets,engine='varied',target='random',level=1,minutes=30,client_serial='random',discovery_delay=0):
+    if getattr(tickets,'desk',None) and tickets.desk.settings.get('preparing') is True:raise ValueError('Commence la simulation avant de créer un incident.')
     s=tickets.controller.workspace.state
     if not s or s.get('environment_id')!=(tickets.state.get('site') or {}).get('environment_id'):raise ValueError('Entreprise active requise.')
     if engine not in ('varied','apps','mixed') or type(level) is not int or level not in (1,2,3):raise ValueError('Catalogue ou niveau inconnu.')

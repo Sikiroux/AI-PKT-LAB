@@ -22,6 +22,47 @@ class ArrivalTests(unittest.TestCase):
   self.c.workspace.path=Path(self.tmp.name)/'session.json';self.t.controller=self.c
   self.t.state['site']={'environment_id':'env','devices':[]};self.t.state['seed']='queue-test'
   self.d=ServiceDesk(self.t,Mock());self.t.desk=self.d;self.d.settings.update(source='site',arrival_engine='varied')
+ def test_new_binding_starts_in_preparation_without_ticket(self):
+  from unittest.mock import patch
+  self.s.update(arrival_queue_version=1,network_file='entreprise.pkt',expected_cable={'peer':'SW-EMP'})
+  self.t.state['site']=None
+  with patch.object(self.t,'append_workspace_incident'):
+   self.t.bind_environment(self.s,Path(self.tmp.name),Mock(),self.c)
+  self.assertFalse(self.t.state['tickets'])
+  self.assertTrue(self.t.desk.settings['preparing'])
+  self.assertFalse(self.t.desk.settings['active'])
+  self.assertIsNone(self.t.desk.settings['next_at'])
+  self.c.next_desktop_incident.assert_not_called()
+  self.c.next_mixed_incident.assert_not_called()
+
+ def test_started_empty_company_does_not_return_to_preparation(self):
+  from unittest.mock import patch
+  self.s.update(arrival_queue_version=1,network_file='entreprise.pkt',expected_cable={'peer':'SW-EMP'})
+  self.t.state['site']=None
+  with patch.object(self.t,'append_workspace_incident'):
+   self.t.bind_environment(self.s,Path(self.tmp.name),Mock(),self.c)
+  self.t.desk.control(True)
+  resumed=Tickets(Fake(),Path(self.tmp.name)/'root-other.json')
+  with patch.object(resumed,'append_workspace_incident'):
+   resumed.bind_environment(self.s,Path(self.tmp.name),Mock(),self.c)
+  self.assertFalse(resumed.desk.settings['preparing'])
+  self.assertFalse(resumed.desk.settings['active'])
+  self.assertFalse(resumed.state['tickets'])
+
+ def test_preparation_blocks_incidents_until_explicit_start(self):
+  self.d.settings.update(preparing=True,active=False,next_at=None)
+  self.d.tick(9999999999)
+  self.assertFalse(self.t.state['tickets'])
+  with self.assertRaisesRegex(ValueError,'Commence la simulation'):self.d.create()
+  with self.assertRaisesRegex(ValueError,'Commence la simulation'):arrivals.receive(self.t)
+  self.d.control(True)
+  self.assertFalse(self.d.settings['preparing'])
+  self.assertTrue(self.d.settings['active'])
+  self.assertIsNotNone(self.d.settings['next_at'])
+  self.assertFalse(self.t.state['tickets'])
+  self.d.create()
+  self.assertEqual(len(self.t.state['tickets']),1)
+
  def test_receipts_do_not_prepare_or_mutate_services(self):
   before=copy.deepcopy(self.s)
   for _ in range(3):self.d.create()

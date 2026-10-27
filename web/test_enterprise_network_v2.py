@@ -18,6 +18,21 @@ class EnterpriseNetworkTests(unittest.TestCase):
                                              employee_count=30, employee_layout='split', network_printer=True)
         return tree.getroot(), topo
 
+    def test_native_vlan_database_matches_each_switch_configuration(self):
+        root, topo = self.build()
+        v2.apply(root, topo)
+        engines = workshops.engines(root)
+        for switch, required in [('SW-EMP',{10,15,99}),('SW-EMP2',{10,15,99}),('SW-SRV',{20}),('SW-GUEST',{40})]:
+            database = engines[switch].find('VLANS')
+            actual = {int(v.get('number')) for v in database.findall('VLAN')}
+            self.assertTrue(required <= actual, (switch, actual))
+            self.assertIn(1, actual)
+            self.assertEqual(len(database.findall('VLAN')), len(actual))
+        v2.apply(root, topo)
+        for switch in ('SW-EMP','SW-EMP2','SW-SRV','SW-GUEST'):
+            ids=[v.get('number') for v in engines[switch].findall('VLANS/VLAN')]
+            self.assertEqual(len(ids), len(set(ids)))
+
     def test_segmentation_preserves_links_and_serials(self):
         root, topo = self.build()
         links = ET.tostring(root.find('NETWORK/LINKS'))

@@ -1,5 +1,6 @@
 """Segmentation IOS du nouveau socle entreprise, sans changer les liens physiques."""
 import ipaddress
+import xml.etree.ElementTree as ET
 import workshops
 
 
@@ -71,6 +72,15 @@ def apply(root, topo):
         config += ['interface Vlan'+str(vlans[key]), ' ip address '+mgmt['ip']+' 255.255.255.0',
                    ' no shutdown', '!', 'ip default-gateway '+mgmt['gateway'], 'end']
         workshops.configs(engines[switch], config)
+        # PT loads the native VLAN database separately from IOS text.
+        database = engines[switch].find('VLANS')
+        if database is None:
+            database = ET.SubElement(engines[switch], 'VLANS')
+        existing = {node.get('number') for node in database.findall('VLAN')}
+        for vlan in allowed:
+            if str(vlan) not in existing:
+                ET.SubElement(database, 'VLAN', number=str(vlan),
+                              name=next(k.upper() for k, v in vlans.items() if v == vlan), rspan='0')
     workshops.dhcp(engines['SRV-INFRA'], [dict(name=key.upper(), network=str(nets[key]), gateway=str(nets[key][1]), dns=infra)
                                        for key in ('employees', 'sensitive', 'guests', 'management')])
     # Static reference hosts occupy .21-.130. Keep the optional DHCP range disjoint.

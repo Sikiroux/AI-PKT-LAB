@@ -108,11 +108,10 @@ class Tickets:
                 status='nouveau', severity='moderee', created=now(), checks=[], complete=False, notes=''))
         self.append_workspace_incident(state)
         self.desk = ServiceDesk(self, generator)
-        self.desk.settings.update(source='site',active=False,next_at=None)
-        if queue_fresh:
-            self.desk.settings.update(arrival_engine='varied')
-            ticket_arrivals.receive(self,minutes=self.desk.settings['ticket_minutes'])
-            self.desk.control(True)
+        self.desk.settings.update(source='site')
+        if queue_fresh and 'preparing' not in self.desk.settings:
+            self.desk.settings.update(arrival_engine='varied',preparing=True,active=False,next_at=None,
+                                      message='Préparation : ouvre le réseau et vérifie sa connectivité, puis commence la simulation.')
         self.save()
 
     def profile(self, key):

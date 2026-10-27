@@ -1,3 +1,7 @@
+# v0.86 — VLAN, préparation et Guide
+
+VLAN écrits dans la base native Packet Tracer, nouvelle entreprise sans incident immédiat et bouton Commencer la simulation. Onglet Guide et indices poste corrigés. [Périmètre, limites et recette](docs/V086-PREPARATION-VLAN-GUIDE.md).
+
 # v0.85 — Ouverture des postes depuis les tickets
 
 La fenêtre ne se ferme plus silencieusement après un refus : le message serveur reste affiché. Une erreur d’actualisation des tickets ne ferme plus un poste connecté. [Diagnostic et limites](docs/V085-OUVERTURE-POSTE-TICKET.md).

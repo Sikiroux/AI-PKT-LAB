@@ -3,8 +3,8 @@ from html import escape
 
 REPAIRS={
  'queue_paused':('File d’impression suspendue','Dans Imprimantes, ouvre la file du bureau puis reprends la file.'),
- 'offline_mode':('Mode hors connexion activé','Dans les propriétés de l’imprimante du bureau, désactive le mode hors connexion.'),
- 'spooler_stopped':('Spooler arrêté','Dans Imprimantes, redémarre le spooler simulé.'),
+ 'offline_mode':('Mode hors connexion activé','Dans Imprimantes, ouvre la file de l’imprimante du bureau puis utilise Revenir en ligne.'),
+ 'spooler_stopped':('Spooler arrêté','Dans Imprimantes, ouvre les propriétés de l’imprimante puis Maintenance → Redémarrer le spouleur.'),
  'mapped_drive_wrong':('Chemin du lecteur réseau incorrect','Dans Paramètres du poste → Lecteur réseau, remets le chemin Documents de la documentation d’entreprise.'),
  'documents_missing':('Application Documents absente','Dans Paramètres du poste → Applications, installe Documents.'),
  'account_disabled':('Compte du demandeur désactivé','Depuis le technicien, ouvre Annuaire, sélectionne le compte associé au poste et réactive ce compte. Reconnecte ensuite cet utilisateur.'),

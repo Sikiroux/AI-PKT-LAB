@@ -124,3 +124,8 @@ Propriétés DNS : identité, aide par type, TTL expliqué et suppression distin
 ## Correctif v0.85
 
 Ouverture distante depuis un ticket : refus visible dans l’onglet, attente explicite et actualisation séparée. Cause exacte du HTTP 400 signalé à identifier avec le message retourné ; aucun prérequis réseau contourné.
+
+
+## Priorité v0.86
+
+Base VLAN native corrigée pour les prochaines entreprises segmentées. Préparation explicite avant arrivées. Guide des outils et du blocage distant ; indices poste séparés des droits fichiers. Recette PT9 et Chrome à effectuer. Anciennes sauvegardes non réécrites ; enrichissement approfondi des aides par famille à poursuivre.

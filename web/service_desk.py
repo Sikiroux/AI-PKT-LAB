@@ -83,11 +83,13 @@ class ServiceDesk:
   self.settings['next_at']=at+minutes*60
  def control(self,active):
   if active and self.settings['source']=='site' and not self.t.state['site']:raise ValueError('Enregistre le site avant de démarrer ses arrivées.')
+  if active:self.settings['preparing']=False
   self.settings.update(active=active,message='Session active.' if active else 'Arrivées en pause.')
   if active:self.schedule()
   else:self.settings['next_at']=None
   self.t.save();return self.public()
  def create(self,scenario=None,request=None):
+  if self.settings.get('preparing'):raise ValueError('Commence la simulation avant de créer un incident.')
   opened=[t for t in self.t.state['tickets'] if t['status']!='clos']
   state=self.t.controller.workspace.state if getattr(self.t,'controller',None) else {}
   pending=sum(r.get('lifecycle')=='awaiting_activity' for r in (state or {}).get('live_incidents',{}).values())
