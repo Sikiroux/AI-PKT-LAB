@@ -1,3 +1,7 @@
+# v0.80 — Propriétés d’imprimante retravaillées
+
+En-tête avec icône, états de configuration, onglets clavier et actions regroupées. [Détails, limites et recette visuelle](docs/V080-PROPRIETES-IMPRIMANTES-UI.md).
+
 # v0.79 — Files d’impression plus lisibles
 
 Recherche, filtres par état, compteurs et choix conservés lors de l’actualisation. Les réglages de la file sont distingués de la connectivité réelle. [Détails et recette visuelle à effectuer](docs/V079-FILES-IMPRESSION-UI.md).

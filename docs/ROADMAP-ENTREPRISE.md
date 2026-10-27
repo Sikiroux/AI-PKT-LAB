@@ -94,3 +94,8 @@ Livré dans le générateur : disposition compacte des 30 postes en deux groupes
 ## Affinage UI v0.79
 
 Files d’impression : recherche locale, filtres, compteurs, conservation lors de l’actualisation, libellé du mode hors connexion corrigé. Rendu navigateur à vérifier ; propriétés et explication des codes techniques restent à améliorer.
+
+
+## Affinage UI v0.80
+
+Propriétés d’imprimante : identité visuelle, états explicites, onglets accessibles, actions générales et maintenance regroupées. Rendu Chrome à vérifier. Fenêtre Imprimer et messages des commandes encore à améliorer.
