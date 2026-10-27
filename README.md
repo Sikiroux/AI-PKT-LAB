@@ -1,3 +1,7 @@
+# v0.83 — Résolution DNS plus explicite
+
+Requête identifiée, résultat conservé et présenté comme dernier test, états inconnus distincts et contrôles pendant l’envoi. [Détails et recette visuelle](docs/V083-RESOLUTION-DNS-UI.md).
+
 # v0.82 — Liste DNS plus lisible
 
 Filtre par type, recherche conservée, compteur et sélection sécurisée. [Détails et recette visuelle](docs/V082-LISTE-DNS-UI.md).

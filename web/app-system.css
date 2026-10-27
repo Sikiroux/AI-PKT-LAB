@@ -113,3 +113,16 @@
 #root .dns-zone-workspace .app-toolbar :is(input,select) {width:100%;min-width:0;box-sizing:border-box;padding:8px;border-radius:6px;background:var(--app-surface)}
 #root .dns-record-count {font-size:12px;color:var(--app-muted);margin:12px 0}
 #root .dns-zone-workspace .app-table td:first-child button {text-align:left;overflow-wrap:anywhere;max-width:100%}
+
+/* v0.83: DNS resolution workspace. */
+#root .dns-resolution-app {display:flex;flex-direction:column;gap:14px;min-width:0}
+#root .dns-query-tools {display:flex;padding:14px;border:1px solid var(--app-border);background:var(--app-subtle);border-radius:var(--app-radius)}
+#root .dns-query-tools label {display:flex;flex-direction:column;gap:7px;min-width:0;flex:1 1 170px;font-size:12px;color:var(--app-muted)}
+#root .dns-query-tools :is(input,select) {width:100%;min-width:0;box-sizing:border-box;padding:9px;border-radius:6px;background:var(--app-surface)}
+#root .dns-resolution-app .dns-result {padding:16px;border:1px solid var(--app-border);border-left:4px solid var(--app-muted);border-radius:var(--app-radius);background:var(--app-surface);overflow:auto}
+#root .dns-result[data-state=resolved] {border-left-color:var(--app-success)}
+#root .dns-result[data-state=failed] {border-left-color:var(--app-danger)}
+#root .dns-result[data-state=unknown] {border-left-color:var(--app-warning)}
+#root .dns-result-heading {font-size:17px;font-weight:650;margin:0 0 10px}
+#root .dns-query-caption {font-size:13px;color:var(--app-accent);overflow-wrap:anywhere}
+#root .dns-result pre {white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px}

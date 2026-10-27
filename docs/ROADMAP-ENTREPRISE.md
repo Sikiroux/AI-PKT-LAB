@@ -109,3 +109,8 @@ Boîte Imprimer : résumé, états vides, protection double envoi et distinction
 ## Affinage UI v0.82
 
 Liste DNS : recherche et filtre conservés, compteur, tri et sélection visible requise pour ouvrir les propriétés. Rendu Chrome à vérifier. Propriétés DNS, configuration client et résultats de résolution restent à retravailler.
+
+
+## Affinage UI v0.83
+
+Résolution DNS : requête et résultat conservés, états explicites, protection des envois et retours du vidage de cache. Rendu Chrome à vérifier. Propriétés des enregistrements et configuration client restent à retravailler.
