@@ -1,3 +1,7 @@
+# v0.84 — Propriétés DNS retravaillées
+
+Identité et zone visibles, aide adaptée au type, suppression séparée et commandes bloquées après suppression ou indisponibilité. [Détails et recette visuelle](docs/V084-PROPRIETES-DNS-UI.md).
+
 # v0.83 — Résolution DNS plus explicite
 
 Requête identifiée, résultat conservé et présenté comme dernier test, états inconnus distincts et contrôles pendant l’envoi. [Détails et recette visuelle](docs/V083-RESOLUTION-DNS-UI.md).

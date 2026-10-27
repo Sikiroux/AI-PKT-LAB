@@ -114,3 +114,8 @@ Liste DNS : recherche et filtre conservés, compteur, tri et sélection visible 
 ## Affinage UI v0.83
 
 Résolution DNS : requête et résultat conservés, états explicites, protection des envois et retours du vidage de cache. Rendu Chrome à vérifier. Propriétés des enregistrements et configuration client restent à retravailler.
+
+
+## Affinage UI v0.84
+
+Propriétés DNS : identité, aide par type, TTL expliqué et suppression distincte. Verrouillage des fenêtres indisponibles/supprimées corrigé. Rendu Chrome à vérifier. Configuration client et confirmation d’une mutation suivie d’un échec d’actualisation restent à améliorer.

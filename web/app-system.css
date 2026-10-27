@@ -126,3 +126,13 @@
 #root .dns-result-heading {font-size:17px;font-weight:650;margin:0 0 10px}
 #root .dns-query-caption {font-size:13px;color:var(--app-accent);overflow-wrap:anywhere}
 #root .dns-result pre {white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px}
+
+/* v0.84: DNS record property sheet. */
+#root .dns-record-properties {display:flex;flex-direction:column;gap:12px;min-width:0}
+#root .dns-record-fields {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(210px,100%),1fr));gap:14px;padding:14px;border:1px solid var(--app-border);border-radius:var(--app-radius)}
+#root .dns-record-fields label {display:flex!important;flex-direction:column;gap:7px;min-width:0;color:var(--app-muted);font-size:12px}
+#root .dns-record-fields :is(input,select) {width:100%;min-width:0;box-sizing:border-box;padding:9px;border-radius:6px;background:var(--app-surface)}
+#root .dns-record-value-help {grid-column:1/-1;font-size:12px;color:var(--app-muted);margin:0}
+#root .dns-record-properties .app-toolbar {display:flex;justify-content:flex-end}
+#root .dns-record-danger {padding:14px;border:1px solid var(--app-border);border-left:3px solid var(--app-danger);border-radius:var(--app-radius)}
+#root .dns-record-danger-title {font-size:13px;font-weight:650;margin:0;color:var(--app-danger)}
