@@ -44,3 +44,31 @@
 @container knowledge (max-width:560px){#root .knowledge-layout{grid-template-columns:1fr;grid-template-rows:minmax(110px,32%) minmax(0,1fr)}#root .knowledge-layout>.workstation-list{border-right:0;border-bottom:1px solid var(--app-border)}#root .knowledge-article{padding:18px}}
 @media(max-width:600px){#root .account-workspace{grid-template-columns:1fr}#root .account-workspace>nav{border-right:0;border-bottom:1px solid var(--app-border);display:flex;flex-wrap:wrap}#root .account-choice{width:auto}}
 @media(forced-colors:active){.desktop-app-content button[aria-pressed=true]{outline:2px solid Highlight}.desktop-app-content .app-feedback{border-color:CanvasText}}
+
+/* v0.78 — client FTP : navigation à deux panneaux, session et transferts distincts. */
+#root .ftp-client-app{container-type:inline-size;container-name:ftp-client;gap:12px}
+#root .ftp-client-app>.app-toolbar:first-child{padding:0 0 10px;border-bottom:1px solid var(--app-border)}
+#root .ftp-client-app .ftp-status{padding:10px 14px;margin:0;background:var(--app-subtle);border:1px solid var(--app-border);border-radius:8px;line-height:1.6;font-size:12px;color:var(--app-muted);overflow-wrap:anywhere}
+#root .ftp-status:before{content:'';display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:8px;background:#8098a3}
+#root .ftp-status[data-state=connected]:before{background:var(--app-success)}
+#root .ftp-status[data-state=unknown]:before{background:#b88c32}
+#root .ftp-status[data-state=failed]:before{background:var(--app-danger)}
+#root .ftp-client-app .transfer-panels{gap:12px;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+#root .ftp-client-app .transfer-panels>section{position:relative;border:1px solid var(--app-border);border-radius:10px;padding:0;max-height:340px;background:var(--app-surface);overflow:auto;scrollbar-width:thin;scrollbar-color:var(--scroll-thumb) transparent}
+#root .ftp-client-app .transfer-panels h2{padding:15px 16px 12px 44px;margin:0;background:var(--app-subtle);font-size:14px;border-bottom:1px solid var(--app-border)}
+#root .ftp-client-app .transfer-panels>section>svg{position:absolute;left:16px;top:15px;width:18px;height:18px;color:var(--app-accent)}
+#root .ftp-client-app .transfer-panels label{display:block;margin:12px 12px 8px!important;font-size:11px;color:var(--app-muted)}
+#root .ftp-client-app .transfer-panels input{display:block;margin-top:5px;width:100%;box-sizing:border-box;background:#fff;min-width:0}
+#root .ftp-client-app .ftp-file-count{font-size:11px;color:var(--app-muted);margin:8px 14px}
+#root .ftp-client-app .app-table td:first-child button{display:flex;align-items:center;gap:8px;border:0;background:transparent;text-align:left;width:100%;font-size:13px;min-width:0;padding:5px 0;overflow-wrap:anywhere}
+#root .ftp-client-app .app-table td:first-child button svg{width:17px;height:17px;order:-1;flex-shrink:0;color:var(--app-accent)}
+#root .ftp-client-app .app-table td:last-child{white-space:nowrap;color:var(--app-muted);font-size:12px}
+#root .ftp-client-app .selected td{background:var(--app-selection)}
+#root .ftp-client-app .ftp-selection-info{margin:0;padding:9px 12px;font-size:12px;color:var(--app-muted);background:var(--app-subtle);border-radius:6px;overflow-wrap:anywhere}
+#root .ftp-client-app .ftp-transfer-panel{margin:0;padding:12px;border-radius:8px;border-color:var(--app-border)}
+#root .ftp-client-app .ftp-transfer-panel summary{font-size:12px;color:var(--app-muted)}
+#root .ftp-client-app .transfer-attempts tr[data-state=done] td:last-child{color:var(--app-success)}
+#root .ftp-client-app .transfer-attempts tr[data-state=failed] td:last-child{color:var(--app-danger);white-space:normal}
+#root .ftp-client-app .transfer-attempts tr[data-state=pending] td:last-child{color:var(--app-warning)}
+#root .ftp-client-app .app-feedback{margin-top:0}
+@container ftp-client (max-width:520px){#root .ftp-client-app .transfer-panels{grid-template-columns:minmax(0,1fr)}#root .ftp-client-app .transfer-panels>section{max-height:240px}}

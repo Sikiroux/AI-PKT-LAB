@@ -13,6 +13,6 @@ assert(article.paragraphs.join(' ').includes('FTP_AUTHENTICATION_FAILED'));
 assert(article.paragraphs.join(' ').includes('NETWORK_UNKNOWN'));
 assert(article.paragraphs.join(' ').includes('FTP_DATA_BLOCKED'));
 const client=html.slice(html.indexOf('function ftpClient(){'),html.indexOf('function ftpAdmin(){'));
-assert(client.includes("button('Aide connexion FTP',shell,()=>documentationApp('ftp-access'))"));
+assert(client.includes("button('Aide connexion FTP',helpPanel,()=>documentationApp('ftp-access'))"));
 assert(!client.includes("password.value='Formation!2026'"),'Help must not fill credentials automatically');
 console.log('FTP help: reference credentials, ambiguous refusal, network/data distinction and documentation link OK');

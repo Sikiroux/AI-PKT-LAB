@@ -1,3 +1,7 @@
+# v0.78 — Client FTP retravaillé
+
+Recherches local/distant, compteurs, icônes, sélection explicite et panneau de transferts. Le bandeau distingue session FTP, réseau et service ; les refus sont expliqués. [Détails et recette visuelle à effectuer](docs/V078-CLIENT-FTP-UI.md).
+
 # v0.77 — Fiche ticket repensée
 
 Quatre vues distinctes : Demande, Échanges, Intervention, Vérifications et aide. Contexte et résultat attendu regroupés, actions rapides à droite, impact repliable et onglets mémorisés par entreprise. [Détails et recette visuelle à effectuer](docs/V077-FICHE-TICKET-UI.md).
