@@ -1,3 +1,7 @@
+# v0.77 — Fiche ticket repensée
+
+Quatre vues distinctes : Demande, Échanges, Intervention, Vérifications et aide. Contexte et résultat attendu regroupés, actions rapides à droite, impact repliable et onglets mémorisés par entreprise. [Détails et recette visuelle à effectuer](docs/V077-FICHE-TICKET-UI.md).
+
 # v0.76 — Téléchargement FTP confirmé
 
 Les nouveaux tickets FTP nomment un document à télécharger depuis le poste du demandeur. Le contrôle exige une trace de téléchargement réussi après la panne et une copie locale conforme au dépôt actuel ; le service seul ne suffit plus. [Détails, limites et recette](docs/V076-TRANSFERT-FTP.md).

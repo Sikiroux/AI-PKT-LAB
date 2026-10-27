@@ -1,6 +1,12 @@
 # Roadmap actuelle — entreprise persistante
 
-État livré : v0.76. Les correctifs issus des audits ont commencé : catalogue, observations et surveillance bornée. Le comportement réel dans Packet Tracer 9 reste à valider. Les blocs suivants nécessitent le cadrage du modèle commun avant toute extension du moteur d'entreprise.
+État livré : v0.77. Les correctifs issus des audits ont commencé : catalogue, observations et surveillance bornée. Le comportement réel dans Packet Tracer 9 reste à valider. Les blocs suivants nécessitent le cadrage du modèle commun avant toute extension du moteur d'entreprise.
+
+## UI/UX en cours
+
+v0.77 : fiche ticket en quatre vues, demande isolée, actions accessibles, résultat attendu mis en avant et impact repliable. Tests JavaScript verts ; recette visuelle Chrome encore à faire. [Détails](V077-FICHE-TICKET-UI.md).
+
+À poursuivre : applications du bureau, états de connexion compréhensibles et finitions communes. La refonte complète UI/UX n’est pas considérée terminée.
 
 ## Stabilité en cours
 
