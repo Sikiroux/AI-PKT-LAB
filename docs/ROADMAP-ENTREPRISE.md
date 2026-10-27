@@ -119,3 +119,8 @@ Résolution DNS : requête et résultat conservés, états explicites, protectio
 ## Affinage UI v0.84
 
 Propriétés DNS : identité, aide par type, TTL expliqué et suppression distincte. Verrouillage des fenêtres indisponibles/supprimées corrigé. Rendu Chrome à vérifier. Configuration client et confirmation d’une mutation suivie d’un échec d’actualisation restent à améliorer.
+
+
+## Correctif v0.85
+
+Ouverture distante depuis un ticket : refus visible dans l’onglet, attente explicite et actualisation séparée. Cause exacte du HTTP 400 signalé à identifier avec le message retourné ; aucun prérequis réseau contourné.

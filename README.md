@@ -1,3 +1,7 @@
+# v0.85 — Ouverture des postes depuis les tickets
+
+La fenêtre ne se ferme plus silencieusement après un refus : le message serveur reste affiché. Une erreur d’actualisation des tickets ne ferme plus un poste connecté. [Diagnostic et limites](docs/V085-OUVERTURE-POSTE-TICKET.md).
+
 # v0.84 — Propriétés DNS retravaillées
 
 Identité et zone visibles, aide adaptée au type, suppression séparée et commandes bloquées après suppression ou indisponibilité. [Détails et recette visuelle](docs/V084-PROPRIETES-DNS-UI.md).
