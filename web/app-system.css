@@ -72,3 +72,8 @@
 #root .ftp-client-app .transfer-attempts tr[data-state=pending] td:last-child{color:var(--app-warning)}
 #root .ftp-client-app .app-feedback{margin-top:0}
 @container ftp-client (max-width:520px){#root .ftp-client-app .transfer-panels{grid-template-columns:minmax(0,1fr)}#root .ftp-client-app .transfer-panels>section{max-height:240px}}
+
+/* v0.79: printer queue tools stay inside the application window. */
+#root .printer-job-tools {gap:12px;flex-wrap:wrap;padding:12px;background:var(--app-surface-subtle,#f1f6f8);border:1px solid var(--app-border,#d6e3e8);border-radius:8px}
+#root .printer-job-tools input {min-width:160px}
+#root .printer-job-count {font-size:12px;color:var(--app-muted,#58717e);margin:10px 0}

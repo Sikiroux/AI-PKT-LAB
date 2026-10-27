@@ -1,3 +1,7 @@
+# v0.79 — Files d’impression plus lisibles
+
+Recherche, filtres par état, compteurs et choix conservés lors de l’actualisation. Les réglages de la file sont distingués de la connectivité réelle. [Détails et recette visuelle à effectuer](docs/V079-FILES-IMPRESSION-UI.md).
+
 # v0.78 — Client FTP retravaillé
 
 Recherches local/distant, compteurs, icônes, sélection explicite et panneau de transferts. Le bandeau distingue session FTP, réseau et service ; les refus sont expliqués. [Détails et recette visuelle à effectuer](docs/V078-CLIENT-FTP-UI.md).

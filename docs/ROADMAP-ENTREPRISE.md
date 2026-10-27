@@ -89,3 +89,8 @@ Différés : appareil définitivement HS, Packet Tracer entièrement sans interf
 ## Correctif prioritaire v0.62.3
 
 Livré dans le générateur : disposition compacte des 30 postes en deux groupes correspondant aux switches réels, icônes SVG natives dans les barres de titre. Recette PT9 à effectuer avant de qualifier le placement de validé. Les réseaux déjà sauvegardés restent inchangés. Ces anciens numéros sont remplacés par le tableau issu des audits ci-dessus.
+
+
+## Affinage UI v0.79
+
+Files d’impression : recherche locale, filtres, compteurs, conservation lors de l’actualisation, libellé du mode hors connexion corrigé. Rendu navigateur à vérifier ; propriétés et explication des codes techniques restent à améliorer.
