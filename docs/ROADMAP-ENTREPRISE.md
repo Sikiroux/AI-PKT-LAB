@@ -104,3 +104,8 @@ Propriétés d’imprimante : identité visuelle, états explicites, onglets acc
 ## Affinage UI v0.81
 
 Boîte Imprimer : résumé, états vides, protection double envoi et distinction accepté/imprimé. Rendu Chrome à vérifier. Les erreurs des autres commandes d’administration et la cohérence visuelle des autres applications restent à traiter.
+
+
+## Affinage UI v0.82
+
+Liste DNS : recherche et filtre conservés, compteur, tri et sélection visible requise pour ouvrir les propriétés. Rendu Chrome à vérifier. Propriétés DNS, configuration client et résultats de résolution restent à retravailler.

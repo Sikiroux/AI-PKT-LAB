@@ -1,3 +1,7 @@
+# v0.82 — Liste DNS plus lisible
+
+Filtre par type, recherche conservée, compteur et sélection sécurisée. [Détails et recette visuelle](docs/V082-LISTE-DNS-UI.md).
+
 # v0.81 — Fenêtre Imprimer
 
 Résumé avant envoi, destination explicite, gestion des états vides et protection contre les doublons. [Détails et recette visuelle](docs/V081-FENETRE-IMPRIMER-UI.md).

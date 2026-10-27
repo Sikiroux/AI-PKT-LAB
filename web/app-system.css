@@ -106,3 +106,10 @@
 #root .print-dialog-summary dt {font-size:12px;color:var(--app-muted)}
 #root .print-dialog-summary dd {margin:0;font-size:13px;overflow-wrap:anywhere}
 #root .print-dialog-app .app-toolbar {display:flex;justify-content:flex-end}
+
+/* v0.82: DNS record browser. */
+#root .dns-zone-workspace .app-toolbar {display:flex;padding:12px;background:var(--app-subtle);border:1px solid var(--app-border);border-radius:var(--app-radius)}
+#root .dns-zone-workspace .app-toolbar label {font-size:12px;color:var(--app-muted);display:flex;flex-direction:column;gap:6px;min-width:0;flex:1 1 170px}
+#root .dns-zone-workspace .app-toolbar :is(input,select) {width:100%;min-width:0;box-sizing:border-box;padding:8px;border-radius:6px;background:var(--app-surface)}
+#root .dns-record-count {font-size:12px;color:var(--app-muted);margin:12px 0}
+#root .dns-zone-workspace .app-table td:first-child button {text-align:left;overflow-wrap:anywhere;max-width:100%}
