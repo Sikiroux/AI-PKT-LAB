@@ -1,3 +1,5 @@
+> **Présentation et état actuel du projet : [AI-PKT-LAB / NetOps Lab](docs/ETAT-DU-PROJET.md)** — fonctionnement, fonctionnalités, UI/UX, problèmes connus et investigation mémoire Packet Tracer (25 novembre 2026).
+
 ## v119 — Test I seul pendant dix minutes
 
 Cadence inchangée, références conservées, rapport mémoire séparant le chargement initial des lectures suivantes. Voir `DIAGNOSTIC-RAM-LIRE-MOI.txt`.
