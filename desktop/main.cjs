@@ -4,6 +4,15 @@ const fs=require('node:fs'),path=require('node:path'),http=require('node:http'),
 const {ORIGIN,allowed,windowKey,bounds}=require('./policy.cjs');
 const {Workspaces}=require('./workspaces.cjs');const workspaces=new Workspaces();
 const root=path.resolve(__dirname,'..');let backend,main,exiting=false,closing=false,preferences={};
+const diagnosticMode=process.env.NETOPS_MEMORY_DIAGNOSTIC==='1';
+if(diagnosticMode){
+ const os=require('node:os');
+ const profile=path.join(app.getPath('appData'),'NetOps-Diagnostics');
+ fs.mkdirSync(profile,{recursive:true});
+ app.setPath('userData',profile);
+ // Each launch has a writable Chromium cache, separate from normal NetOps.
+ app.setPath('sessionData',fs.mkdtempSync(path.join(os.tmpdir(),'netops-diagnostic-cache-')));
+}
 const lock=app.requestSingleInstanceLock();
 if(!lock)app.quit();
 else{
@@ -47,7 +56,7 @@ async function start(){
  const command=process.env.NETOPS_PYTHON||(process.platform==='win32'?'py':'python3');
  const args=process.platform==='win32'&&!process.env.NETOPS_PYTHON?['-3']:[];
  backend=spawn(command,[...args,'-u',path.join(root,'web','tickets_app.py')],{cwd:root,env:{...process.env,NETOPS_DESKTOP:'1'},windowsHide:true,stdio:['ignore','pipe','pipe']});
- let diagnostic='',failure;backend.stdout.on('data',b=>{diagnostic=(diagnostic+b).slice(-6000)});backend.stderr.on('data',b=>{diagnostic=(diagnostic+b).slice(-6000)});
+ let diagnostic='',failure;backend.stdout.on('data',b=>{diagnostic=(diagnostic+b).slice(-6000);if(diagnosticMode)process.stdout.write(b)});backend.stderr.on('data',b=>{diagnostic=(diagnostic+b).slice(-6000);if(diagnosticMode)process.stderr.write(b)});
  backend.on('error',e=>failure=e.message);
  backend.on('exit',code=>{failure='Le moteur Python est arrêté (code '+code+'). '+diagnostic;if(main&&!exiting){exiting=true;if(code!==0)dialog.showErrorBox('Moteur arrêté',failure);app.quit()}});
  const deadline=Date.now()+30000;while(!await ready()){if(failure)throw Error(failure);if(Date.now()>deadline)throw Error('Le moteur ne répond pas après 30 secondes. '+diagnostic);await new Promise(r=>setTimeout(r,250))}

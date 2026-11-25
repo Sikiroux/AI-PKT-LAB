@@ -1,36 +1,26 @@
-v116 — Mémoire privée résidente par processus Packet Tracer
+v119 — Test I prolongé : références conservées, cadence inchangée
 
-Ferme NetOps, remplace les fichiers dans ton dossier actuel, puis lance LANCER-DIAGNOSTIC-RAM.bat.
-Chaque PID dispose maintenant de sa propre ligne Mémoire privée résidente et de son écart depuis le départ.
-Aucune addition des processus n’est présentée comme valeur principale.
-Comparer le même PID dans le Gestionnaire des tâches, avec la colonne Mémoire (ensemble de travail privé).
-La colonne Mémoire peut utiliser un autre compteur selon la version de Windows et la vue sélectionnée.
-Les rafraîchissements peuvent aussi occasionner de petits écarts.
-Résidente totale et mémoire privée engagée restent disponibles comme détails distincts.
-Les valeurs sont affichées en Mo avec un diviseur de 1 048 576 octets, pour la comparaison usuelle sous Windows.
-Les relevés JSON restent en octets ; nouveau champ private_working_set_bytes par processus.
-Si le compteur manque, aucune autre métrique ne le remplace. Une indisponibilité explicite est affichée.
-La lecture utilise GetProcessMemoryInfo avec PROCESS_MEMORY_COUNTERS_EX2.
-Microsoft documente ce compteur sur Windows 10/11 22H2 avec les mises à jour de septembre 2023 :
-https://learn.microsoft.com/en-us/windows/win32/api/psapi/ns-psapi-process_memory_counters_ex2
-Sur les versions antérieures, les deux anciennes mesures restent lisibles si l’API les fournit.
+Sauvegarde puis ferme Packet Tracer et NetOps. Applique la mise à jour dans ton dossier actuel.
+Lance LANCER-DIAGNOSTIC-COMPLET.bat. Un seul test, sur une copie automatiquement ouverte du réseau.
+10 minutes de lectures, puis 3 minutes de suivi sans lectures. Durée totale 13 à 15 minutes.
+Cadence inchangée : attente d’une seconde après chaque réponse, comme les essais précédents.
+Aucun ancien test A à H ni test J n’est lancé par la suite.
 
-Commence par A · Nombre d’appareils uniquement. Après 3 minutes, garde le diagnostic ouvert encore 3 minutes et exporte le JSON.
-Redémarre Packet Tracer et reconnecte le bridge entre les essais A, B, C, D.
-Aucune commande PT supplémentaire pour mesurer la mémoire. Cadence des tests et surveillance normale inchangées.
+Le réseau, les appareils, les ports, les liens, leurs extrémités et propriétaires sont récupérés au premier cycle.
+Les valeurs sont ensuite relues depuis les références conservées ; pas de nouvelles récupérations par cycle.
+Le compteur objects permet de vérifier built une fois, reused ensuite, et 0 récupération instrumentée pendant les cycles suivants.
+Le rapport sépare la mémoire engagée pendant la préparation et pendant les lectures suivantes, par PID.
+Il calcule aussi une pente après les 30 premières secondes, sans déclarer automatiquement la fuite corrigée.
+Les changements de valeurs sont comptés via une empreinte des données renvoyées.
 
-Validation : 25 tests locaux réussis, y compris compteur EX2 simulé, repli ancien Windows, absence de valeur, erreur d’accès et affichage séparé de deux PID.
-La lecture native Windows reste à confirmer sur le PC utilisateur.
+Pour cette mesure de stabilité, laisser le réseau inchangé. Les événements ne sont pas encore ajoutés.
+La bonne détection des changements de topologie devra être validée dans un essai distinct avant intégration normale.
+Le contrôle de nombre d’appareils et de liens ne couvre pas un déplacement de câble à nombre constant.
+Aucun succès fonctionnel sur les changements n’est déduit d’une courbe stable.
+La surveillance normale conserve son fonctionnement actuel.
 
-v116 phase 2 — chercher une lecture qui ne fait plus grimper la mémoire
-Même protocole que A à D : redémarrer Packet Tracer et reconnecter le bridge avant chaque essai,
-3 minutes de test, 3 minutes de suivi, puis export JSON.
-E · Même appareil demandé 244 fois : redemander le MÊME objet laisse-t-il aussi de la mémoire ?
-F · Interfaces depuis des objets gardés : appareils et ports récupérés une fois, gardés dans le
-    moteur de script, puis relus. Reconstruction seulement si le nombre d'appareils ou de liens change.
-    Si la courbe reste plate après le premier appel, c'est la piste de correction.
-G · Objets gardés + présence de lien : seul getLink() est redemandé à chaque cycle.
-H · Interfaces + ramasse-miettes : comme C, puis gc() si le moteur en propose un. Le journal indique
-    « gc » (nom trouvé ou null) : si null, H équivaut à C et n'apporte rien.
-Chaque appel note « objects » : nombre d'objets demandés à Packet Tracer pendant ce cycle.
-Ces sondes ne modifient pas le réseau. Leur effet sur la RAM reste à mesurer dans PT 9.
+Garde NetOps ouvert jusqu’au téléchargement de diagnostic-complet-netops.json puis envoie-le.
+Le rapport est également conservé dans web/diagnostics-ram/suite-*/diagnostic-complet.json.
+Les protections de lancement sur copie et la limite de 2 Gio engagés sont conservées.
+37 tests locaux ciblés réussis : exécution simulée de 600 cycles, conservation du premier événement, variation des valeurs, séparation de la mémoire et pente, routes et suite.
+L’évolution réelle de mémoire doit être mesurée sous Windows dans Packet Tracer.

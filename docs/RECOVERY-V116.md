@@ -1,11 +1,11 @@
-# Sources UI et bureau récupérées — v0.116
+# Historique de récupération des sources
 
-Source : archive complète AI-PKT-LAB-v0116b.zip fournie le 29 octobre 2026.
+La première récupération a utilisé AI-PKT-LAB-v0116b.zip et sauvegardé les refontes UI/bureau dans b61b6c9.
 
-Cette branche sauvegarde les refontes du bureau technicien, de la messagerie, du centre de tickets et de la documentation, ainsi que le lanceur Electron présents dans cette archive. Elle part de codex/ui-ux-v029 (v0.86).
+Le dossier installé AI-PKT-LAB-v0111.rar fourni le 25 novembre 2026 complète cette récupération. Malgré son nom v111, il contient le profil v127, les sondes comparatives suivantes et les correctifs de lancement Electron. Le numéro du bureau reste 0.119.0, tel que fourni.
 
-Les correctifs RAM expérimentaux et les diagnostics v119–v127 développés après cette archive ne sont pas intégrés. Les outils RAM déjà présents dans la v116b restent optionnels ; ils ne constituent pas une correction de fuite validée.
+Les diagnostics Qt, les captures natives et les sondes sont des outils optionnels de recherche. Ils ne corrigent pas la fuite de mémoire. La capture UST a provoqué des difficultés de démarrage dans les essais précédents et ne doit pas être lancée pour un usage normal.
 
-Validation lors de la récupération : 8 tests Electron, 3 tests diagnostic, 7 tests messagerie et 6 tests documentation entreprise passent. Exécution Windows et rendu visuel non revérifiés. Les deux copies de tests placées à la racine de l’archive sont exclues pour éviter les collisions avec web/.
+Le patch expérimental NETOPS_REFERENCE_CACHE n’est pas intégré : l’inventaire normal garde le chemin de lecture original. Les sessions générées, rapports, caches, dépendances installées et extraits de désassemblage ne sont pas publiés.
 
-Les données d’entreprise générées et fichiers temporaires ne sont pas ajoutés. Cette récupération ne prétend pas reconstituer les modifications postérieures à l’archive.
+Validation de cette récupération : 24 tests mémoire, 5 tests de lecture exclusive, 6 tests de transport, 4 tests de sondes phase 3 et 8 tests Electron passent. Exécution Windows, Packet Tracer et rendu visuel non revérifiés.

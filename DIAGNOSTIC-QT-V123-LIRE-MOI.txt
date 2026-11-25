@@ -1,0 +1,13 @@
+Diagnostic v123 — trajet des commandes sous nettoyage Qt agressif
+
+Sauvegarde et ferme NetOps / Packet Tracer, puis copie ce ZIP dans ton dossier NetOps en remplaçant les fichiers. Lance LANCER-DIAGNOSTIC-COMPLET.bat. Envoie diagnostic-complet-netops.json après la fin.
+
+Uniquement L : petite réponse AVANT inventaire, inventaire initial, petite réponse APRÈS inventaire. Aucun essai RAM de dix minutes ni ancienne série.
+Le JSON transport contient les identifiants de requête : queued (mise en file), dequeued_for_http (retirée pour la réponse HTTP), result_received (réponse reçue), call_finished ou call_timeout.
+Un résultat portant le suffixe -entered est un signal envoyé au début du script. Il ne prouve pas que le script complet a terminé. Son absence ne prouve pas que le script n’a pas démarré, car son envoi utilise aussi le canal webview. dequeued_for_http ne garantit pas que le client a reçu la réponse HTTP.
+Ces distinctions servent à localiser le point d’arrêt sans conclure trop vite à un défaut du moteur.
+Les traces sont limitées à 200 événements ; aucun jeton ni contenu des commandes dans le journal de transport. Le rapport de la sonde conserve les résultats d’inventaire comme auparavant.
+Cette instrumentation ajoute un petit signal par appel : résultat réservé au diagnostic de communication, pas à une comparaison chiffrée de consommation RAM.
+L’option Qt reste propre au processus de test ; réseau original et binaires Cisco inchangés. La fermeture Electron corrigée en v122 est conservée.
+Au maximum 3 minutes de commandes plus un éventuel appel en cours (60 secondes maximum), puis 3 minutes de suivi. Arrêt sur échec ou limite mémoire.
+Validation locale : 51 tests Python ciblés et 8 tests Node. Exécution Packet Tracer native à vérifier sur ton PC.

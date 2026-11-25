@@ -1,0 +1,12 @@
+Diagnostic v125 — correctif expérimental de lecture des commandes HTTP
+
+Sauvegarde puis ferme Packet Tracer et NetOps. Copie les fichiers du ZIP dans ton dossier NetOps en remplaçant les fichiers. Lance LANCER-DIAGNOSTIC-COMPLET.bat. Envoie le JSON final.
+
+La séquence courte L est conservée : petite réponse avant inventaire, inventaire initial, petite réponse après. Nouvelle condition : boucle HTTP remplacée temporairement dans la fenêtre de l’extension, uniquement pour ce processus de test avec nettoyage agressif.
+Le correctif empêche plusieurs requêtes /next actives dans sa boucle, traite une seule fois les événements de fin d’une requête et reporte l’appel au moteur hors du gestionnaire de réponse HTTP. Il ne réessaie jamais automatiquement une commande déjà exécutée. Les erreurs d’exécution restent tracées.
+Le timeout HTTP reste à huit secondes. La piste est testée en corrigeant le cycle de lecture, sans simplement rallonger le timeout.
+Le JSON doit contenir poll_fix_installed. poll_fix_unsupported indique une extension non compatible : aucune conclusion sur le correctif dans ce cas.
+Le scénario local injecte plusieurs événements de fin pour vérifier la garde ; il ne prouve pas que Chromium suit exactement ce scénario chez toi.
+Ce test cherche à rétablir les échanges sous nettoyage agressif ; il ne prouve pas que la fuite mémoire est corrigée. Aucun ancien test RAM de dix minutes.
+Aucun binaire Cisco ni fichier .pts modifié. Le remplacement disparaît à la fermeture du processus de test. Le fonctionnement normal ne reçoit pas ce correctif expérimental. Réseau source conservé. Fermeture Electron corrigée conservée.
+Validation : 55 tests Python ciblés incluant simulations JavaScript. Validation native Windows / Packet Tracer à faire. Durée indicative : 4 à 8 minutes, suivi de trois minutes inclus.

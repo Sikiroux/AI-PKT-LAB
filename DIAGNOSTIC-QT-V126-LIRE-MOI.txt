@@ -1,0 +1,12 @@
+Diagnostic v126 — lecture HTTP exclusive
+
+Sauvegarde et ferme Packet Tracer et NetOps. Copie ce ZIP dans ton dossier NetOps en remplaçant les fichiers. Lance LANCER-DIAGNOSTIC-COMPLET.bat. Envoie le JSON final.
+
+Un seul essai court, sous nettoyage Qt agressif : petite réponse avant inventaire, inventaire initial, petite réponse après. Aucun test RAM long.
+Nouveau : après réception du signal poll_fix_installed, seules les requêtes portant le marqueur netops_poll=1 sont autorisées à retirer une commande. Le jeton d’authentification reste obligatoire. Les anciennes requêtes déjà en attente sont réveillées et ne prennent pas la commande suivante. Vérification et retrait sont synchronisés sur la même file.
+La nouvelle boucle conserve une seule requête et n’a pas de timeout XMLHttpRequest de huit secondes. Le délai moteur Python reste limité à 60 secondes par appel. Le bouton Arrêter et la limite mémoire restent disponibles.
+Le rapport transport indique exclusive_poll:true quand la protection est activée. Ce champ, le signal poll_fix_installed et la réponse ack_after_inventory permettent d’évaluer l’essai.
+Cela ne garantit pas une livraison HTTP parfaite ni la résolution de la fuite mémoire. Aucun renvoi automatique de commande déjà exécutée.
+Protection réservée au diagnostic et au processus de test. Aucun binaire Cisco ni fichier .pts modifié ; réseau original conservé ; correction de fermeture Electron incluse.
+Prévoir environ 4 à 8 minutes, suivi de trois minutes inclus. Les traces supplémentaires empêchent d’utiliser cet essai comme mesure comparable de fuite RAM.
+Validation locale : 60 tests Python ciblés, dont un serveur HTTP réel vérifiant le filtrage des anciennes requêtes et le maintien de l’authentification, ainsi que des simulations JavaScript. La résolution du blocage natif reste à valider sur ton PC Windows.

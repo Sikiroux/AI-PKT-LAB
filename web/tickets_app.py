@@ -633,6 +633,9 @@ def run():
     diagnostic_mode=os.environ.get('NETOPS_MEMORY_DIAGNOSTIC')=='1'
     from memory_diagnostic import MemoryDiagnostic
     memory_test=MemoryDiagnostic(workspace) if diagnostic_mode else None
+    from memory_suite import MemorySuite
+    memory_suite=MemorySuite(memory_test,ROOT/'diagnostics-ram') if diagnostic_mode else None
+    if memory_test:memory_test.suite=memory_suite
     def arrival_loop():
         while not stop_arrivals.wait(1):
             with workspace.lock:
@@ -653,8 +656,13 @@ def run():
         def allowed(self):return self.headers.get('Host') in ('127.0.0.1:8765','localhost:8765')
         def do_GET(self):
             if not self.allowed():return self.send(403,{'error':'Acces refuse'})
-            if diagnostic_mode and self.path=='/':return self.send(200,(ROOT/'memory-diagnostic.html').read_text(encoding='utf-8').replace('__UI_TOKEN__',token),'text/html')
+            if diagnostic_mode and self.path=='/':return self.send(200,(ROOT/'memory-diagnostic.html').read_text(encoding='utf-8').replace('__UI_TOKEN__',token).replace('__AUTO_SUITE__','true' if os.environ.get('NETOPS_MEMORY_SUITE')=='1' else 'false').replace('__TRIAGE_PROFILE__','true' if os.environ.get('NETOPS_TRIAGE_PROFILE')=='1' else 'false').replace('__NATIVE_CAPTURE__','true' if os.environ.get('NETOPS_NATIVE_MEMORY_PROFILE')=='1' else 'false'),'text/html')
             if diagnostic_mode and self.path=='/memory-diagnostic':return self.send(200,dict(memory_test.snapshot(),connected=bridge.is_connected))
+            if diagnostic_mode and self.path=='/memory-suite':
+                status=memory_suite.snapshot()
+                status['runs']=[{k:v for k,v in run.items() if k!='diagnostic'} for run in status['runs']]
+                return self.send(200,status)
+            if diagnostic_mode and self.path=='/memory-suite/report':return self.send(200,memory_suite.snapshot())
             if workspace_routes.get(self):return
             if self.path=='/':return self.send(200,(ROOT/'tickets.html').read_text(encoding='utf-8').replace('__UI_TOKEN__',token),'text/html')
             if urlparse(self.path).path=='/workspace-design.css':return self.send(200,(ROOT/'workspace-design.css').read_text(encoding='utf-8'),'text/css')
@@ -686,6 +694,9 @@ def run():
                 n=int(self.headers.get('Content-Length','0'))
                 if not 0<=n<=8192:raise ValueError('Requete trop grande')
                 data=json.loads(self.rfile.read(n) or b'{}')
+                if diagnostic_mode and self.path in ('/memory-suite/start','/memory-suite/stop'):
+                    return self.send(200,memory_suite.start() if self.path.endswith('/start') else memory_suite.stop())
+                if diagnostic_mode and memory_suite.snapshot()['running'] and self.path=='/memory-diagnostic/start':raise ValueError('Suite automatique en cours.')
                 if diagnostic_mode and self.path in ('/memory-diagnostic/start','/memory-diagnostic/stop'):
                     result=memory_test.start(data.get('mode')) if self.path.endswith('/start') else memory_test.stop()
                     return self.send(200,dict(result,connected=bridge.is_connected))

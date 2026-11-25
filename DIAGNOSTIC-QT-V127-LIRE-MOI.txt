@@ -1,0 +1,16 @@
+Diagnostic v127 — mesure RAM sur dix minutes, canal corrigé
+
+1. Sauvegarde puis ferme Packet Tracer et NetOps.
+2. Copie le contenu du ZIP dans ton dossier NetOps en remplaçant les fichiers.
+3. Lance LANCER-DIAGNOSTIC-COMPLET.bat.
+4. Laisse finir les dix minutes de lectures + trois minutes sans commande.
+5. Envoie diagnostic-complet-netops.json téléchargé automatiquement.
+
+Un seul essai : inventory_cached_all, références conservées, nettoyage Qt agressif et canal HTTP exclusif validé dans l’essai court v126. Aucun A–H ou ancien essai court automatiquement relancé.
+Le correctif est confirmé avant la mesure. Les signaux natifs et transmissions détaillées ajoutés pour localiser le blocage sont coupés ensuite. Les traces Python restent bornées. Le mode normal ne change pas.
+Le JSON contient l’inventaire initial, les objets redemandés, les changements de valeurs, les échantillons mémoire par PID et la durée de chaque appel. memory_summary sépare acquisition initiale, croissance pendant les relectures, pente après 30 secondes, mémoire par relecture terminée et durée moyenne/médiane/maximale des relectures.
+Comparer aussi le nombre de cycles avec les 581 de v119 : un nettoyage plus lent peut réduire la hausse par minute simplement parce que moins de lectures aboutissent. La comparaison n’isole pas complètement l’effet du GC, le canal ayant aussi changé. Aucune conclusion automatique de fuite corrigée.
+La fenêtre est limitée à 600 secondes de cycles ; l’appel déjà lancé peut dépasser de 60 secondes maximum. Le suivi après arrêt dure trois minutes. Prévoir 13–15 minutes plus chargement/éventuel appel en cours.
+Le réseau original est conservé. Aucun binaire Cisco ni .pts modifié. L’option Qt ne concerne que le processus de test. La correction de fermeture Electron est conservée.
+Limite de 2 Gio engagés toujours active. Un échec reste explicite et le rapport reste exportable.
+Validation locale : 63 tests Python ciblés ; comportement Packet Tracer et mesures natives à vérifier sur ton PC.

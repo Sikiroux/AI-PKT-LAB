@@ -1,0 +1,19 @@
+DIAGNOSTIC QT v120 — mise à jour du diagnostic v119
+
+1. Sauvegarde puis ferme Packet Tracer et NetOps.
+2. Copie le contenu de ce ZIP dans ton dossier contenant LANCER-BUREAU.bat, en remplaçant les fichiers.
+3. Lance LANCER-DIAGNOSTIC-COMPLET.bat.
+4. Laisse terminer les 10 minutes de lectures + 3 minutes de suivi (le nettoyage Qt peut ralentir le test).
+5. Envoie le fichier diagnostic-complet-netops.json téléchargé automatiquement.
+
+UN SEUL ESSAI : inventory_cached_all avec QV4_MM_AGGRESSIVE_GC=1.
+Nouvelles conditions expérimentales à comparer au JSON v119 déjà reçu.
+Les anciennes sondes et l’essai I standard ne sont pas relancés.
+L’entreprise est ouverte automatiquement à partir d’une copie. Le source reste intact.
+L’option concerne uniquement le processus Packet Tracer de test et ses enfants : aucun réglage Windows permanent.
+Aucun exécutable ou DLL Cisco modifié. Le mode normal reste inchangé.
+La limite de 2 Gio engagés reste active. Arrêter la suite ferme uniquement le processus de test lancé.
+Le JSON indique experiment et process_environment.
+
+Validation locale : suite ciblée de 37 tests Python. Le comportement natif et la RAM doivent être mesurés sur ton PC Windows.
+Le numéro de version de l’application normale reste inchangé ; v120 désigne ce diagnostic.

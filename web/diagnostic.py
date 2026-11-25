@@ -65,8 +65,18 @@ class Engine:
     def __init__(self,bridge):self.bridge=bridge;self.lock=threading.Lock();self.baseline=None
     def call(self,code,timeout=15):
         if not self.bridge.is_connected:raise RuntimeError('Pont non connecte. Dans Packet Tracer, ouvrir Extensions > MCP BUILDER et laisser sa fenetre ouverte.')
-        rid=next_rid();self.bridge._queue.put_nowait(report_result_js(self.bridge.port,self.bridge.token,rid)+code)
+        rid=next_rid()
+        prefix=report_result_js(self.bridge.port,self.bridge.token,rid)
+        tracing=getattr(self.bridge,'diagnostic_events',None) is not None
+        if tracing and not getattr(self.bridge,'diagnostic_light_trace',False):
+            from webview_trace import install_script
+            prefix=install_script(self.bridge.port,self.bridge.token,repair=getattr(self.bridge,'diagnostic_poll_repair',False))+prefix
+            marker=report_result_js(self.bridge.port,self.bridge.token,rid+'-entered').replace('function reportResult(', 'function __netopsEntered(')
+            prefix=marker+'__netopsEntered("entered");'+prefix
+        if tracing:self.bridge.diagnostic_record('queued',rid=rid)
+        self.bridge._queue.put_nowait(prefix+code)
         result=self.bridge.take_result(rid,timeout)
+        if tracing:self.bridge.diagnostic_record('call_finished' if result is not None else 'call_timeout',rid=rid)
         if result is None:raise RuntimeError('Aucune reponse de Packet Tracer. Fermer une eventuelle boite de dialogue erreur et reessayer.')
         return result
     def snapshot(self):

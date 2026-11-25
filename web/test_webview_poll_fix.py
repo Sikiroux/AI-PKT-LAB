@@ -1,0 +1,10 @@
+import json,subprocess,unittest
+from webview_poll_fix import POLL_FIX
+class PollFixTests(unittest.TestCase):
+ def test_one_request_one_completion_and_native_execution_outside_load(self):
+  js=r'''const vm=require('vm'),assert=require('assert');let src='';process.stdin.on('data',d=>src+=d);process.stdin.on('end',()=>{let timers=[],xs=[],events=[],executed=[],fail=false;function X(){xs.push(this)}X.prototype.open=function(m,u){this.url=u};X.prototype.send=function(){};const c=vm.createContext({window:{},S:{bridgeUp:true,commandCount:0},pollCommands:()=>{},bridgeUrl:x=>x,XMLHttpRequest:X,emit:x=>events.push(x),setTimeout:f=>{timers.push(f);return timers.length;},$se:(n,b)=>{executed.push(b);if(fail)throw Error('native');},updateCommandCount:()=>{}});vm.runInContext(src,c);assert(events.includes('poll_fix_installed'));c.pollCommands();c.pollCommands();assert.equal(xs.length,1);assert(xs[0].url.endsWith('netops_poll=1'));assert.equal(xs[0].timeout,0);let x=xs[0];x.status=200;x.responseText='one';x.onload();x.ontimeout();x.onload();assert.equal(executed.length,0);assert.equal(timers.length,1);c.pollCommands();assert.equal(xs.length,1);timers.shift()();assert.deepEqual(executed,['one']);assert.equal(timers.length,1);c.pollCommands();assert.equal(xs.length,2);timers.shift()();assert.equal(xs.length,2);x=xs[1];x.status=200;x.responseText='two';fail=true;x.onload();timers.shift()();assert(events.includes('poll_execution_error'));timers.shift()();assert.equal(xs.length,3);xs[2].ontimeout();xs[2].onerror();assert.equal(timers.length,1);timers.shift()();assert.equal(xs.length,4);assert.equal(events.filter(x=>x==='poll_retry').length,1);});'''
+  p=subprocess.run(['node','-e',js],input=POLL_FIX,capture_output=True,text=True);self.assertEqual(p.returncode,0,p.stderr)
+ def test_opt_in_injection_only(self):
+  from webview_trace import install_script
+  self.assertNotIn('poll_fix_installed',install_script(1,'test'))
+  self.assertIn('poll_fix_installed',install_script(1,'test',repair=True))

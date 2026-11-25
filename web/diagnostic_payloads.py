@@ -41,3 +41,52 @@ INVENTORY_PROBES.update({
   "var gcName=typeof G.gc==='function'?'gc':(typeof G.collectGarbage==='function'?'collectGarbage':(typeof G.CollectGarbage==='function'?'CollectGarbage':null));var gcError=null;if(gcName){try{G[gcName]();}catch(e){gcError=String(e);}}"
   "reportResult(JSON.stringify({devices:devices,objects:objects,gc:gcName,gc_error:gcError}));"),
 })
+
+# Phase 3 diagnostics only: fresh PT process per probe, unchanged topology.
+# All native references, including network, links, endpoints and owners, are
+# retained once. This is NOT a production cache invalidation strategy.
+_PHASE3_BUILD=r'''var G=(function(){return this;})();var c=G.__pktlabPhase3;var objects=0,state='reused';
+if(!c){var net=ipc.network();objects++;c={net:net,devices:[],device_count:net.getDeviceCount(),link_count:net.getLinkCount(),port_count:0};
+for(var i=0;i<c.device_count;i++){var d=net.getDeviceAt(i);objects++;var row={device:d,ports:[]};var n=d.getPortCount();
+for(var j=0;j<n;j++){var p=d.getPortAt(j);objects++;var link=p.getLink(),peer=null;if(link){objects++;var one=link.getPort1(),two=link.getPort2();objects+=2;var owner1=one.getOwnerDevice(),owner2=two.getOwnerDevice();objects+=2;peer=owner1.getName()===d.getName()?{port:two,owner:owner2}:{port:one,owner:owner1};}
+row.ports.push({port:p,link:link,peer:peer});c.port_count++;}c.devices.push(row);}G.__pktlabPhase3=c;state='built';}'''
+
+def _phase3(body):
+ return '(function(){try{'+_PHASE3_BUILD+body+'}catch(e){reportResult(JSON.stringify({error:String(e)}));}})();'
+
+INVENTORY_PROBES.update({
+ 'inventory_cached_all':_phase3(_READ_PORT+r'''
+if(c.net.getDeviceCount()!==c.device_count||c.net.getLinkCount()!==c.link_count)throw Error('Topologie modifiée pendant le test ; redémarrer cet essai.');
+var devices=[];for(var i=0;i<c.devices.length;i++){var row=c.devices[i],ports=[];for(var j=0;j<row.ports.length;j++){var saved=row.ports[j],out=readPort(saved.port);out.linked=!!saved.link;out.peer=saved.peer?{device:saved.peer.owner.getName(),port:saved.peer.port.getName()}:null;ports.push(out);}devices.push({name:row.device.getName(),model:row.device.getModel(),serial:row.device.getSerialNumber(),ports:ports});}
+reportResult(JSON.stringify({devices:devices,link_count:c.link_count,objects:objects,cache:state,cached_devices:c.device_count,cached_ports:c.port_count}));'''),
+ 'inventory_cached_hold':_phase3(r'''reportResult(JSON.stringify({devices:[],objects:objects,cache:state,cached_devices:c.device_count,cached_ports:c.port_count}));'''),
+})
+
+# Short, ordered commands locate the first failed boundary under aggressive GC.
+_TRACE_PREFIX="(function(){try{var c=(function(){return this;})().__pktlabPhase3;if(!c)throw Error('Cache absent');"
+def _trace(body):
+ return _TRACE_PREFIX+body+"}catch(e){reportResult(JSON.stringify({error:String(e)}));}})();"
+GC_TRACE_STEPS=[
+ ('initial_inventory',INVENTORY_PROBES['inventory_cached_all']),
+ ('transport_ack','reportResult(JSON.stringify({devices:[],stage:"transport_ack"}));'),
+ ('cache_metadata',_trace('reportResult(JSON.stringify({devices:[],cached_devices:c.device_count,cached_ports:c.port_count}));')),
+ ('network_counts',_trace('reportResult(JSON.stringify({devices:[],device_count:c.net.getDeviceCount(),link_count:c.net.getLinkCount()}));')),
+ ('device_names',_trace('var names=[];for(var i=0;i<c.devices.length;i++)names.push(c.devices[i].device.getName());reportResult(JSON.stringify({devices:[],names:names}));')),
+ ('first_port',_trace(_READ_PORT+'var p=c.devices[0]&&c.devices[0].ports[0];reportResult(JSON.stringify({devices:[],port:p?readPort(p.port):null}));')),
+ ('read_values',_trace(_READ_PORT+'var values=[];for(var i=0;i<c.devices.length;i++){var ports=[];for(var j=0;j<c.devices[i].ports.length;j++)ports.push(readPort(c.devices[i].ports[j].port));values.push({ports:ports});}c.traceValues=values;reportResult(JSON.stringify({devices:[],rows:values.length}));')),
+ ('serialize_values',_trace('reportResult(JSON.stringify({devices:c.traceValues||[]}));')),
+]
+INVENTORY_PROBES['inventory_gc_trace']=GC_TRACE_STEPS[0][1]
+
+GC_TRANSPORT_STEPS=[('ack_before_inventory',GC_TRACE_STEPS[1][1]),GC_TRACE_STEPS[0],('ack_after_inventory',GC_TRACE_STEPS[1][1])]
+INVENTORY_PROBES['inventory_gc_transport']=GC_TRANSPORT_STEPS[0][1]
+
+# Matched batches: same loop count and small response, no topology writes.
+TRIAGE_BATCH=100
+for _name,_setup,_call in (
+ ('triage_control','var value=0;','value=k;'),
+ ('triage_scalar','var net=ipc.network(),value=0;','value=net.getDeviceCount();'),
+ ('triage_object','var net=ipc.network(),value=null;if(net.getDeviceCount()<1)throw Error("Reseau vide");','value=net.getDeviceAt(0);'),
+ ('triage_cached_property','var G=(function(){return this;})();if(!G.__triageDevice){var net=ipc.network();if(net.getDeviceCount()<1)throw Error("Reseau vide");G.__triageDevice=net.getDeviceAt(0);}var value=null;','value=G.__triageDevice.getName();'),
+):
+ INVENTORY_PROBES[_name]='(function(){try{'+_setup+'for(var k=0;k<100;k++){'+_call+'}reportResult(JSON.stringify({devices:[],batch_operations:100,probe:"'+_name+'"}));}catch(e){reportResult(JSON.stringify({error:String(e)}));}})();'

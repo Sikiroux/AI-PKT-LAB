@@ -1,0 +1,32 @@
+CAPTURE DES ALLOCATIONS NATIVES — complément à l’analyse du binaire
+
+Ce kit ne promet pas une fuite corrigée. Le rapport docs/native-memory/ANALYSE-BINAIRE.md expose les preuves trouvées et leurs limites.
+
+PRÉREQUIS WINDOWS
+- Installer « Debugging Tools for Windows », fourni par le SDK Windows Microsoft : https://learn.microsoft.com/en-us/windows-hardware/drivers/debugger/debugger-download-tools
+- Les outils x64 gflags.exe et umdh.exe sont nécessaires. Le script refuse de modifier le suivi s’ils sont absents.
+- Sauvegarder puis fermer NetOps et toutes les fenêtres Packet Tracer.
+- Copier le contenu du ZIP dans le dossier NetOps v127 et remplacer les fichiers.
+- Ouvrir un PowerShell 64 bits EN ADMINISTRATEUR, se placer dans ce dossier et exécuter :
+  .\tools\native_memory\Capture-Allocations.ps1
+  Autre dossier d’outils : ajouter -DebugTools 'C:\chemin\Debuggers\x64'
+
+L’administrateur est nécessaire pour activer le suivi UST de PacketTracer.exe dans le registre, avant son démarrage, puis le retirer à la fin si le script l’a ajouté. Un suivi préexistant est conservé. Les autres options GFlags ne sont pas supprimées.
+
+ENSUITE TOUT EST AUTOMATIQUE
+- L’entreprise s’ouvre depuis une copie, avec le canal corrigé.
+- Le nettoyage Qt agressif est désactivé dans le processus de test.
+- Une charge connue de trois minutes relit les références conservées. Le suivi se poursuit trois minutes après.
+- UMDH prend des instantanés des allocations encore vivantes, avec piles d’allocation : après chargement initial, pendant les lectures et après leur arrêt.
+- Les instantanés sont comparés et le rapport NetOps est conservé.
+- Un ZIP capture-....zip est créé sous diagnostics-allocations. C’est CE ZIP qu’il faut envoyer, et pas seulement le JSON.
+
+Le script télécharge éventuellement les symboles publics Microsoft dans son dossier de capture. Les symboles privés Cisco ne sont pas disponibles ; les adresses et la liste des modules permettront le rapprochement avec le binaire reçu. Ne pas envoyer le cache symbols : il n’est pas inclus dans le ZIP.
+
+Le suivi UST ajoute de la mémoire et de la latence : on ne compare pas ses compteurs de RAM avec v119 ou v127. On cherche quelles piles produisent des allocations qui restent vivantes. UMDH ne suit pas forcément toutes les régions mémoire ni le graphe des références.
+
+À LA FIN
+Le script restaure l’option UST s’il l’avait ajoutée, y compris sur erreur normale. Ne ferme pas brutalement PowerShell pendant la capture. Si tu l’as forcé à fermer, consulte capture.json : si flag_added est true et flag_restored false, dans le même terminal administrateur exécute gflags.exe /i PacketTracer.exe -ust depuis le dossier Debuggers\x64. Ne le fais pas si le suivi était déjà présent avant notre capture.
+
+LIMITES DE VALIDATION
+Les scripts Python et la génération du dossier de preuves ont été exécutés ici. Le script PowerShell et UMDH n’ont pas pu être exécutés sur Windows dans cet environnement. Une erreur est conservée dans capture.json et dans les journaux ; ne pas l’interpréter comme une absence de fuite.

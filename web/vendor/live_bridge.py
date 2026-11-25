@@ -124,6 +124,9 @@ class PTCommandBridge:
     """HTTP bridge between Python and Packet Tracer's webview extension."""
 
     def __init__(self, port: int = DEFAULT_PORT, token: str | None = None):
+        self.diagnostic_poll_lease = False
+        self.diagnostic_events = None
+        self._diagnostic_lock = threading.Lock()
         self.port = port
         self.token = token or get_bridge_token()
         self.token_id = token_fingerprint(self.token)
@@ -178,6 +181,17 @@ class PTCommandBridge:
 
     # -- resultados correlacionados -------------------------------------
 
+    def diagnostic_record(self, kind, **values):
+        if self.diagnostic_events is None:
+            return
+        with self._diagnostic_lock:
+            self.diagnostic_events.append(dict(kind=kind,time=time.time(),**values))
+            del self.diagnostic_events[:-200]
+
+    def diagnostic_snapshot(self):
+        with self._diagnostic_lock:
+            return {"exclusive_poll":self.diagnostic_poll_lease,"events":list(self.diagnostic_events or []),"queued_commands":self._queue.qsize(),"last_poll_ago":round(time.time()-self._last_poll_time,2) if self._last_poll_time else None}
+
     def _purge_results_locked(self) -> None:
         """Descarta resultados que nadie recogió. Llamar con el lock tomado."""
         now = time.time()
@@ -192,6 +206,18 @@ class PTCommandBridge:
 
     def put_result(self, rid: str, body: str) -> None:
         """Guarda el resultado de `rid` y despierta a quien lo espere."""
+        self.diagnostic_record("result_received",rid=rid,bytes=len(body.encode("utf-8")))
+        if self.diagnostic_events is not None and rid=='netops-webview-trace':
+            try:
+                event=json.loads(body)
+                allowed={'poll_fix_installed','poll_fix_unsupported','poll_retry','poll_execution_error','installed','install_missing_se','install_error','next_load','next_error','next_timeout','next_abort','runCode_enter','runCode_return','runCode_throw'}
+                if event.get('stage')=='poll_fix_installed' and getattr(self,'diagnostic_poll_repair',False):
+                    self.set_diagnostic_poll_lease(True)
+                if event.get('stage') in allowed:
+                    # Exception messages can contain submitted code: retain no text.
+                    info=str(event.get('info',''))[:40] if event['stage']=='next_load' else ''
+                    self.diagnostic_record('webview',stage=event['stage'],info=info)
+            except (ValueError,TypeError,AttributeError):pass
         with self._results_cv:
             self._purge_results_locked()
             self._results[rid] = (body, time.time())
@@ -214,7 +240,27 @@ class PTCommandBridge:
                     return None
                 self._results_cv.wait(remaining)
 
-    def drain_commands(self) -> list[str]:
+    def set_diagnostic_poll_lease(self, active):
+        # The eligibility check and queue removal share this mutex. Wake old
+        # long polls so they can exit without consuming the next command.
+        with self._queue.not_empty:
+            self.diagnostic_poll_lease=bool(active)
+            self._queue.not_empty.notify_all()
+
+    def _take_for_client(self, accept, timeout):
+        deadline=time.monotonic()+timeout
+        with self._queue.not_empty:
+            while True:
+                if not accept():return None
+                if self._queue._qsize():
+                    command=self._queue._get()
+                    self._queue.not_full.notify()
+                    return command
+                remaining=deadline-time.monotonic()
+                if remaining<=0:return None
+                self._queue.not_empty.wait(remaining)
+
+    def drain_commands(self, accept=None) -> list[str]:
         """Espera al primer comando y se lleva todos los que ya estén en cola.
 
         Entregar de a uno cada 500 ms hacía que una topología de 40 comandos
@@ -223,14 +269,28 @@ class PTCommandBridge:
         """
         cmds: list[str] = []
         try:
-            cmds.append(self._queue.get(timeout=NEXT_LONGPOLL_SECONDS))
+            if accept is None:
+                cmds.append(self._queue.get(timeout=NEXT_LONGPOLL_SECONDS))
+            else:
+                first=self._take_for_client(accept,NEXT_LONGPOLL_SECONDS)
+                if first is None:return cmds
+                cmds.append(first)
         except Empty:
             return cmds
         while len(cmds) < MAX_BATCH_COMMANDS:
             try:
-                cmds.append(self._queue.get_nowait())
+                if accept is None:cmds.append(self._queue.get_nowait())
+                else:
+                    command=self._take_for_client(accept,0)
+                    if command is None:break
+                    cmds.append(command)
             except Empty:
                 break
+        if self.diagnostic_events is not None:
+            import re
+            for command in cmds:
+                ids=re.findall(r"[?&]rid=([A-Za-z0-9_-]+)",command)
+                self.diagnostic_record("dequeued_for_http",rids=ids,bytes=len(command.encode("utf-8")))
         return cmds
 
     # -- servidor -------------------------------------------------------
@@ -352,7 +412,8 @@ class PTCommandBridge:
                     # espera en la cola el bridge se cree desconectado.
                     bridge._connected = True
                     bridge._last_poll_time = time.time()
-                    self._respond(200, "\n".join(bridge.drain_commands()))
+                    def eligible():return not bridge.diagnostic_poll_lease or qs.get('netops_poll')==['1']
+                    self._respond(200, "\n".join(bridge.drain_commands(accept=eligible)))
                 elif path == "/status":
                     self._respond(200, json.dumps(bridge.status_dict()))
                 elif path == "/result":

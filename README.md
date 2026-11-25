@@ -1,3 +1,19 @@
+## v119 — Test I seul pendant dix minutes
+
+Cadence inchangée, références conservées, rapport mémoire séparant le chargement initial des lectures suivantes. Voir `DIAGNOSTIC-RAM-LIRE-MOI.txt`.
+
+## v118 — Cache complet et contrôle sans relecture
+
+Suite automatique I → J uniquement, 13–16 minutes. Voir `DIAGNOSTIC-RAM-LIRE-MOI.txt`.
+
+## v117b — Suite ciblée F → E → G → H
+
+Quatre nouveaux essais seulement, environ 25–30 minutes. Même lanceur `LANCER-DIAGNOSTIC-COMPLET.bat` et un seul JSON.
+
+## v117 — Suite RAM automatique
+
+Lancer `LANCER-DIAGNOSTIC-COMPLET.bat` après sauvegarde et fermeture de Packet Tracer et NetOps. Voir `DIAGNOSTIC-RAM-LIRE-MOI.txt`.
+
 ## v116 — Mémoire privée résidente, affichée par PID
 
 Comparaison avec le Gestionnaire des tâches : voir `DIAGNOSTIC-RAM-LIRE-MOI.txt`. Les processus ne sont plus additionnés dans l’affichage.

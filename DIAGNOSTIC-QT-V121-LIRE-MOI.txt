@@ -1,0 +1,10 @@
+Diagnostic Qt v121 — correctif v120
+
+Sauvegarde puis ferme Packet Tracer et NetOps. Copie le contenu du ZIP dans ton dossier NetOps, en remplaçant les fichiers. Lance LANCER-DIAGNOSTIC-COMPLET.bat.
+
+Un seul essai : inventaire en cache avec QV4_MM_AGGRESSIVE_GC=1, comme v120, mais délai de réponse porté à 90 secondes par appel au lieu de 15. Aucun autre ancien test n’est relancé.
+Durée : 10 minutes de lectures + 3 minutes de suivi ; un appel en cours peut dépasser la limite des 10 minutes de 90 secondes au maximum.
+En cas d’échec, la suite indique followup_failed puis error, conserve la cause et exporte quand même le rapport. Deux journaux peuvent décrire la même erreur mais le compteur ne la compte plus deux fois.
+Le réseau original et les binaires Cisco restent intacts. L’option Qt et le délai sont réservés au diagnostic automatique. Le processus de test est fermé après le suivi.
+Si le deuxième appel dépasse encore le délai, le résultat sera un échec de communication ; aucune conclusion automatique sur la cause ni sur la fuite.
+Envoie diagnostic-complet-netops.json après la fin. Validation locale : 39 tests Python et syntaxe JavaScript. Le fonctionnement natif reste à vérifier sur Windows.

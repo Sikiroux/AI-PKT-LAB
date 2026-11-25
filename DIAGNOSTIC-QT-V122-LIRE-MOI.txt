@@ -1,0 +1,15 @@
+Diagnostic v122 — localisation du blocage + fermeture Electron
+
+1. Sauvegarde puis ferme NetOps et Packet Tracer (pour cette mise à jour, ferme l’ancienne version avec la méthode qui fonctionne).
+2. Copie le contenu du ZIP dans ton dossier NetOps en remplaçant les fichiers.
+3. Lance LANCER-DIAGNOSTIC-COMPLET.bat.
+4. Laisse terminer puis envoie diagnostic-complet-netops.json.
+
+La suite lance uniquement K, une séquence de huit commandes sous nettoyage Qt agressif : inventaire initial, réponse minimale, métadonnées du cache, compteurs réseau, noms des appareils, premier port, lecture des ports conservée en mémoire, sérialisation et envoi des valeurs.
+Chaque étape est inscrite AVANT son appel et APRÈS sa réponse. Un échec arrête les commandes, puis le suivi mémoire continue trois minutes. Délai effectif : 60 secondes par appel. Fenêtre de commandes : 180 secondes maximum, plus un éventuel appel déjà en cours. Prévoir environ 4–8 minutes avec démarrage.
+Ce test localise la première étape défaillante, sans prouver que l’étape est la cause racine. L’absence de réponse peut aussi venir du pont ou du moteur. Aucun ancien essai de dix minutes n’est relancé.
+Le JSON conserve les réponses et les étapes commencées/terminées.
+La page du diagnostic expose maintenant TOKEN, attendu par Electron pour quitter, en conservant la vérification serveur du jeton.
+Pour quitter, utilise la croix et confirme. Pendant une commande bloquée, la fermeture peut attendre le délai d’arrêt.
+Aucun binaire Cisco modifié, réseau original conservé, option Qt réservée au processus de test.
+Validation locale : 41 tests Python ciblés, 8 tests Node de cycle de vie/fenêtres/sécurité, huit scripts exécutés dans un moteur JavaScript simulant l’API. Validation native Windows/Packet Tracer à effectuer.

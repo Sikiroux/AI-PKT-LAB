@@ -13,6 +13,6 @@ class InventoryProbeTests(unittest.TestCase):
  def test_only_selected_script_and_journal(self):
   for mode,script in INVENTORY_PROBES.items():
    c,s=self.run_probe(mode,{'device_count':54} if mode=='inventory_count' else {'devices':[{'ports':[{}]}]})
-   self.assertEqual(c.engine.codes,[script]*3);self.assertEqual(s['calls'],3);self.assertEqual(s['cycles'],3);self.assertEqual(s['errors'],0);self.assertEqual(sum(e['kind']=='inventory_probe' for e in s['events']),3)
+   self.assertEqual(c.engine.codes,[s for _,s in __import__('diagnostic_payloads').GC_TRACE_STEPS[:3]] if mode=='inventory_gc_trace' else [s for _,s in __import__('diagnostic_payloads').GC_TRANSPORT_STEPS] if mode=='inventory_gc_transport' else [script]*3);self.assertEqual(s['calls'],3);self.assertEqual(s['cycles'],3);self.assertEqual(s['errors'],0);self.assertEqual(sum(e['kind']=='inventory_probe' for e in s['events']),3)
  def test_native_error_stops(self):
   c,s=self.run_probe('inventory_ports',{'error':'native failure'});self.assertEqual(len(c.engine.codes),1);self.assertEqual(s['cycles'],0);self.assertGreater(s['errors'],0)

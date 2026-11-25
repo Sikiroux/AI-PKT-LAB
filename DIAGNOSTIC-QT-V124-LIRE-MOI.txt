@@ -1,0 +1,13 @@
+Diagnostic v124 — frontière webview / moteur
+
+Sauvegarde puis ferme NetOps et Packet Tracer. Copie ce ZIP dans ton dossier NetOps, remplace les fichiers, lance LANCER-DIAGNOSTIC-COMPLET.bat, puis envoie le JSON final.
+
+Même séquence courte L que v123, mais avec une instrumentation nouvelle dans la fenêtre web de l’extension : petite réponse avant inventaire, inventaire initial, petite réponse après.
+Aucun ancien test RAM long n’est relancé. Le nettoyage agressif reste uniquement activé dans ce processus de diagnostic pour reproduire le défaut constaté.
+Les événements transport.webview indiquent installed, next_load, next_timeout/error/abort, runCode_enter/return/throw.
+next_load contient uniquement le statut HTTP et la longueur reçue. Les messages d’erreur, commandes et jetons ne sont pas exportés dans ces événements.
+Les traces sont transmises par HTTP : leur absence ne prouve pas à elle seule que l’événement n’a pas eu lieu. Les requêtes déjà ouvertes avant installation peuvent ne pas être observées.
+L’instrumentation modifie temporairement XMLHttpRequest et l’appel $se dans la fenêtre de ce processus ; elle disparaît avec sa fermeture. Aucun fichier .pts ni binaire Cisco modifié. L’installation se fait une seule fois ; les wrappers conservent retours et exceptions.
+La copie de l’entreprise est ouverte automatiquement ; source intact. Délai 60 secondes par appel. Trois minutes maximum de commandes (plus appel en cours éventuel), puis trois minutes de suivi. Fermeture Electron corrigée conservée.
+La piste du délai HTTP de huit secondes n’est pas une cause établie. Ce test observe le comportement sans changer ce délai.
+Validation locale : 53 tests Python, dont simulations JavaScript des wrappers et vérification de confidentialité des traces. Le fonctionnement Packet Tracer réel reste à mesurer.
