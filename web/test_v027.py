@@ -17,6 +17,7 @@ class NavigationContract(unittest.TestCase):
             html = (ROOT / 'web' / (name + '.html')).read_text()
             ids = re.findall(r'id="([^"]+)"', html)
             dynamic = re.findall(r"\.id\s*=\s*'([^']+)'", html)
+            dynamic += re.findall(r"ticketCenterDialog\('([^']+)'", html)
             self.assertEqual(len(ids), len(set(ids)), name)
             for ref in re.findall(r"\$\('([^']+)'\)", html):
                 self.assertIn(ref, ids + dynamic, (name, ref))

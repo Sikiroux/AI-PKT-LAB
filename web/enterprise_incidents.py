@@ -11,6 +11,7 @@ import desktop_services as ds
 import files_adapter
 import directory_adapter
 import timers
+import enterprise_network_incidents as network_incidents
 import dns_adapter
 import sim_peripherals as hardware
 from peripheral_incidents import CAUSES as PERIPHERAL_CAUSES
@@ -22,6 +23,9 @@ def view(s,serial):
     return clients.project(s,serial)
 def receive(tickets,target='random',minutes=30,client_serial='random',engine='varied',discovery_delay=0):
     c=tickets.controller;s=c.workspace.state
+    network_incidents.reconcile(tickets)
+    network_incidents.guard_pending(s)
+    if target=='network' and not network_incidents.supported(c):raise ValueError('Incident réseau indisponible : le pont doit fournir la lecture, la modification et les contrôles ICMP Packet Tracer.')
     if type(minutes) is not int or not 0<=minutes<=1440:raise ValueError('Durée invalide.')
     if type(discovery_delay) is not int or not 0<=discovery_delay<=300:raise ValueError('Délai de découverte invalide.')
     clients.sync_primary(s)
@@ -45,9 +49,11 @@ def receive(tickets,target='random',minutes=30,client_serial='random',engine='va
         candidates=[serial for serial in candidates if serial!=previous['target_serial']] or candidates
     if not candidates:raise ValueError('Tous les postes sélectionnables ont déjà une intervention ouverte.')
     serial=rng.choice(candidates)
-    options=[pair for pair in CATALOGUE if target=='random' or pair[0]==target or target=='files' and pair[0]=='endpoint']
+    catalogue=CATALOGUE+((('network','ip_wrong'),('network','mask_wrong')) if network_incidents.supported(c) else ())
+    options=[pair for pair in catalogue if target=='random' or pair[0]==target or target=='files' and pair[0]=='endpoint']
+    if any(t.get('live_family')=='network' for t in opened):options=[p for p in options if p[0]!='network']
     if engine=='apps':options=[p for p in options if p[0] in ('printing','endpoint','ftp','peripherals')]
-    elif engine=='mixed':options=[p for p in options if p[0] in ('ad','endpoint','dns')]
+    elif engine=='mixed':options=[p for p in options if p[0] in ('ad','endpoint','dns','network')]
     if any(t.get('live_family')=='ftp' for t in opened):options=[p for p in options if p[0]!='ftp']
     ftp_users,ftp_known=enterprise_staff.service_users(s,'ftp')
     if ftp_known and not any(candidate in ftp_users for candidate in candidates):
@@ -67,7 +73,7 @@ def receive(tickets,target='random',minutes=30,client_serial='random',engine='va
     affected=ftp_users if family=='ftp' and ftp_known else [serial]
     departments=sorted({person['department'] for person in s.get('staff',[]) if person.get('department') and any(s['client_workspaces'][item]['requester']==person.get('display_name') for item in affected)})
     profile=s['client_workspaces'][serial]
-    wording={'printing':('Impression bloquée','Je ne peux plus imprimer les documents nécessaires à mon activité.'),
+    wording={'network':('Poste sans accès aux ressources réseau','Depuis mon poste, je ne peux plus joindre les ressources réseau. Mes fichiers locaux restent accessibles.'),'printing':('Impression bloquée','Je ne peux plus imprimer les documents nécessaires à mon activité.'),
              'endpoint':('Dossiers de travail inaccessibles','Je ne peux plus ouvrir mes dossiers depuis ce poste.'),
              'ad':('Compte utilisateur indisponible','Mon compte est refusé et je ne peux plus accéder à mes outils.'),
              'dns':('Nom du service documentaire introuvable','Je ne retrouve plus mes dossiers avec leur adresse habituelle.'),
@@ -84,7 +90,7 @@ def receive(tickets,target='random',minutes=30,client_serial='random',engine='va
         else:
             title='Application Documents absente du poste'
             complaint='Je ne trouve plus l’application Documents sur mon poste pour ouvrir le partage. Mes fichiers locaux restent accessibles.'
-    impact=dict(affected_serials=affected,affected_count=len(affected),work_status='blocked' if family in ('ad','endpoint','dns','peripherals') else 'degraded',
+    impact=dict(affected_serials=affected,affected_count=len(affected),work_status='blocked' if family in ('ad','endpoint','dns','peripherals','network') else 'degraded',
                 activity=next((p['activity'] for p in s.get('staff',[]) if p['display_name']==profile['requester']),'Activité du poste'),
                 scope='service_users' if family=='ftp' and ftp_known else 'workstation',departments=departments,
                 evidence='business_dependencies' if family=='ftp' and ftp_known else 'reported_workstation')
@@ -96,21 +102,25 @@ def receive(tickets,target='random',minutes=30,client_serial='random',engine='va
     ticket['request_context']=dict(requester=profile['requester'],station=profile['device']['name'],serial=serial,company=s['company'],complaint=complaint,urgency_label='Activité bloquée' if impact['work_status']=='blocked' else 'Activité perturbée',priority_reason=impact['activity'])
     # Le récit public nomme la ressource attendue, jamais la mutation privée.
     resource = ('\\\\'+s['devices']['server']['name']+'\\Documents') if family in ('endpoint','dns') else profile['device']['name']
-    if family=='printing':resource=profile['printing']['queues']['office']['name']
+    if family=='network':resource=s['devices']['server']['name']+' · '+s['devices']['server']['ip']
+    elif family=='printing':resource=profile['printing']['queues']['office']['name']
     elif family=='ftp':
         filename=sorted(s['desktop_services']['ftp']['files'])[0]
         resource=s['devices']['server']['name']+' · dépôt FTP / '+filename
         ticket['transfer_goal']=dict(direction='download',name=filename)
     elif family=='ad':resource=s['directory']['users'][profile['user_id']]['username']
-    ticket['request_context'].update(resource=resource,resource_scope='remote' if family in ('endpoint','dns','ftp') else 'account' if family=='ad' else 'peripheral' if family=='peripherals' else 'printer',expected_result={'endpoint':'Ouvrir les documents du partage depuis ce poste.','dns':'Retrouver le partage avec son nom habituel et ouvrir un document.','printing':'Obtenir le document dans la bonne file d’impression.','ftp':'Se connecter au dépôt et effectuer le transfert demandé.','ad':'Ouvrir la session du demandeur avec son compte.','peripherals':'Utiliser à nouveau l’accessoire sur le poste.'}[family])
+    ticket['request_context'].update(resource=resource,resource_scope='remote' if family in ('endpoint','dns','ftp','network') else 'account' if family=='ad' else 'peripheral' if family=='peripherals' else 'printer',expected_result={'endpoint':'Ouvrir les documents du partage depuis ce poste.','dns':'Retrouver le partage avec son nom habituel et ouvrir un document.','printing':'Obtenir le document dans la bonne file d’impression.','ftp':'Se connecter au dépôt et effectuer le transfert demandé.','ad':'Ouvrir la session du demandeur avec son compte.','network':'Rétablir la configuration IPv4 et les communications du poste vers le serveur et le technicien.','peripherals':'Utiliser à nouveau l’accessoire sur le poste.'}[family])
     if family=='ftp':
         ticket['request_context']['expected_result']='Depuis '+profile['device']['name']+', se connecter au dépôt FTP et télécharger '+ticket['transfer_goal']['name']+' dans les fichiers locaux du poste.'
     ticket['description']+=' Ressource concernée : '+resource+'.'
     if family=='ftp':ticket['description']+=' Résultat attendu : '+ticket['request_context']['expected_result']
     ticket['dialogue_questions']=enterprise_dialogue.questions(family)
+    if family=='network':network_incidents.inject(tickets,serial,ident,seed,cause)
     with c.client_scope(serial):
         current=c.workspace.state
-        if family=='peripherals':
+        if family=='network':
+            pass  # Mutation réelle déjà appliquée et confirmée dans Packet Tracer.
+        elif family=='peripherals':
             hardware.ensure(current,[dict(serial=serial,remote_supported=True)])
             if not all(check['available'] for check in hardware.evaluate(current['peripherals'],serial).values()):
                 raise ValueError('Rétablis les accessoires locaux du poste avant une nouvelle panne matérielle.')
@@ -198,6 +208,7 @@ def checks(s,t,at):
     if original!=v.get('directory_user_id'):
         return [dict(label='Demandeur et poste du signalement',status='inconnu',
                      detail='Le compte affecté au poste a changé depuis le signalement. Un essai avec son nouvel utilisateur ne confirme pas l’accès du demandeur initial.')]
+    if record['family']=='network':return network_incidents.checks(s,t,at)
     if record['family']=='peripherals':
         model=s.get('peripherals')
         if not model or model['environment_id']!=s.get('environment_id','legacy'):
@@ -290,7 +301,8 @@ def work_status(s, include_pending=False):
             printing=s['desktop_services']['printing'] if primary else p['printing']
             dns=s['dns_service']['clients']['client'] if primary else p['dns_client']
             user=s['directory_user_id'] if primary else p['user_id']
-            if family=='peripherals':still=not all(check['available'] for check in hardware.evaluate(s['peripherals'],serial).values())
+            if family=='network':still=not all(row['status']=='valide' for row in network_incidents.checks(s,t,time.time()))
+            elif family=='peripherals':still=not all(check['available'] for check in hardware.evaluate(s['peripherals'],serial).values())
             elif family=='ad':still=not s['directory']['users'][user]['enabled']
             elif family=='ftp':still=not s['desktop_services']['ftp']['service_running']
             elif family=='dns':still=dns['dns_server_ip']!=s['devices']['server']['ip']

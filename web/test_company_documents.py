@@ -32,3 +32,20 @@ class CompanyDocumentsTests(unittest.TestCase):
         docs = company_documents.public(state)
         state.update(read_allowed=False, observation={'status':'failed'}, file_incident={'cause':'denied'})
         self.assertEqual(docs, company_documents.public(state))
+
+    def test_network_reference_is_categorized_without_inventing_missing_values(self):
+        state={'company':'Horizon','devices':{'server':{'name':'SRV-01','ip':'10.8.0.10','password':'private'},'switch':{'name':'SW-01'}}}
+        docs=company_documents.public(state)
+        network=next(d for d in docs if d['id']=='company-network')
+        self.assertEqual(network['category'],'Entreprise · Réseau')
+        self.assertIn('10.8.0.10',str(network))
+        self.assertIn('non renseignée',str(network))
+        self.assertNotIn('private',str(docs))
+        state['observation']={'status':'failed'};state['mixed_incident']={'cause':'hidden'}
+        self.assertEqual(docs,company_documents.public(state))
+
+    def test_enterprise_reference_documents_mask_gateway_and_vlan(self):
+        state={'staff_size':30,'devices':{'client':{'name':'PC-01','ip':'10.10.10.21','vlan':10,'gateway':'10.10.10.1'}}}
+        text=str(company_documents.public(state))
+        self.assertIn('255.255.255.0',text);self.assertIn('10.10.10.1',text);self.assertIn('VLAN : 10',text)
+        self.assertNotIn('masque : 255.255.255.0',str(company_documents.public({'devices':state['devices']})))

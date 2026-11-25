@@ -9,7 +9,7 @@ LABELS={'scope':'Poste et ressource concernés','when':'Quand l’avez-vous cons
         'attempts':'Quels essais avez-vous faits ?','changes':'Quel changement avez-vous constaté ?',
         'network':'État de la connexion','ip':'Dernier contrôle par IP','name':'Adresse du service',
         'login':'Session utilisateur','save':'Lecture et enregistrement','retest':'Réessayer maintenant'}
-FAMILIES={'printing':('scope','when','attempts','changes','network','ip','retest'),
+FAMILIES={'network':('scope','when','attempts','changes','network','ip','retest'),'printing':('scope','when','attempts','changes','network','ip','retest'),
           'endpoint':('scope','when','attempts','changes','network','name','login','save','retest'),
           'dns':('scope','when','attempts','changes','network','ip','name','login','retest'),
           'ad':('scope','when','attempts','changes','login','network','retest'),
@@ -21,7 +21,9 @@ def questions(family):return {key:LABELS[key] for key in FAMILIES[family]}
 def snapshot(v,ticket):
     """Le récit initial décrit une tâche et un symptôme, pas le diagnostic privé."""
     family=ticket['live_family'];server=v['devices']['server']['name']
-    if family=='printing':
+    if family=='network':
+        resource=server;operation='joindre les ressources réseau depuis mon poste'
+    elif family=='printing':
         resource=v['desktop_services']['printing']['queues']['office']['name']
         operation='imprimer un document sur '+resource
     elif family in ('endpoint','dns'):

@@ -70,9 +70,6 @@ def timeline(ticket, public_only=False):
     entries = []
     if ticket.get('created'):
         entries.append(dict(date=ticket['created'], kind='created', text='Demande reçue : '+ticket.get('title', ticket.get('id', '')), visibility='public'))
-    for entry in ticket.get('dialogue', []):
-        stamp = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(entry['at'])) if isinstance(entry.get('at'), (int, float)) else ''
-        entries.append(dict(date=stamp, kind='dialogue', text=entry.get('question', '')+'\n'+entry.get('answer', ''), author=entry.get('speaker', ''), visibility='public'))
     for entry in ticket.get('followups', []):
         private = entry.get('visibility', 'public') == 'private'
         if public_only and private:

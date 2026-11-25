@@ -63,7 +63,9 @@ def correction(ticket,state):
  if not record or not record.get('target_serial') or record.get('target_serial')!=ticket.get('target_serial') or record.get('lifecycle')=='awaiting_activity':
   return dict(available=False,reason='Correction détaillée non disponible pour ce scénario historique. Consulte les indices et, pour un lab, sa feuille de correction.')
  cause=record.get('cause');family=record.get('family')
- if family=='peripherals':
+ if family=='network':
+  title='Configuration IPv4 du poste';instruction='Dans Packet Tracer, ouvre le poste ciblé → Desktop → IP Configuration. Rétablis son adresse IPv4 et son masque selon les références de l’entreprise, puis teste la passerelle et le serveur. Lance ensuite la vérification du ticket.'
+ elif family=='peripherals':
   kind,_,fault=str(cause).partition(':');names={'monitor':'écran','keyboard':'clavier','mouse':'souris'}
   actions={'working':'Remplace cet accessoire défectueux par un exemplaire fonctionnel du stock simulé.','absent':'Installe un accessoire disponible compatible depuis le stock.','connection':'Rebranche le câble de cet accessoire.','power':'Allume cet accessoire.','input':'Sélectionne HDMI comme entrée vidéo de l’écran.'}
   if kind not in names or fault not in actions:return dict(available=False,reason='Ce scénario ne dispose pas encore de correction documentée.')
@@ -76,7 +78,7 @@ def correction(ticket,state):
 def assessment(ticket):
  learning=ticket.get('learning',{})
  family=ticket.get('live_family') or ticket.get('workspace_goal') or ticket.get('kind')
- skill={'ad':'Administration des comptes','dns':'Résolution de noms','files':'Accès aux partages','endpoint':'Configuration du poste','printing':'Dépannage de l’impression','ftp':'Transfert de fichiers','peripherals':'Diagnostic des accessoires','onboarding':'Préparation d’une arrivée','deployment':'Déploiement d’atelier'}.get(family,'Diagnostic et suivi d’intervention')
+ skill={'network':'Configuration IPv4 et connectivité dans Packet Tracer','ad':'Administration des comptes','dns':'Résolution de noms','files':'Accès aux partages','endpoint':'Configuration du poste','printing':'Dépannage de l’impression','ftp':'Transfert de fichiers','peripherals':'Diagnostic des accessoires','onboarding':'Préparation d’une arrivée','deployment':'Déploiement d’atelier'}.get(family,'Diagnostic et suivi d’intervention')
  return dict(competency_practised=skill,checked_at=ticket.get('checked'),created=ticket.get('created'),ticket_id=ticket['id'],category=ticket.get('live_family') or ticket.get('workspace_goal') or ticket.get('kind'),status=ticket.get('status'),
   hints=sorted(learning.get('hints',[])),correction_viewed=bool(learning.get('correction_viewed_at')),
   checks=[dict(label=c.get('label','Contrôle'),status=c.get('status','inconnu')) for c in ticket.get('checks',[])],

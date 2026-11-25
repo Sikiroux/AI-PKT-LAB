@@ -1,0 +1,37 @@
+<!doctype html><html lang="fr"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>NetOps · Diagnostic RAM Packet Tracer</title>
+<style>body{margin:0;background:#eff4fa;color:#173954;font:15px system-ui}main{max-width:900px;margin:35px auto;padding:28px;background:white;border:1px solid #d7e2ed;border-radius:14px}h1{font-size:24px}p{line-height:1.6}button,select{font:inherit;padding:10px 14px;margin:5px;border:1px solid #c3d5e5;border-radius:7px;background:white;color:#173954}button{cursor:pointer}button.primary{background:#1764b0;color:white}button:disabled{opacity:.5}pre{background:#f4f7fb;padding:18px;white-space:pre-wrap;overflow-wrap:anywhere;max-height:280px;overflow:auto}.notice{background:#e7f2ff;padding:14px;border-radius:8px}#error{color:#b42332}small{color:#65758e}</style>
+<main><h1>Diagnostic RAM · Packet Tracer · v116</h1><p class="notice">Les contrôles ordinaires et les arrivées de tickets sont suspendus dans ce lancement. Aucun test ne démarre tout seul. Les essais lisent le réseau et peuvent envoyer des pings ; ils ne changent pas sa configuration.</p>
+<ol><li>Ferme NetOps normal. Ouvre le même réseau dans Packet Tracer et son bridge.</li><li>Avant chaque essai, redémarre Packet Tracer et reconnecte le bridge.</li><li>La RAM de Packet Tracer est relevée automatiquement sous Windows toutes les deux secondes, puis pendant trois minutes après l’arrêt. Garde ce diagnostic ouvert pour ce suivi.</li></ol>
+<p>Recherche ciblée : teste dans l’ordre A, B, C puis D, en redémarrant Packet Tracer entre chaque essai. Ces quatre lectures sont indépendantes : elles ne lancent aucun inventaire complet en arrière-plan. Phase 2 : E, F, G et H, même protocole. Chaque appel note le nombre d’objets demandés à Packet Tracer (« objects »). Le nettoyage des logs est retiré des choix : il n’a pas montré de baisse de RAM et son automatisation n’a pas été confirmée.</p><label>Mode <select id="mode"><option value="pause">Pause · aucun appel</option><option value="inventory_count">A · Nombre d’appareils uniquement</option><option value="inventory_identity">B · Identité des appareils uniquement</option><option value="inventory_ports">C · Interfaces sans lecture des liens</option><option value="inventory_links">D · Liens et voisins sans propriétés IP</option><option value="inventory_repeat_same">E · Même appareil demandé 244 fois</option><option value="inventory_cached_ports">F · Interfaces depuis des objets gardés</option><option value="inventory_cached_link_flag">G · Objets gardés + présence de lien</option><option value="inventory_ports_gc">H · Interfaces + ramasse-miettes si disponible</option><option value="inventory">Inventaire seul</option><option value="pings">Pings seuls · un inventaire initial</option><option value="ok">Réponse OK · sans lecture réseau</option><option value="payload">Réponse fixe 42 072 octets · sans lecture réseau</option><option value="full">Complet · surveillance actuelle</option></select></label>
+<p><button id="start" class="primary">Démarrer · 3 minutes</button><button id="stop" disabled>Arrêter</button><button id="export">Exporter le journal JSON</button></p>
+<p><small>Arrêt automatique : aucun nouveau cycle après 180 secondes. Un appel déjà en cours peut terminer après cette limite. Le compteur indique les appels du moteur NetOps, pas les sous-commandes comptées par le bridge.</small></p>
+<p id="connection"></p><p id="error" role="alert"></p><pre id="memory" aria-live="polite">Mémoire : en attente du premier essai.</pre><pre id="status" aria-live="polite">Chargement…</pre><pre id="events"></pre>
+<p>Après les essais : ferme ce diagnostic puis relance LANCER-BUREAU.bat pour le fonctionnement habituel.</p></main>
+<script>
+const token='__UI_TOKEN__',$=id=>document.getElementById(id);let pending=false,last=null;
+async function request(action,mode){const r=await fetch('/memory-diagnostic'+(action?'/'+action:''),action?{method:'POST',headers:{'Content-Type':'application/json','X-Diagnostic-Token':token},body:JSON.stringify({mode})}:{});const v=await r.json();if(!r.ok)throw Error(v.error||'Requête refusée');return v}
+function memoryText(samples){
+ const current=samples.at(-1),first=samples[0],mib=n=>(n/1048576).toFixed(1)+' Mo';
+ if(!current)return 'Mémoire : démarre un essai pour lancer les relevés.';
+ const lines=['Relevé à '+current.elapsed+' s · '+(current.phase==='after'?'Suivi après arrêt':'Test en cours')];
+ if(!current.available)lines.push('Lecture : '+current.reason);
+ for(const p of current.processes||[]){
+  lines.push('\n'+p.name+' · PID '+p.pid);
+  const value=p.private_working_set_bytes;
+  lines.push('Mémoire privée résidente : '+(Number.isFinite(value)?mib(value):'indisponible'));
+  const baseline=first?.processes?.find(b=>b.pid===p.pid);
+  if(Number.isFinite(value)&&Number.isFinite(baseline?.private_working_set_bytes))lines.push('Écart depuis le départ : '+mib(value-baseline.private_working_set_bytes));
+  else if(!baseline)lines.push('Nouveau PID depuis le départ : aucune comparaison initiale.');
+  if(!Number.isFinite(value)&&p.private_working_set_reason)lines.push(p.private_working_set_reason);
+  lines.push('Détails : résidente totale '+mib(p.working_set_bytes)+' · privée engagée '+mib(p.private_bytes));
+ }
+ if((current.processes||[]).length>1)lines.push('\nPlusieurs processus détectés : chaque PID est affiché séparément, sans addition.');
+ if(first?.processes?.some(b=>!(current.processes||[]).some(p=>p.pid===b.pid)))lines.push('Un processus présent au départ a disparu.');
+ lines.push('\nÀ comparer à « Mémoire (ensemble de travail privé) » dans le Gestionnaire des tâches. Des écarts de rafraîchissement ou de colonne sont possibles.');
+ return lines.join('\n');
+}
+function draw(v){last=v;$('memory').textContent=memoryText(v.process_memory?.samples||[]);$('connection').textContent=v.connected?'Bridge connecté':'Bridge déconnecté';$('status').textContent=JSON.stringify({mode:v.mode,etat:v.phase,secondes:v.elapsed,restantes:v.remaining,cycles:v.cycles,appels_moteur:v.calls,erreurs:v.errors,octets_envoyes:v.request_bytes,octets_recus:v.response_bytes},null,2);$('events').textContent=v.events.slice(-8).map(e=>JSON.stringify(e)).join('\n');$('start').disabled=pending||v.running;$('mode').disabled=pending||v.running;$('stop').disabled=pending||!v.running}
+async function control(action){if(pending)return;pending=true;$('start').disabled=true;try{$('error').textContent='';draw(await request(action,$('mode').value))}catch(e){$('error').textContent=e.message}finally{pending=false;if(last)draw(last)}}
+$('start').onclick=()=>control('start');$('stop').onclick=()=>control('stop');$('export').onclick=async()=>{try{const v=await request();const blob=new Blob([JSON.stringify(v,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='diagnostic-ram-'+v.mode+'-'+Date.now()+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}catch(e){$('error').textContent=e.message}};
+async function refresh(){if(pending)return;try{draw(await request())}catch(e){$('error').textContent=e.message}}refresh();setInterval(refresh,1000);
+</script></html>

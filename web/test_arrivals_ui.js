@@ -7,5 +7,6 @@ vm.createContext(ctx);vm.runInContext(html.slice(start,end),ctx);
 (async()=>{await dom.createEnterpriseTicket.onclick();assert.equal(calls[0].path,'/service-ticket');assert.equal(calls[0].data.target_client,'PC-2');assert.equal(calls[0].data.target,'peripherals');
  dom.newTicketEngine.value='mixed';dom.newTicketTarget.value='dns';await dom.createEnterpriseTicket.onclick();assert.equal(calls[1].path,'/service-ticket');assert.equal(calls[1].data.engine,'mixed');
  dom.newTicketTarget.value='network';await dom.createEnterpriseTicket.onclick();assert.equal(calls[2].path,'/workspace/mixed-incident');
- ctx.state.site=null;await dom.createEnterpriseTicket.onclick();assert.equal(calls.length,3);
+ ctx.enterpriseLive=true;await dom.createEnterpriseTicket.onclick();assert.equal(calls[3].path,'/service-ticket');assert.equal(calls[3].data.target,'network');assert.equal(calls[3].data.target_client,'PC-2');
+ ctx.state.site=null;await dom.createEnterpriseTicket.onclick();assert.equal(calls.length,4);
  console.log('Arrival UI: queued application/DNS requests, selected workstation, explicit network route and no-environment guard OK');})().catch(e=>{console.error(e);process.exitCode=1});

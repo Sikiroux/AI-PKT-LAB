@@ -1,0 +1,12 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+const html=fs.readFileSync(__dirname+'/tickets.html','utf8'),source=html.slice(html.indexOf('let ticketViewEnvironment='),html.indexOf('function render(){'));
+const dom={search:{value:''},filter:{value:'all'},severityFilter:{value:'all'},resetTicketFilters:{},ticketViewStatus:{}},store=new Map();
+const ctx={state:{site:{environment_id:'A'},tickets:[{id:'A1'},{id:'A2'}]},selected:null,$:id=>dom[id],URLSearchParams,location:{search:''},sessionStorage:{getItem:k=>store.get(k)||null,setItem:(k,v)=>store.set(k,v)}};vm.createContext(ctx);vm.runInContext(source,ctx);
+ctx.restoreTicketView();ctx.selected='A2';dom.search.value='impression';dom.filter.value='en_cours';dom.severityFilter.value='elevee';ctx.rememberTicketView([{}]);assert(!dom.resetTicketFilters.hidden);assert.equal(dom.ticketViewStatus.textContent,'1 / 2 ticket(s) affiché(s)');
+ctx.state={site:{environment_id:'B'},tickets:[{id:'B1'}]};ctx.selected=null;ctx.restoreTicketView();assert.equal(dom.search.value,'');assert.equal(dom.filter.value,'all');assert.equal(ctx.selected,null);ctx.selected='B1';ctx.rememberTicketView([{}]);
+ctx.state={site:{environment_id:'A'},tickets:[{id:'A1'},{id:'A2'}]};ctx.selected=null;ctx.restoreTicketView();assert.equal(dom.search.value,'impression');assert.equal(dom.filter.value,'en_cours');assert.equal(ctx.selected,'A2');
+vm.runInContext('ticketViewEnvironment=null',ctx);ctx.selected=null;ctx.location.search='?ticket=A1&environment=A';ctx.restoreTicketView();assert.equal(ctx.selected,'A1');assert.equal(dom.search.value,'');assert.equal(dom.filter.value,'all');
+ctx.location.search='?ticket=B1&environment=B';vm.runInContext('ticketViewEnvironment=null',ctx);ctx.selected=null;ctx.restoreTicketView();assert.equal(ctx.selected,'A2','A link for another company cannot switch the current context');
+store.set('netops-ticket-view:A',JSON.stringify({filter:'invalid',severity:'invalid',selected:'deleted',search:42}));ctx.location.search='';ctx.selected=null;vm.runInContext('ticketViewEnvironment=null',ctx);ctx.restoreTicketView();assert.equal(dom.filter.value,'all');assert.equal(dom.severityFilter.value,'all');assert.equal(ctx.selected,null);assert.equal(dom.search.value,'');
+ctx.sessionStorage.getItem=()=>{throw Error('Denied')};vm.runInContext('ticketViewEnvironment=null',ctx);ctx.restoreTicketView();assert.equal(dom.filter.value,'all');
+console.log('Ticket view: company-scoped filters and selection, explicit deep link, stale IDs and unavailable storage OK');

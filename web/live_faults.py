@@ -39,7 +39,8 @@ def apply_js(injection,restore=False):
  values=injection['before' if restore else 'after']
  for field in ('ip','mask'):ipaddress.IPv4Address(values[field])
  data={k:injection[k] for k in ('device','serial','port')};data.update(values)
- guard='' if restore else 'if(p.getIpAddress()!=='+json.dumps(injection['before']['ip'])+' || p.getSubnetMask()!=='+json.dumps(injection['before']['mask'])+')throw new Error("Configuration modifiée depuis le point de départ");'
+ expected=injection['after' if restore else 'before']
+ guard='if(p.getIpAddress()!=='+json.dumps(expected['ip'])+' || p.getSubnetMask()!=='+json.dumps(expected['mask'])+')throw new Error("Configuration modifiée depuis le point de départ ; modification annulée");'
  return '''try {var v=VALUES,d=ipc.network().getDevice(v.device);
  if(!d || d.getSerialNumber()!==v.serial)throw new Error("Identité du PC incorrecte");
  var p=d.getPort(v.port);if(typeof p.setIpSubnetMask!=="function" || typeof p.isDhcpClientOn!=="function" || p.isDhcpClientOn())throw new Error("PC statique requis");
@@ -48,7 +49,11 @@ def apply_js(injection,restore=False):
  }catch(e){reportResult(JSON.stringify({error:String(e)}));}'''.replace('VALUES',json.dumps(data)).replace('GUARD',guard)
 
 def matches(snapshot,injection,restore=False):
- d=next((d for d in snapshot['devices'] if d.get('serial')==injection['serial'] and d['name']==injection['device']),None)
- p=next((p for p in d.get('ports',[]) if p['name']==injection['port']),None) if d else None
+ devices=[d for d in snapshot['devices'] if d.get('serial')==injection['serial'] or d.get('name')==injection['device']]
+ if len(devices)!=1:return False
+ d=devices[0]
+ if d.get('serial')!=injection['serial'] or d.get('name')!=injection['device']:return False
+ ports=[p for p in d.get('ports',[]) if p.get('name')==injection['port']]
+ p=ports[0] if len(ports)==1 else None
  values=injection['before' if restore else 'after']
  return bool(p and p.get('dhcp_client') is False and all(p.get(k)==v for k,v in values.items()))

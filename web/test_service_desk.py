@@ -36,4 +36,24 @@ class TestServiceDesk(unittest.TestCase):
   with self.assertRaises(ValueError):self.d.configure(dict(minimum=0))
   self.d.configure(dict(interval='random',minimum=2,maximum=3,max_open=4,ticket_minutes=15));self.d.control(True)
   remaining=self.d.settings['next_at']-time.time();self.assertTrue(119<=remaining<=180)
+ def test_first_start_creates_immediate_random_ticket_once(self):
+  from unittest.mock import patch
+  self.d.settings.update(preparing=True,source='independent')
+  with patch.object(self.d,'create',wraps=self.d.create) as create:
+   self.d.control(True)
+   create.assert_called_once_with(request={'engine':'varied','target':'random','discovery_delay':0})
+   self.assertEqual(len(self.t.state['tickets']),1)
+   self.d.control(True);self.d.control(False);self.d.control(True)
+   self.assertEqual(create.call_count,1)
+  self.assertGreater(self.d.settings['next_at'],time.time())
+ def test_failed_first_start_remains_in_preparation(self):
+  from unittest.mock import patch
+  self.d.settings.update(preparing=True,source='independent')
+  with patch.object(self.d,'create',side_effect=ValueError('Pont indisponible')):
+   with self.assertRaises(ValueError):self.d.control(True)
+  self.assertFalse(self.d.settings['active']);self.assertTrue(self.d.settings['preparing']);self.assertIsNone(self.d.settings['next_at'])
+ def test_first_start_does_not_duplicate_existing_ticket(self):
+  from unittest.mock import patch
+  self.d.create(CATALOGUE[0][0]);self.d.settings['preparing']=True
+  with patch.object(self.d,'create') as create:self.d.control(True);create.assert_not_called()
 if __name__=='__main__':unittest.main()

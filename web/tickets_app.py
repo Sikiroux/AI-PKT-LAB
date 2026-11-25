@@ -31,6 +31,19 @@ def metadata_locked(fn):
     def wrapped(self,*args,**kwargs):
         with self.metadata_lock:return fn(self,*args,**kwargs)
     return wrapped
+def work_timed_action(fn):
+    @wraps(fn)
+    def wrapped(self,ident,action,data,*args,**kwargs):
+        result=fn(self,ident,action,data,*args,**kwargs)
+        if action in ('take','wait','reopen','close','resolve'):
+            with self.metadata_lock:
+                ticket=self.get(ident)
+                timers.track_work(ticket,action)
+                self.save()
+                return self.public()
+        return result
+    return wrapped
+
 import live_faults,vlan_faults
 import site_services
 from service_desk import ServiceDesk
@@ -410,6 +423,9 @@ class Tickets:
         if t.get('live_family')!='peripherals':
             self.controller.observe(blocking=True,client_serial=t['target_serial'],accelerate=True)
         s=self.controller.workspace.state
+        if t.get('live_family')=='network':
+            import enterprise_network_incidents
+            enterprise_network_incidents.refresh(self,t)
         t['checks']=enterprise_incidents.checks(s,t,time.time())
         t['complete']=all(row['status']=='valide' for row in t['checks']);t['checked']=now()
         if action=='close':
@@ -476,6 +492,7 @@ class Tickets:
         self.event(t['id']+' : '+('proposition de solution ajoutée.' if kind=='solution' else 'suivi ajouté.'))
         return self.public()
 
+    @work_timed_action
     def action(self,ident,action,data,resolving=False):
         t=self.get(ident)
         if action=='learning_export':
@@ -613,27 +630,34 @@ def run():
     def bind(state, folder):tickets.bind_environment(state,folder,generator,workspace)
     workspace.on_change=bind
     if workspace.workspace.state:bind(workspace.workspace.state,workspace.workspace.path.parent)
+    diagnostic_mode=os.environ.get('NETOPS_MEMORY_DIAGNOSTIC')=='1'
+    from memory_diagnostic import MemoryDiagnostic
+    memory_test=MemoryDiagnostic(workspace) if diagnostic_mode else None
     def arrival_loop():
         while not stop_arrivals.wait(1):
             with workspace.lock:
                 try:tickets.desk.tick()
                 except Exception:
                     logging.exception('Échec de la réception périodique des tickets')
-    threading.Thread(target=arrival_loop,daemon=True).start();token=secrets.token_urlsafe(32)
+    if not diagnostic_mode:threading.Thread(target=arrival_loop,daemon=True).start()
+    token=secrets.token_urlsafe(32)
     workspace_routes=WorkspaceRoutes(workspace,token)
     def workspace_loop():
         while not stop_arrivals.is_set():
             workspace.observe()
             stop_arrivals.wait(1)
-    threading.Thread(target=workspace_loop,daemon=True).start()
+    if not diagnostic_mode:threading.Thread(target=workspace_loop,daemon=True).start()
     class Handler(BaseHTTPRequestHandler):
         def send(self,code,data,ctype='application/json'):
             body=data.encode() if isinstance(data,str) else json.dumps(data,ensure_ascii=False).encode();self.send_response(code);self.send_header('Content-Type',ctype+'; charset=utf-8');self.send_header('Content-Length',str(len(body)));self.send_header('Cache-Control','no-store');self.end_headers();self.wfile.write(body)
         def allowed(self):return self.headers.get('Host') in ('127.0.0.1:8765','localhost:8765')
         def do_GET(self):
             if not self.allowed():return self.send(403,{'error':'Acces refuse'})
+            if diagnostic_mode and self.path=='/':return self.send(200,(ROOT/'memory-diagnostic.html').read_text(encoding='utf-8').replace('__UI_TOKEN__',token),'text/html')
+            if diagnostic_mode and self.path=='/memory-diagnostic':return self.send(200,dict(memory_test.snapshot(),connected=bridge.is_connected))
             if workspace_routes.get(self):return
             if self.path=='/':return self.send(200,(ROOT/'tickets.html').read_text(encoding='utf-8').replace('__UI_TOKEN__',token),'text/html')
+            if urlparse(self.path).path=='/workspace-design.css':return self.send(200,(ROOT/'workspace-design.css').read_text(encoding='utf-8'),'text/css')
             if self.path=='/ui-comfort.css':return self.send(200,(ROOT/'ui-comfort.css').read_text(encoding='utf-8'),'text/css')
             if self.path=='/app-system.css':return self.send(200,(ROOT/'app-system.css').read_text(encoding='utf-8'),'text/css')
             if self.path=='/desktop-theme.css':return self.send(200,(ROOT/'desktop-theme.css').read_text(encoding='utf-8'),'text/css')
@@ -643,6 +667,12 @@ def run():
                     q=parse_qs(urlparse(self.path).query);p=generator.file(q['id'][0],q['name'][0]);body=p.read_bytes()
                     self.send_response(200);self.send_header('Content-Type','text/html; charset=utf-8' if p.suffix=='.html' else 'application/octet-stream');self.send_header('Content-Length',str(len(body)));self.end_headers();self.wfile.write(body);return
                 except Exception:return self.send(404,{'error':'Fichier introuvable'})
+            if self.path.startswith('/messaging?'):
+                query=parse_qs(urlparse(self.path).query)
+                with workspace.lock, tickets.metadata_lock:
+                    if query.get('environment_id')!=[(tickets.state.get('site') or {}).get('environment_id')]:return self.send(409,{'error':'L’environnement a changé. Rouvre la messagerie.'})
+                    import messaging
+                    return self.send(200,messaging.channels(tickets))
             if self.path=='/state':
                 return self.send(200,dict(tickets.public(),connected=bridge.is_connected))
             self.send(404,{'error':'Page inconnue'})
@@ -656,7 +686,17 @@ def run():
                 n=int(self.headers.get('Content-Length','0'))
                 if not 0<=n<=8192:raise ValueError('Requete trop grande')
                 data=json.loads(self.rfile.read(n) or b'{}')
+                if diagnostic_mode and self.path in ('/memory-diagnostic/start','/memory-diagnostic/stop'):
+                    result=memory_test.start(data.get('mode')) if self.path.endswith('/start') else memory_test.stop()
+                    return self.send(200,dict(result,connected=bridge.is_connected))
+                if diagnostic_mode and self.path!='/quit':raise ValueError('Actions ordinaires suspendues pendant le diagnostic RAM.')
+                if self.path=='/messaging':
+                    with workspace.lock, tickets.metadata_lock:
+                        self.check_environment(data)
+                        import messaging
+                        return self.send(200,messaging.operate(tickets,data))
                 if self.path=='/quit':
+                    if memory_test:memory_test.close()
                     if any(job.get('status')=='running' for job in generator.jobs()):raise ValueError('Attends la fin de la génération du lab avant de quitter.')
                     result=prepare_shutdown(workspace,tickets,stop_arrivals)
                     self.send(200,result)
@@ -705,10 +745,13 @@ def run():
         def log_message(self,*args):pass
     server=ThreadingHTTPServer(('127.0.0.1',8765),Handler)
     print('NetOps Lab : http://127.0.0.1:8765\nCreer ou reprendre une entreprise depuis Accueil et sessions, puis Ouvrir le reseau. Dans Packet Tracer : Extensions > MCP BUILDER.\nGarder cette console ouverte. Ctrl+C pour arreter.')
-    webbrowser.open('http://127.0.0.1:8765')
+    if os.environ.get('NETOPS_DESKTOP')!='1':webbrowser.open('http://127.0.0.1:8765')
     try:server.serve_forever()
     except KeyboardInterrupt:pass
-    finally:stop_arrivals.set();server.server_close();bridge.stop()
+    finally:
+        stop_arrivals.set()
+        if memory_test:memory_test.close()
+        server.server_close();bridge.stop()
 if __name__=='__main__':
     try:run()
     except Exception as e:print('Demarrage impossible :',e);raise SystemExit(1)

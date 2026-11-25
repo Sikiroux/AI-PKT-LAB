@@ -5,12 +5,15 @@ def public(state):
     devices = state.get('devices') or {}
     def article(key, title, paragraphs):
         return {'id': 'company-' + key, 'title': title,
-                'category': 'Entreprise · ' + company, 'paragraphs': paragraphs}
+                'category': 'Entreprise · ' + {'resources':'Parc et serveurs','naming':'Parc et serveurs','access':'Accès','intervention':'Procédures','network':'Réseau','dependencies':'Services','policy-access':'Accès','policy-mail':'Messagerie','onboarding':'Procédures'}.get(key,'Général'), 'paragraphs': paragraphs}
     resources = []
     for role, device in sorted(devices.items()):
         if not isinstance(device, dict):
             continue
         resources.append(f"{device.get('name') or role} · référence {role} · adresse configurée : {device.get('ip') or 'non renseignée'}")
+        if device.get('gateway') or device.get('mask') or device.get('vlan') is not None:
+            mask=device.get('mask') or ('255.255.255.0' if state.get('staff_size')==30 and device.get('vlan') is not None else 'non renseigné')
+            resources.append(f"Configuration de référence de {device.get('name') or role} · masque : {mask} · passerelle : {device.get('gateway') or 'non renseignée'} · VLAN : {device.get('vlan') if device.get('vlan') is not None else 'non renseigné'}")
     domain = (state.get('directory') or {}).get('domain') or {}
     dns_name = domain.get('dns_name') or 'non renseigné'
     documents_name = state.get('documents_dns_name') or 'non renseigné'
@@ -27,12 +30,23 @@ def public(state):
             'Domaine de l’annuaire représenté : ' + str(dns_name),
             'Nom documentaire du serveur de fichiers : ' + str(documents_name),
             'Consulter les partages dans l’application Partages pour connaître les ressources et droits administrés. Un ping réussi ne valide pas les droits d’accès aux fichiers.',
-            'Les identifiants de formation se consultent dans les outils d’administration autorisés ; aucun mot de passe n’est publié dans ce répertoire.']),
+            'Pour les sessions du domaine : Documentation → Identifiants et mots de passe de formation. Pour un compte local : Fiches des postes → sélectionner le poste → Accès locaux → Afficher le mot de passe local. Pour FTP : Documentation → Se connecter au dépôt FTP. Les comptes du domaine, locaux et FTP sont indépendants.']),
         article('intervention', 'Préparer et documenter une intervention', [
             'Identifier l’entreprise, le demandeur et le poste du ticket avant de prendre la main. Ne pas confondre le portable du technicien avec le poste du demandeur.',
             'Relever le symptôme, le périmètre touché et le résultat des vérifications. Distinguer un contrôle inconnu d’un échec observé.',
             'Après une correction, retester l’action demandée sur le bon poste. Décrire l’intervention dans le ticket avant de demander sa vérification.',
             'Cette procédure est une consigne pédagogique du simulateur, pas une politique interne réelle inventée pour l’entreprise.'])]
+
+    if devices:
+        infrastructure=[f"{d.get('name') or role} · adresse de référence : {d.get('ip') or 'non renseignée'}" for role,d in sorted(devices.items()) if isinstance(d,dict) and role not in ('client','technician') and not role.startswith('client')]
+        docs.append(article('network','Réseau et serveurs de '+company,[
+            'Ces repères décrivent le référentiel de cette entreprise. Ils ne constituent pas une observation de Packet Tracer ni un diagnostic du ticket.',
+            *infrastructure,
+            'Pour une panne d’accès, identifier le poste dans Fiches des postes puis relever sa configuration réelle dans Packet Tracer : Desktop → IP Configuration.',
+            'Comparer IP, masque, passerelle et serveur DNS aux références disponibles. Une valeur non renseignée doit être recherchée dans la configuration du réseau ; ne pas la déduire arbitrairement.',
+            'Tester un trajet à la fois : poste vers passerelle, puis vers le serveur, puis accès par nom. Noter la source, la cible et le résultat. Un ping réussi ne valide pas les droits applicatifs.',
+            'Sur le switch relié au poste : enable, show vlan brief, show interfaces FastEthernet0/X switchport, puis show interfaces trunk pour la liaison entre switches. Remplacer X par le port réellement utilisé.',
+            'Si plusieurs personnes sont touchées, chercher leur dépendance commune avant de modifier chaque poste. Consulter Services et événements pour les services simulés, puis retester l’usage demandé.']))
 
     if state.get('staff'):
         import enterprise_staff

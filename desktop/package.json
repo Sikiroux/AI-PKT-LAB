@@ -1,0 +1,8 @@
+{
+  "name": "netops-desktop-prototype",
+  "version": "0.116.0",
+  "private": true,
+  "description": "Prototype bureau du simulateur NetOps",
+  "main": "main.cjs",
+  "scripts": {"start": "electron .", "test": "node --test *.test.cjs"}
+}

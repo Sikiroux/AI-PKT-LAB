@@ -68,7 +68,7 @@ class ServiceDesk:
   if type(level) is not int or level not in (1,2,3) or target not in ('random','ad','files','dns','network'):raise ValueError('Difficulté ou famille mixte inconnue.')
   engine=d.get('arrival_engine',self.settings.get('arrival_engine','mixed'));app_target=d.get('app_target',self.settings.get('app_target','random'))
   if engine not in ('mixed','apps','varied') or app_target not in ('random','endpoint','printing','ftp','deployment','workstation_setup','peripherals'):raise ValueError('Catalogue d’applications inconnu.')
-  if source=='site' and (self.t.state.get('site') or {}).get('environment_id') and engine=='mixed' and target=='network':raise ValueError('Les arrivées automatiques excluent les mutations réseau ; utilise une intervention réseau manuelle.')
+  if source=='site' and (self.t.state.get('site') or {}).get('environment_id') and engine=='mixed' and target=='network' and (self.t.controller.workspace.state or {}).get('staff_size')!=30:raise ValueError('Les arrivées réseau automatiques exigent une entreprise à 30 employés.')
   self.settings.update(arrival_engine=engine,app_target=app_target,mixed_level=level,mixed_target=target)
   self.settings.update(live_services=live,fault_mode=fault,source=source,trace_mode=traces,interval=mode,minimum=minimum,maximum=maximum,max_open=cap,ticket_minutes=duration)
   if self.settings['active']:self.schedule()
@@ -83,8 +83,18 @@ class ServiceDesk:
   self.settings['next_at']=at+minutes*60
  def control(self,active):
   if active and self.settings['source']=='site' and not self.t.state['site']:raise ValueError('Enregistre le site avant de démarrer ses arrivées.')
-  if active:self.settings['preparing']=False
-  self.settings.update(active=active,message='Session active.' if active else 'Arrivées en pause.')
+  first=active and self.settings.get('preparing',False)
+  if first:
+   # Leave the scheduler paused while the initial incident is being prepared.
+   self.settings.update(active=False,preparing=False,next_at=None)
+   try:
+    if not any(t.get('status')!='clos' for t in self.t.state['tickets']):
+     self.create(request={'engine':'varied','target':'random','discovery_delay':0})
+   except Exception as e:
+    self.settings.update(active=False,preparing=True,next_at=None,message='Démarrage interrompu : '+str(e))
+    self.t.save()
+    raise
+  self.settings.update(active=active,message='Simulation démarrée : premier ticket disponible.' if first else 'Session active.' if active else 'Arrivées en pause.')
   if active:self.schedule()
   else:self.settings['next_at']=None
   self.t.save();return self.public()

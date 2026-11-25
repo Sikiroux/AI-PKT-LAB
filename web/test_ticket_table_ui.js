@@ -7,8 +7,8 @@ const tickets=[{id:'A',title:'Documents inaccessibles',name:'PC-COMPTA-01',statu
 ctx.renderTicketList(tickets);
 const table=host.children[1];assert.equal(table.tag,'table');assert.equal(table.children[0].children[0].children.length,6);
 const rows=table.children[1].children;assert.equal(rows.length,2);assert.equal(rows[0].cls,'selected');assert.equal(rows[0].children[1].text,'Mina');assert.equal(rows[0].children[2].text,'PC-COMPTA-01');assert.equal(rows[1].children[1].text,'Non renseigné');assert.equal(rows[1].children[2].text,'À identifier');
-const button=rows[1].children[0].children[0];assert.equal(button.text,'B · <script>texte</script>');button.onclick();assert.equal(ctx.selected,'B');assert(ctx.rendered);
-assert(detail.focused&&detail.scrolled);assert.equal(detail.attrs.tabindex,'-1');
+const button=rows[1].children[0].children[0];assert.equal(button.children[0].text,'B');assert.equal(button.children[1].text,'<script>texte</script>');button.onclick();assert.equal(ctx.selected,'B');assert(ctx.rendered);
+assert(detail.focused&&detail.scrollTop===0&&!detail.scrolled);assert.equal(detail.attrs.tabindex,'-1');
 ctx.renderTicketList([]);assert.equal(host.children.length,2);assert.equal(host.children[1].cls,'empty');
 console.log('Ticket table: identity, legacy fallbacks, selection, safe text and empty state OK');
 

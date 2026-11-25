@@ -1,0 +1,4 @@
+const {test}=require('node:test'),assert=require('node:assert/strict');const {allowed,bounds,windowKey}=require('./policy.cjs');
+test('Only local application navigation; placeholder is creation-only',()=>{assert(allowed('http://127.0.0.1:8765/workspace/technician#env'));assert(allowed('about:blank',true));for(const u of ['about:blank','https://example.com','file:///etc/passwd','javascript:alert(1)','http://127.0.0.1:8766','http://user@127.0.0.1:8765'])assert(!allowed(u))});
+test('Disconnected display and invalid geometry recover',()=>{const d=[{workArea:{x:0,y:0,width:1920,height:1080}}];assert.deepEqual(bounds({x:5000,y:0,width:900,height:700},d),{width:1280,height:850});assert.deepEqual(bounds(null,d),{width:1280,height:850});assert.equal(bounds({x:100,y:100,width:800,height:600},d).x,100)});
+test('Window preferences never retain URL fragments',()=>{assert.equal(windowKey('http://127.0.0.1:8765/workspace/technician#secret'),'/workspace/technician')});

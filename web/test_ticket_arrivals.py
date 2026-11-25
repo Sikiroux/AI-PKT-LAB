@@ -42,6 +42,8 @@ class ArrivalTests(unittest.TestCase):
   with patch.object(self.t,'append_workspace_incident'):
    self.t.bind_environment(self.s,Path(self.tmp.name),Mock(),self.c)
   self.t.desk.control(True)
+  self.assertEqual(len(self.t.state['tickets']),1)
+  self.t.state['tickets']=[];self.t.save()
   resumed=Tickets(Fake(),Path(self.tmp.name)/'root-other.json')
   with patch.object(resumed,'append_workspace_incident'):
    resumed.bind_environment(self.s,Path(self.tmp.name),Mock(),self.c)
@@ -59,9 +61,9 @@ class ArrivalTests(unittest.TestCase):
   self.assertFalse(self.d.settings['preparing'])
   self.assertTrue(self.d.settings['active'])
   self.assertIsNotNone(self.d.settings['next_at'])
-  self.assertFalse(self.t.state['tickets'])
-  self.d.create()
   self.assertEqual(len(self.t.state['tickets']),1)
+  self.d.create()
+  self.assertEqual(len(self.t.state['tickets']),2)
 
  def test_receipts_do_not_prepare_or_mutate_services(self):
   before=copy.deepcopy(self.s)

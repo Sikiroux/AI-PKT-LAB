@@ -33,3 +33,15 @@ def operate(timer,action,at=None):
 
 def autostart(timer):
  if timer and timer.get('limit') and not timer['started']:operate(timer,'start')
+
+
+def track_work(ticket,action,at=None):
+ """Temps de travail, distinct du délai pédagogique démarré au signalement."""
+ at=time.time() if at is None else at
+ if action in ('take','reopen'):
+  timer=ticket.setdefault('work_timer',dict(elapsed=0,running_since=None))
+  if timer.get('running_since') is None:timer['running_since']=at
+ elif action in ('wait','close','resolve') and ticket.get('work_timer'):
+  timer=ticket['work_timer']
+  if timer.get('running_since') is not None:
+   timer['elapsed']=elapsed(timer,at);timer['running_since']=None

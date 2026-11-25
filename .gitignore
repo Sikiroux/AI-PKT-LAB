@@ -21,3 +21,7 @@ web/travail/
 web/donnees-netops.json
 web/data.json
 web/etat-depart.json
+
+# Prototype bureau
+desktop/node_modules/
+desktop/npm-debug.log

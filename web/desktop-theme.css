@@ -54,3 +54,4 @@ body::before{content:'';position:absolute;inset:0;opacity:.18;pointer-events:non
 /* The native icon tile contains the shared SVG, without CSS image parsing. */
 #root .osjs-window-icon>div{display:flex;align-items:center;justify-content:center;color:#176477;background-repeat:no-repeat;background-position:center}
 #root .osjs-window-icon>div>svg{display:block;width:19px;height:19px;flex:0 0 19px}
+

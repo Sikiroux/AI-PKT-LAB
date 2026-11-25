@@ -1,3 +1,41 @@
+## v116 — Mémoire privée résidente, affichée par PID
+
+Comparaison avec le Gestionnaire des tâches : voir `DIAGNOSTIC-RAM-LIRE-MOI.txt`. Les processus ne sont plus additionnés dans l’affichage.
+
+## v115 — Relevé automatique de la mémoire Packet Tracer sous Windows
+
+Mesure toutes les deux secondes, suivi trois minutes après arrêt et export JSON. Voir `DIAGNOSTIC-RAM-LIRE-MOI.txt`.
+
+## v114 — Diagnostic RAM : lectures d’inventaire séparées
+
+Voir `DIAGNOSTIC-RAM-LIRE-MOI.txt`. Quatre sondes indépendantes ; surveillance normale inchangée.
+
+Version actuelle : **v0.113** — réponses fixes et nettoyage ciblé des logs en diagnostic. Voir [le protocole](docs/V0113-REPONSES-ET-LOGS.md).
+
+Version actuelle : **v0.112** — diagnostic RAM Packet Tracer, lancement séparé. Voir [le protocole](docs/V0112-DIAGNOSTIC-RAM.md).
+
+Version actuelle : **v0.111** — intervention compacte et compte rendu en modale. Voir [les changements](docs/V0111-INTERVENTION-COMPACTE.md).
+
+Version actuelle : **v0.110** — hauteur et défilement de la fiche ticket. Voir [les changements](docs/V0110-HAUTEUR-FICHE.md).
+
+Version actuelle : **v0.109** — défilement de la fiche ticket. Voir [les changements](docs/V0109-DEFILEMENT-TICKET.md).
+
+Version actuelle : **v0.108** — marges réseau et avatar IT. Voir [les changements](docs/V0108-FINITIONS-VISUELLES.md).
+
+Version actuelle : **v0.107** — correctifs du header, menu et affichage des onglets. Voir [les changements](docs/V0107-CORRECTIFS-AFFICHAGE.md).
+
+> v0.106 : [structure commune et corrections](docs/V0106-STRUCTURE-COMMUNE.md).
+
+> v0.105 : [détails du centre de tickets selon la référence](docs/V0105-REFERENCE-VISUELLE.md).
+
+> v0.104 : [centre de tickets et démarrage immédiat](docs/V0104-CENTRE-TICKETS.md).
+
+> v0.102 : [bureau et messagerie](docs/V0102-BUREAU-MESSAGERIE.md), avec les correctifs du prototype bureau inclus.
+
+> Prototype bureau v0.101 : lancer `LANCER-BUREAU.bat` après lecture de [ses prérequis et limites](docs/V0101-BUREAU.md).
+
+> Livraison v0.100 : [consolidation des chantiers 1 à 4](docs/V0100-CONSOLIDATION.md) · [roadmap](docs/ROADMAP.md).
+
 # v0.86 — VLAN, préparation et Guide
 
 VLAN écrits dans la base native Packet Tracer, nouvelle entreprise sans incident immédiat et bouton Commencer la simulation. Onglet Guide et indices poste corrigés. [Périmètre, limites et recette](docs/V086-PREPARATION-VLAN-GUIDE.md).
